@@ -52,7 +52,7 @@ model Notifications {
 //------------------------------------COMERCIOS----------------------------------------
 model Stores {
   id_store          Int       @id @default(autoincrement())
-  fk_store_category Int       @unique
+  fk_store_category Int
   fk_user           Int       @unique
   name              String    @db.VarChar(100)
   email             String    @unique @db.VarChar(100)
@@ -91,10 +91,10 @@ model StoreCategories {
 model ShippingZones {
   id_shipping_zone  Int   @id @default(autoincrement())
   fk_store          Int
-  region            String   @db.VarChar(50)  //distrito al que se envia el pedido (Ej: 8 de diciembre, azotea, barrio san miguel, etc.)
+  region            String    @db.VarChar(50)  //distrito al que se envia el pedido (Ej: 8 de diciembre, azotea, barrio san miguel, etc.)
   postal_code       String?   @db.VarChar(20)  //codigo postal del distrito
-  base_price        Decimal? @db.Decimal(10, 2)  //precio base para entregas cercanas
-  distance_price    Decimal? @db.Decimal(10, 2)  //precio que sera calculado cuando supera cierto barrio/distrito/codigo_postal
+  base_price        Decimal  @db.Decimal(10, 2)  //precio base para entregas cercanas
+  distance_price    Decimal  @db.Decimal(10, 2)  //precio que sera calculado cuando supera cierto barrio/distrito/codigo_postal
   status            Boolean   @default(true)
   created_at        DateTime  @default(now()) @db.Timestamptz
   updated_at        DateTime  @updatedAt @db.Timestamptz
@@ -108,9 +108,9 @@ model Addresses {
   id_address      Int    @id @default(autoincrement())
   fk_user         Int
   fk_store        Int?      //Dejo como opcional porque un Cliente puede no tener registrado un comercio
-  address         String?   //Descripcion precisa de la calle donde sreside la persona (region es el barrio/comunidad)
-  city            String?   @db.VarChar(100)
-  region          String?   @db.VarChar(100)
+  address         String   //Descripcion precisa de la calle donde sreside la persona (region es el barrio/comunidad)
+  city            String   @db.VarChar(100)
+  region          String   @db.VarChar(100)
   postal_code     String?   @db.VarChar(20)
   status          Boolean   @default(true)
   created_at      DateTime  @default(now()) @db.Timestamptz
@@ -128,7 +128,7 @@ model Products {
   fk_store             Int
   name                 String    @db.VarChar(100)
   description          String?   @db.Text
-  price                Decimal?  @db.Decimal(10, 2)
+  price                Decimal   @db.Decimal(10, 2)
   visible              Boolean   @default(true)
   quantity             Int?
   status               Boolean   @default(true)
@@ -207,15 +207,15 @@ model ProductCollections {
 
 //------------------------------------RESENAS-PRODUCTOS----------------------------------------
 model ProductReviews {
-  id_product_review   Int      @id @default(autoincrement())
+  id_product_review   Int       @id @default(autoincrement())
   fk_user             Int
   fk_product          Int
-  comment             String?  @db.Text
-  rating              Int      @db.SmallInt
-  approved            Boolean  @default(true)
-  status              Boolean  @default(true)
-  created_at          DateTime @default(now()) @db.Timestamptz
-  updated_at          DateTime @updatedAt @db.Timestamptz
+  comment             String    @db.Text
+  rating              Int?      @db.SmallInt
+  approved            Boolean?  @default(true)
+  status              Boolean   @default(true)
+  created_at          DateTime  @default(now()) @db.Timestamptz
+  updated_at          DateTime  @updatedAt @db.Timestamptz
 
   user  Users  @relation(fields: [fk_user], references: [id_user])
   product Products @relation(fields: [fk_product], references: [id_product])
@@ -223,12 +223,12 @@ model ProductReviews {
 
 //------------------------------------LISTAS-DESEOS----------------------------------------
 model Wishlists {
-  id_wishlist    Int      @id @default(autoincrement())
+  id_wishlist    Int        @id @default(autoincrement())
   fk_user        Int
-  name           String   @db.VarChar(50)
-  status         Boolean  @default(true)
-  created_at     DateTime @default(now()) @db.Timestamptz
-  updated_at     DateTime @updatedAt @db.Timestamptz
+  name           String     @db.VarChar(50)
+  status         Boolean    @default(true)
+  created_at     DateTime   @default(now()) @db.Timestamptz
+  updated_at     DateTime   @updatedAt @db.Timestamptz
 
   user Users  @relation(fields: [fk_user], references: [id_user])
   wishlist_items  WishlistItems[]
@@ -264,8 +264,8 @@ model Deliveries {
 }
 
 model DeliveryAssignments  {
-  id_delivery_assignment    Int    @id @default(autoincrement())
-  fk_order                  Int    @unique
+  id_delivery_assignment    Int      @id @default(autoincrement())
+  fk_order                  Int      @unique
   fk_delivery               Int
   assigned_at               DateTime @default(now()) @db.Timestamptz
   status                    Boolean  @default(true)
