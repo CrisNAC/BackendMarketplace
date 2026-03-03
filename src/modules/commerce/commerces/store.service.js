@@ -25,55 +25,100 @@ export const createStoreService = async (data) => {
     throw { status: 400, message: "Faltan campos obligatorios" };
   }
 
-  // verificar que el usuario exista
-  const usuario = await prisma.users.findUnique({
-    where: { id_user: fk_user }
-  });
-
-  if (!usuario) {
-    throw { status: 404, message: "Usuario no encontrado" };
+  if (!Number.isInteger(fk_user) || fk_user <= 0) {
+    throw { status: 400, message: "fk_user inválido" };
   }
 
-  // vrificar que sea SELLER
-  if (usuario.role !== "SELLER") {
-    throw { status: 403, message: "El usuario no es vendedor" };
+  if (!Number.isInteger(fk_store_category) || fk_store_category <= 0) {
+    throw { status: 400, message: "fk_store_category inválido" };
   }
 
-  // verificar que no tenga tienda
-  const tiendaExistente = await prisma.stores.findUnique({
-    where: { fk_user }
-  });
-
-  if (tiendaExistente) {
-    throw { status: 409, message: "El usuario ya tiene un comercio" };
+  if (!name || typeof name !== "string" || !name.trim()) {
+    throw { status: 400, message: "El nombre es obligatorio" };
   }
 
-  //verificar categoría
-  const categoria = await prisma.storeCategories.findUnique({
-    where: { id_store_category: fk_store_category }
-  });
-
-  if (!categoria) {
-    throw { status: 400, message: "Categoría no válida" };
+  if (name.trim().length > 100) {
+    throw { status: 400, message: "El nombre es demasiado largo" };
   }
 
-  //creear tienda
-  const nuevaTienda = await prisma.stores.create({
-    data: {
-      fk_user,
-      fk_store_category,
-      name,
-      email,
-      phone,
-      description,
-      logo,
-      website_url,
-      instagram_url,
-      tiktok_url
+  if (!email || typeof email !== "string" || !email.trim()) {
+    throw { status: 400, message: "El email es obligatorio" };
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(email)) {
+    throw { status: 400, message: "Formato de email inválido" };
+  }
+
+  if (!phone || typeof phone !== "string" || !phone.trim()) {
+    throw { status: 400, message: "El teléfono es obligatorio" };
+  }
+
+  if (phone.length > 20) {
+    throw { status: 400, message: "El teléfono es demasiado largo" };
+  }
+
+  try {
+
+    // verificar que el usuario exista
+    const usuario = await prisma.users.findUnique({
+      where: { id_user: fk_user }
+    });
+
+    if (!usuario) {
+      throw { status: 404, message: "Usuario no encontrado" };
     }
-  });
 
-  return nuevaTienda;
+    // vrificar que sea SELLER
+    if (usuario.role !== "SELLER") {
+      throw { status: 403, message: "El usuario no es vendedor" };
+    }
+
+    // verificar que no tenga tienda
+    const tiendaExistente = await prisma.stores.findUnique({
+      where: { fk_user }
+    });
+
+    if (tiendaExistente) {
+      throw { status: 409, message: "El usuario ya tiene un comercio" };
+    }
+
+    //verificar categoría
+    const categoria = await prisma.storeCategories.findUnique({
+      where: { id_store_category: fk_store_category }
+    });
+
+    if (!categoria) {
+      throw { status: 400, message: "Categoría no válida" };
+    }
+
+    //creear tienda
+    const nuevaTienda = await prisma.stores.create({
+      data: {
+        fk_user,
+        fk_store_category,
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        description,
+        logo,
+        website_url,
+        instagram_url,
+        tiktok_url
+      }
+    });
+
+    return nuevaTienda;
+
+  } catch (error) {
+
+    if (error.code === "P2002") {
+      throw { status: 409, message: "Email ya registrado" };
+    }
+
+    throw error;
+  }
 };
 
 /**
@@ -107,7 +152,7 @@ export const getStoreByIdService = async (id_store) => {
         tiktok_url: true,
         status: true,
         created_at: true,
-        fk_user: {
+        user: {
           select: { id_user: true, name: true, email: true }
         },
         // Categoría del comercio y productos visibles
@@ -141,7 +186,14 @@ export const getStoreByIdService = async (id_store) => {
     // Retornar el comercio encontrado
     return store;
   } catch (error) {
-    throw { status: 500, message: "Error al obtener la tienda", details: error.message };
+    if (error.status) {
+      throw error; // re-lanza el error original (404, 400, etc.)
+    }
+    throw {
+      status: 500,
+      message: "Error al obtener la tienda",
+      details: error.message
+    };
   }
 };
 
@@ -161,7 +213,7 @@ export const getAllProductsByStoreService = async (id_store) => {
     }
     // Verificar que la tienda exista
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id_store)},
+      where: { id_store: Number(id_store) },
       select: { id_store: true }
     });
     // Si no se encuentra la tienda, lanzar error 404
@@ -195,7 +247,15 @@ export const getAllProductsByStoreService = async (id_store) => {
     // Retornar los productos encontrados
     return products;
   } catch (error) {
-    throw { status: 500, message: "Error al obtener los productos de la tienda", details: error.message };
+    if (error.status) {
+      throw error; // re-lanza el error original (404, 400, etc.)
+    }
+
+    throw {
+      status: 500,
+      message: "Error al obtener la tienda",
+      details: error.message
+    };
   }
 };
 
@@ -263,14 +323,23 @@ export const filterStorePriductsService = async (id_store, filters) => {
       // Ordenar por el campo especificado o por fecha de creación por defecto
       orderBy: { [sortBy || "created_at"]: sortOrder === "asc" ? "asc" : "desc" }
     });
-    
+
     // Si no se encuentran productos, lanzar error 404
     if (!products || products.length === 0) {
       throw { status: 404, message: "No se encontraron productos para esta tienda con los filtros aplicados" };
-    } 
+    }
     // Retornar los productos encontrados
     return products;
   } catch (error) {
-    throw { status: 500, message: "Error al filtrar los productos de la tienda", details: error.message };
+    if (error.status) {
+      throw error; // re-lanza el error original (404, 400, etc.)
+    }
+
+    throw {
+      status: 500,
+      message: "Error al obtener la tienda",
+      details: error.message
+    };
   }
 };
+
