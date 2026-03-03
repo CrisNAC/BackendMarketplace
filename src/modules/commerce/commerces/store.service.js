@@ -17,11 +17,15 @@ export const createStoreService = async (data) => {
     logo,
     website_url,
     instagram_url,
-    tiktok_url
+    tiktok_url,
+    address,
+    city,
+    region,
+    postal_code
   } = data;
 
   // validaciones básicas
-  if (!fk_user || !fk_store_category || !name || !email || !phone) {
+  if (!fk_user || !fk_store_category || !name || !email || !phone || !address || !city || !region) {
     throw { status: 400, message: "Faltan campos obligatorios" };
   }
 
@@ -59,6 +63,18 @@ export const createStoreService = async (data) => {
     throw { status: 400, message: "El teléfono es demasiado largo" };
   }
 
+  if (!address || typeof address !== "string" || !address.trim()) {
+    throw { status: 400, message: "La dirección es obligatoria" };
+  }
+
+  if (!city || typeof city !== "string" || !city.trim()) {
+    throw { status: 400, message: "La ciudad es obligatoria" };
+  }
+
+  if (!region || typeof region !== "string" || !region.trim()) {
+    throw { status: 400, message: "La región es obligatoria" };
+  }
+
   try {
 
     // verificar que el usuario exista
@@ -94,19 +110,35 @@ export const createStoreService = async (data) => {
     }
 
     //creear tienda
-    const nuevaTienda = await prisma.stores.create({
-      data: {
-        fk_user,
-        fk_store_category,
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        description,
-        logo,
-        website_url,
-        instagram_url,
-        tiktok_url
-      }
+    const nuevaTienda = await prisma.$transaction(async (tx) => {
+
+      const store = await tx.stores.create({
+        data: {
+          fk_user,
+          fk_store_category,
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          description,
+          logo,
+          website_url,
+          instagram_url,
+          tiktok_url
+        }
+      });
+
+      await tx.addresses.create({
+        data: {
+          fk_user,
+          fk_store: store.id_store,
+          address: address.trim(),
+          city: city.trim(),
+          region: region.trim(),
+          postal_code
+        }
+      });
+
+      return store;
     });
 
     return nuevaTienda;
