@@ -152,7 +152,7 @@ export const getStoreByIdService = async (id_store) => {
         tiktok_url: true,
         status: true,
         created_at: true,
-        fk_user: {
+        user: {
           select: { id_user: true, name: true, email: true }
         },
         // Categoría del comercio y productos visibles
@@ -186,7 +186,14 @@ export const getStoreByIdService = async (id_store) => {
     // Retornar el comercio encontrado
     return store;
   } catch (error) {
-    throw { status: 500, message: "Error al obtener la tienda", details: error.message };
+    if (error.status) {
+      throw error; // re-lanza el error original (404, 400, etc.)
+    }
+    throw {
+      status: 500,
+      message: "Error al obtener la tienda",
+      details: error.message
+    };
   }
 };
 
@@ -206,7 +213,7 @@ export const getAllProductsByStoreService = async (id_store) => {
     }
     // Verificar que la tienda exista
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id_store)},
+      where: { id_store: Number(id_store) },
       select: { id_store: true }
     });
     // Si no se encuentra la tienda, lanzar error 404
@@ -240,7 +247,15 @@ export const getAllProductsByStoreService = async (id_store) => {
     // Retornar los productos encontrados
     return products;
   } catch (error) {
-    throw { status: 500, message: "Error al obtener los productos de la tienda", details: error.message };
+    if (error.status) {
+      throw error; // re-lanza el error original (404, 400, etc.)
+    }
+
+    throw {
+      status: 500,
+      message: "Error al obtener la tienda",
+      details: error.message
+    };
   }
 };
 
@@ -308,15 +323,23 @@ export const filterStorePriductsService = async (id_store, filters) => {
       // Ordenar por el campo especificado o por fecha de creación por defecto
       orderBy: { [sortBy || "created_at"]: sortOrder === "asc" ? "asc" : "desc" }
     });
-    
+
     // Si no se encuentran productos, lanzar error 404
     if (!products || products.length === 0) {
       throw { status: 404, message: "No se encontraron productos para esta tienda con los filtros aplicados" };
-    } 
+    }
     // Retornar los productos encontrados
     return products;
   } catch (error) {
-    throw { status: 500, message: "Error al filtrar los productos de la tienda", details: error.message };
+    if (error.status) {
+      throw error; // re-lanza el error original (404, 400, etc.)
+    }
+
+    throw {
+      status: 500,
+      message: "Error al obtener la tienda",
+      details: error.message
+    };
   }
 };
 
