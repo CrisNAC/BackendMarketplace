@@ -1,4 +1,9 @@
 import { prisma } from "../../../lib/prisma.js";
+import { validateProductCategoryService } from "../product-categories/product-category.service.js";
+import {
+  parseProductTagIdsService,
+  validateProductTagsService
+} from "../product-tags/product-tag.service.js";
 
 const DEFAULT_PRODUCT_INITIAL_STATUS = "pending";
 const ALLOWED_PRODUCT_INITIAL_STATUS = new Set(["pending", "active"]);
@@ -22,6 +27,13 @@ const mapProductResponse = (product) => {
     description: product.description,
     price: Number(product.price),
     categoryId: product.fk_product_category,
+    category: product.product_category
+      ? {
+          id: product.product_category.id_product_category,
+          name: product.product_category.name,
+          status: product.product_category.status
+        }
+      : null,
     tags:
       product.product_tag_relations?.map((relation) => ({
         id: relation.product_tag.id_product_tag,
@@ -32,23 +44,6 @@ const mapProductResponse = (product) => {
     createdAt: product.created_at,
     updatedAt: product.updated_at
   };
-};
-
-const parseTagIds = (tags) => {
-  if (tags === undefined || tags === null) {
-    return [];
-  }
-
-  if (!Array.isArray(tags)) {
-    throw { status: 400, message: "tags debe ser un arreglo de ids" };
-  }
-
-  const parsed = tags.map((tag) => Number(tag));
-  if (parsed.some((tagId) => !Number.isInteger(tagId) || tagId <= 0)) {
-    throw { status: 400, message: "Cada tag debe ser un id numerico valido" };
-  }
-
-  return [...new Set(parsed)];
 };
 
 const getAuthenticatedSellerStore = async (authenticatedUserId) => {
@@ -91,39 +86,6 @@ const getAuthenticatedSellerStore = async (authenticatedUserId) => {
   return seller.store.id_store;
 };
 
-const validateCategory = async (categoryId) => {
-  if (!Number.isInteger(categoryId) || categoryId <= 0) {
-    throw { status: 400, message: "categoryId debe ser un numero valido" };
-  }
-
-  const category = await prisma.productCategories.findUnique({
-    where: { id_product_category: categoryId },
-    select: { id_product_category: true, status: true }
-  });
-
-  if (!category || !category.status) {
-    throw { status: 400, message: "categoryId no es valida" };
-  }
-};
-
-const validateTags = async (tagIds) => {
-  if (!tagIds.length) {
-    return;
-  }
-
-  const existingTags = await prisma.productTags.findMany({
-    where: {
-      id_product_tag: { in: tagIds },
-      status: true
-    },
-    select: { id_product_tag: true }
-  });
-
-  if (existingTags.length !== tagIds.length) {
-    throw { status: 400, message: "Uno o mas tags no son validos" };
-  }
-};
-
 export const createProductService = async (authenticatedUserId, payload) => {
   const name = payload?.name?.toString().trim();
   const price = Number(payload?.price);
@@ -158,11 +120,11 @@ export const createProductService = async (authenticatedUserId, payload) => {
     throw { status: 400, message: "quantity debe ser un entero mayor o igual a 0" };
   }
 
-  const tagIds = parseTagIds(payload?.tags);
+  const tagIds = parseProductTagIdsService(payload?.tags);
   const commerceId = await getAuthenticatedSellerStore(authenticatedUserId);
 
-  await validateCategory(categoryId);
-  await validateTags(tagIds);
+  await validateProductCategoryService(categoryId);
+  await validateProductTagsService(tagIds);
 
   const initialLifecycleStatus = resolveInitialProductStatus();
   const initialVisibility = initialLifecycleStatus === "active";
@@ -204,6 +166,13 @@ export const createProductService = async (authenticatedUserId, payload) => {
         visible: true,
         created_at: true,
         updated_at: true,
+        product_category: {
+          select: {
+            id_product_category: true,
+            name: true,
+            status: true
+          }
+        },
         product_tag_relations: {
           where: { status: true },
           select: {

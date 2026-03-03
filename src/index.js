@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import morgan from "morgan";
 import storeRoutes from "./modules/commerce/commerces/store.routes.js";
 import productRoutes from "./modules/commerce/products/product.routes.js";
+import productCategoryRoutes from "./modules/commerce/product-categories/product-category.routes.js";
+import productTagRoutes from "./modules/commerce/product-tags/product-tag.routes.js";
 
 dotenv.config();
 const app = express();
@@ -14,6 +16,8 @@ app.use(express.json());
 
 app.use("/api/commerces",storeRoutes);
 app.use("/products", productRoutes);
+app.use("/products/categories", productCategoryRoutes);
+app.use("/products/tags", productTagRoutes);
 app.listen(PORT, () => {
 	console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
