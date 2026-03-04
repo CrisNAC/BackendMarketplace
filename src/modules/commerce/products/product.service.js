@@ -18,6 +18,39 @@ const resolveInitialProductStatus = () => {
     : DEFAULT_PRODUCT_INITIAL_STATUS;
 };
 
+const parseVisibilityOverride = (payload) => {
+  if (payload?.visible !== undefined && payload?.visible !== null && payload?.visible !== "") {
+    if (typeof payload.visible === "boolean") {
+      return payload.visible;
+    }
+
+    const normalizedVisible = String(payload.visible).toLowerCase();
+    if (normalizedVisible === "true" || normalizedVisible === "1") {
+      return true;
+    }
+    if (normalizedVisible === "false" || normalizedVisible === "0") {
+      return false;
+    }
+
+    throw { status: 400, message: "visible debe ser booleano" };
+  }
+
+  if (payload?.status !== undefined && payload?.status !== null && payload?.status !== "") {
+    const normalizedStatus = String(payload.status).toLowerCase();
+
+    if (normalizedStatus === "active") {
+      return true;
+    }
+    if (normalizedStatus === "pending") {
+      return false;
+    }
+
+    throw { status: 400, message: "status debe ser 'active' o 'pending'" };
+  }
+
+  return null;
+};
+
 const mapProductResponse = (product) => {
   const lifecycleStatus = product.visible ? "active" : "pending";
 
@@ -122,12 +155,13 @@ export const createProductService = async (authenticatedUserId, payload) => {
 
   const tagIds = parseProductTagIdsService(payload?.tags);
   const commerceId = await getAuthenticatedSellerStore(authenticatedUserId);
+  const visibilityOverride = parseVisibilityOverride(payload);
 
   await validateProductCategoryService(categoryId);
   await validateProductTagsService(tagIds);
 
   const initialLifecycleStatus = resolveInitialProductStatus();
-  const initialVisibility = initialLifecycleStatus === "active";
+  const initialVisibility = visibilityOverride ?? (initialLifecycleStatus === "active");
 
   const createdProduct = await prisma.$transaction(async (tx) => {
     const product = await tx.products.create({
