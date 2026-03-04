@@ -1,0 +1,332 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+//------------------------------------USUARIOS----------------------------------------
+model Users {
+  id_user         Int       @id @default(autoincrement())
+  role            Role      @default(CUSTOMER)
+  name            String    @db.VarChar(100)
+  email           String    @unique @db.VarChar(100)
+  password_hash   String    @db.VarChar(255)
+  phone           String?   @db.VarChar(20)
+  status          Boolean   @default(true)
+  created_at      DateTime  @default(now()) @db.Timestamptz
+  updated_at      DateTime  @updatedAt @db.Timestamptz
+  
+  //Relaciones
+  store             Stores?   //Usuario solo puede tener asociado un comercio
+  delivery          Deliveries?   //Si el usuario es repartidor
+  addresses         Addresses[] //Multiples direcciones registradas
+  orders            Orders[]    //Multiples pedidos asociados
+  wishlists         Wishlists[] //Usuario puede tener multiples listas de deseos
+  notifications     Notifications[] //Usuario puede recibir varias notificaciones
+  product_reviews   ProductReviews[] //Usuario puede dejar multiples resenas en distintos productos
+}
+
+//------------------------------------NOTIFICACIONES----------------------------------------
+model Notifications {
+  id_notification Int       @id @default(autoincrement())
+  fk_user         Int
+  title           String    @db.VarChar(100)
+  message         String?   @db.Text
+  read            Boolean   @default(false)
+  status          Boolean   @default(true)
+  created_at      DateTime  @default(now()) @db.Timestamptz
+  updated_at      DateTime  @updatedAt @db.Timestamptz
+
+  user Users @relation(fields: [fk_user], references: [id_user])
+}
+
+//------------------------------------COMERCIOS----------------------------------------
+model Stores {
+  id_store          Int       @id @default(autoincrement())
+  fk_store_category Int
+  fk_user           Int       @unique
+  name              String    @db.VarChar(100)
+  email             String    @unique @db.VarChar(100)
+  phone             String    @db.VarChar(20)
+  description       String?   @db.Text
+  logo              String?   @db.VarChar(500) //Va a ser una URL almacenada desde otro servicio
+  website_url       String?   @db.VarChar(500) //Por si el comercio tiene su pagina propia
+  instagram_url     String?   @db.VarChar(500)
+  tiktok_url        String?   @db.VarChar(500)
+  status            Boolean   @default(true)
+  created_at        DateTime  @default(now()) @db.Timestamptz
+  updated_at        DateTime  @updatedAt @db.Timestamptz
+
+  // Relaciones
+  user                Users                @relation(fields: [fk_user], references: [id_user])
+  store_category      StoreCategories      @relation(fields: [fk_store_category], references: [id_store_category]) //Un comercio maneja un solo tipo de categoria (Para muchos rubros -> Multirubro)
+  products            Products[]   //Un comercio puede registrar multiples productos
+  addresses           Addresses[] //Un comercio puede registrar multiples direcciones de sucursales igualmente
+  shipping_zones      ShippingZones[] //Un comercio puede abarcar distintos precios para las regiones a las que envia el pedido
+  collections         Collections[] //Un comercio puede agrupar sus productos a través de colecciones
+  deliveries          Deliveries[]  //Un comercio puede tener asociado muchos deliveries que trabajan con el mismo
+}
+
+//------------------------------------COMERCIOS-CATEGORIAS----------------------------------------
+model StoreCategories {
+  id_store_category   Int       @id @default(autoincrement())
+  name                String    @db.VarChar(100)
+  status              Boolean   @default(true)
+  created_at          DateTime  @default(now()) @db.Timestamptz
+  updated_at          DateTime  @updatedAt @db.Timestamptz
+
+  stores Stores[]
+}
+
+//------------------------------------ZONAS_ENVIOS----------------------------------------
+model ShippingZones {
+  id_shipping_zone  Int   @id @default(autoincrement())
+  fk_store          Int
+  region            String    @db.VarChar(50)  //distrito al que se envia el pedido (Ej: 8 de diciembre, azotea, barrio san miguel, etc.)
+  postal_code       String?   @db.VarChar(20)  //codigo postal del distrito
+  base_price        Decimal  @db.Decimal(10, 2)  //precio base para entregas cercanas
+  distance_price    Decimal  @db.Decimal(10, 2)  //precio que sera calculado cuando supera cierto barrio/distrito/codigo_postal
+  status            Boolean   @default(true)
+  created_at        DateTime  @default(now()) @db.Timestamptz
+  updated_at        DateTime  @updatedAt @db.Timestamptz
+
+  //Relaciones
+  store   Stores    @relation(fields: [fk_store], references: [id_store])
+}
+
+//------------------------------------DIRECCIONES----------------------------------------
+model Addresses {
+  id_address      Int    @id @default(autoincrement())
+  fk_user         Int
+  fk_store        Int?      //Dejo como opcional porque un Cliente puede no tener registrado un comercio
+  address         String   //Descripcion precisa de la calle donde sreside la persona (region es el barrio/comunidad)
+  city            String   @db.VarChar(100)
+  region          String   @db.VarChar(100)
+  postal_code     String?   @db.VarChar(20)
+  status          Boolean   @default(true)
+  created_at      DateTime  @default(now()) @db.Timestamptz
+  updated_at      DateTime  @updatedAt @db.Timestamptz
+
+  user Users  @relation(fields: [fk_user], references: [id_user])
+  store Stores? @relation(fields: [fk_store], references: [id_store])
+  orders Orders[] //Una direccion puede tener multiples listas de pedidos anteriores
+}
+
+//------------------------------------PRODUCTOS----------------------------------------
+model Products {
+  id_product           Int       @id @default(autoincrement())
+  fk_product_category  Int       //El producto va a manejar una sola categoria (Basandome en el input en la pantalla Comercio Nuevo Producto)
+  fk_store             Int
+  name                 String    @db.VarChar(100)
+  description          String?   @db.Text
+  price                Decimal   @db.Decimal(10, 2)
+  visible              Boolean   @default(true)
+  quantity             Int?
+  status               Boolean   @default(true)
+  created_at           DateTime  @default(now()) @db.Timestamptz
+  updated_at           DateTime  @updatedAt @db.Timestamptz
+
+  // Relaciones
+  store                   Stores              @relation(fields: [fk_store], references: [id_store])
+  product_category        ProductCategories    @relation(fields: [fk_product_category], references: [id_product_category])
+  product_tag_relations   ProductTagRelations[]
+  product_collections     ProductCollections[]
+  order_items             OrderItems[]
+  wishlist_items          WishlistItems[]
+  product_reviews         ProductReviews[]
+}
+
+//------------------------------------PRODUCTOS-CATEGORIAS----------------------------------------
+model ProductCategories {
+  id_product_category   Int   @id @default(autoincrement())
+  name        String   @db.VarChar(100)
+  status      Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz
+  updated_at  DateTime @updatedAt @db.Timestamptz
+
+  products Products[]
+}
+
+//------------------------------------PRODUCTOS-ETIQUETAS----------------------------------------
+model ProductTags {
+  id_product_tag         Int   @id @default(autoincrement())
+  name       String   @db.VarChar(20)
+  status     Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+
+  product_tag_relations   ProductTagRelations[]
+}
+
+model ProductTagRelations {
+  id_product_tag_relation   Int @id @default(autoincrement())
+  fk_product                Int
+  fk_product_tag            Int
+  status                    Boolean  @default(true)
+  created_at                DateTime @default(now()) @db.Timestamptz
+  updated_at                DateTime @updatedAt @db.Timestamptz
+
+  product Products @relation(fields: [fk_product], references: [id_product])
+  product_tag ProductTags @relation(fields: [fk_product_tag], references: [id_product_tag])
+}
+
+//------------------------------------PRODUCTOS-COLECCIONES----------------------------------------
+model Collections {
+  id_collection           Int       @id @default(autoincrement())
+  fk_store                Int
+  title                   String    @db.VarChar(100)
+  description             String?   @db.Text
+  status                  Boolean   @default(true)
+  created_at              DateTime  @default(now()) @db.Timestamptz
+  updated_at              DateTime  @updatedAt @db.Timestamptz
+
+  store    Stores   @relation(fields: [fk_store], references: [id_store])
+  product_collections ProductCollections[] // 1 coleccion → N productos
+}
+
+model ProductCollections {
+  id_product_collection Int @id @default(autoincrement())
+  fk_product Int
+  fk_collection Int
+  status     Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+
+  product Products @relation(fields: [fk_product], references: [id_product])
+  collection  Collections @relation(fields: [fk_collection], references: [id_collection])
+}
+
+//------------------------------------RESENAS-PRODUCTOS----------------------------------------
+model ProductReviews {
+  id_product_review   Int       @id @default(autoincrement())
+  fk_user             Int
+  fk_product          Int
+  comment             String    @db.Text
+  rating              Int?      @db.SmallInt
+  approved            Boolean?  @default(true)
+  status              Boolean   @default(true)
+  created_at          DateTime  @default(now()) @db.Timestamptz
+  updated_at          DateTime  @updatedAt @db.Timestamptz
+
+  user  Users  @relation(fields: [fk_user], references: [id_user])
+  product Products @relation(fields: [fk_product], references: [id_product])
+}
+
+//------------------------------------LISTAS-DESEOS----------------------------------------
+model Wishlists {
+  id_wishlist    Int        @id @default(autoincrement())
+  fk_user        Int
+  name           String     @db.VarChar(50)
+  status         Boolean    @default(true)
+  created_at     DateTime   @default(now()) @db.Timestamptz
+  updated_at     DateTime   @updatedAt @db.Timestamptz
+
+  user Users  @relation(fields: [fk_user], references: [id_user])
+  wishlist_items  WishlistItems[]
+  orders Orders? //Relacion 1 a 1 Lista_deseo <-> Pedido 
+}
+
+model WishlistItems {
+  id_wishlist_item  Int  @id @default(autoincrement())
+  fk_wishlist       Int 
+  fk_product        Int
+  quantity          Int
+  status            Boolean  @default(true)
+  created_at        DateTime @default(now()) @db.Timestamptz
+  updated_at        DateTime @updatedAt @db.Timestamptz
+
+  wishlist Wishlists  @relation(fields: [fk_wishlist], references: [id_wishlist])
+  product Products @relation(fields: [fk_product], references: [id_product])
+}
+
+//------------------------------------DELIVERIES----------------------------------------
+model Deliveries {
+  id_delivery     Int              @id @default(autoincrement())
+  fk_store        Int
+  fk_user         Int              @unique
+  delivery_status DeliveryStatus   @default(AVAILABLE)
+  status          Boolean          @default(true)
+  created_at      DateTime         @default(now()) @db.Timestamptz
+  updated_at      DateTime         @updatedAt @db.Timestamptz
+
+  store            Stores          @relation(fields: [fk_store], references: [id_store])
+  user             Users           @relation(fields: [fk_user], references: [id_user])
+  delivery_assignments  DeliveryAssignments[]
+}
+
+model DeliveryAssignments  {
+  id_delivery_assignment    Int      @id @default(autoincrement())
+  fk_order                  Int      @unique
+  fk_delivery               Int
+  assigned_at               DateTime @default(now()) @db.Timestamptz
+  status                    Boolean  @default(true)
+
+  order   Orders   @relation(fields: [fk_order], references: [id_order])
+  delivery Deliveries @relation(fields: [fk_delivery], references: [id_delivery])
+}
+
+//------------------------------------PEDIDOS----------------------------------------
+model Orders {
+  id_order          Int           @id @default(autoincrement())
+  fk_user           Int
+  fk_address        Int
+  fk_wishlist       Int           @unique  //La lista de deseo se transforma en un pedido, y esa misma lista no puede concretarse en un pedido multiples veces
+  total             Decimal       @db.Decimal(10, 2)
+  order_status      OrderStatus   @default(PROCESSING) //procesando porque la lista_deseo es el estado pendiente
+  notes             String?       @db.Text
+  status            Boolean       @default(true)
+  created_at        DateTime      @default(now()) @db.Timestamptz
+  updated_at        DateTime      @updatedAt @db.Timestamptz
+
+  wishlist             Wishlists          @relation(fields: [fk_wishlist], references: [id_wishlist])
+  user                 Users              @relation(fields: [fk_user], references: [id_user])
+  address              Addresses           @relation(fields: [fk_address], references: [id_address])
+  order_items          OrderItems[]
+  delivery_assignment  DeliveryAssignments?
+}
+
+model OrderItems {
+  id_order_item     Int      @id @default(autoincrement())
+  fk_order          Int
+  fk_product        Int
+  quantity          Int      @db.SmallInt
+  subtotal          Decimal  @db.Decimal(10, 2)
+  status            Boolean  @default(true)
+  created_at        DateTime @default(now()) @db.Timestamptz
+  updated_at        DateTime @updatedAt @db.Timestamptz
+
+  order     Orders   @relation(fields: [fk_order], references: [id_order])
+  product   Products @relation(fields: [fk_product], references: [id_product])
+}
+
+enum DeliveryStatus {
+  AVAILABLE
+  ON_THE_WAY
+  ASSIGNED
+  DELIVERED
+  INACTIVE
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum Role {
+  ADMIN
+  CUSTOMER
+  SELLER
+  DELIVERY
+}
