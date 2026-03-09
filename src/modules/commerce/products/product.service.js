@@ -228,3 +228,65 @@ export const createProductService = async (authenticatedUserId, payload) => {
 
   return mapProductResponse(createdProduct);
 };
+
+export const getProductByIdService = async (id) => {
+  // validaciones básicas
+    if (!id) {
+      throw { status: 400, message: "ID de tienda es requerido" };
+    }
+    if (isNaN(Number(id))) {
+      throw { status: 400, message: "ID de tienda debe ser un número" };
+    }
+
+  const product = await prisma.products.findUnique({
+    where: { id_product: Number(id) },
+    select: {
+      id_product: true,
+      name: true,
+      description: true,
+      price: true,
+      quantity: true,
+      visible: true,
+      status: true,
+      fk_product_category: true,
+      fk_store: true,
+      created_at: true,
+      updated_at: true,
+      product_category: {
+        select: { id_product_category: true, name: true, status: true }
+      },
+      product_tag_relations: {
+        where: { status: true },
+        select: {
+          product_tag: {
+            select: { id_product_tag: true, name: true }
+          }
+        }
+      },
+      product_reviews: {
+        where: { status: true },
+        select: { rating: true }
+      }
+    }
+  });
+
+  if (!product || !product.status) {
+    throw { status: 404, message: "Producto no encontrado" };
+  }
+
+  const reviewCount = product.product_reviews.length;
+  const averageRating =
+    reviewCount > 0
+      ? Number(
+          (
+            product.product_reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
+          ).toFixed(2)
+        )
+      : null;
+
+  return {
+    ...mapProductResponse(product),
+    averageRating,
+    reviewCount
+  };
+};
