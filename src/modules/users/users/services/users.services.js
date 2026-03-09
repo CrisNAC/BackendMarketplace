@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 
 //const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const USER_PROFILE_SELECT = {
     id_user: true,
     name: true,
@@ -196,10 +197,46 @@ export const updateUserService = async (
         }
     }
 
+    if (payload?.email !== undefined) {
+        const email = payload.email?.toString().trim().toLowerCase();
+
+        if (!email) {
+            throw {
+                status: 400,
+                message: "email no puede estar vacio",
+            };
+        }
+
+        if (!EMAIL_REGEX.test(email)) {
+            throw {
+                status: 400,
+                message: "El formato del email no es valido",
+            };
+        }
+
+        const existingUser = await prisma.users.findUnique({
+            where: {
+                email,
+            },
+            select: {
+                id_user: true,
+            },
+        });
+
+        if (existingUser && existingUser.id_user !== customer.id_user) {
+            throw {
+                status: 409,
+                message: "El email ya se encuentra registrado",
+            };
+        }
+
+        dataToUpdate.email = email;
+    }
+
     if (Object.keys(dataToUpdate).length === 0) {
         throw {
             status: 400,
-            message: "Debe enviar al menos uno de estos campos: name, phone",
+            message: "Debe enviar al menos uno de estos campos: name, phone, email",
         };
     }
 
@@ -208,6 +245,76 @@ export const updateUserService = async (
             id_user: customer.id_user,
         },
         data: dataToUpdate,
+        select: USER_PROFILE_SELECT,
+    });
+
+    return updatedUser;
+};
+
+export const updateUserPasswordService = async (
+    authenticatedUserId,
+    requestedUserId,
+    payload
+) => {
+    const customer = await getAuthorizedCustomerService(
+        authenticatedUserId,
+        requestedUserId
+    );
+
+    const currentPassword = payload?.currentPassword?.toString();
+    const newPassword = payload?.newPassword?.toString();
+
+    if (!currentPassword || !newPassword) {
+        throw {
+            status: 400,
+            message: "currentPassword y newPassword son requeridos",
+        };
+    }
+
+    if (newPassword.trim().length < 6) {
+        throw {
+            status: 400,
+            message: "newPassword debe tener al menos 6 caracteres",
+        };
+    }
+
+    const userWithPassword = await prisma.users.findUnique({
+        where: {
+            id_user: customer.id_user,
+        },
+        select: {
+            password_hash: true,
+        },
+    });
+
+    if (!userWithPassword) {
+        throw {
+            status: 404,
+            message: "Usuario no encontrado",
+        };
+    }
+
+    const passwordMatch = await bcrypt.compare(
+        currentPassword,
+        userWithPassword.password_hash
+    );
+
+    if (!passwordMatch) {
+        throw {
+            status: 400,
+            message: "La contrasena actual es incorrecta",
+        };
+    }
+
+    const password_hash = await bcrypt.hash(newPassword.trim(), SALT_ROUNDS);
+
+    const updatedUser = await prisma.users.update({
+        where: {
+            id_user: customer.id_user,
+        },
+        data: {
+            password_hash,
+        },
         select: USER_PROFILE_SELECT,
     });
 
