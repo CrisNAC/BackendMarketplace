@@ -3,6 +3,7 @@ import { Router } from "express";
 import  authenticate  from '../../../config/jwt.config.js';
 import { 
     createStore,
+    updateStore,
     getStoreById,
     getAllProductsByStore,
     filterStoreProducts 
@@ -11,6 +12,7 @@ import {
 const router = Router();
 
 router.post("/", createStore);
+router.put("/:id_store", authenticate, updateStore);
 router.get("/:id_store", getStoreById);
 router.get("/:id_store/products", getAllProductsByStore);
 router.get("/:id_store/products/filter", filterStoreProducts);
