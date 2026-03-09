@@ -9,6 +9,7 @@ import productCategoryRoutes from "./modules/commerce/product-categories/product
 import productTagRoutes from "./modules/commerce/product-tags/product-tag.routes.js";
 import userRoutes from "./modules/users/users/routes/users.routes.js";
 import sessionRoutes from "./modules/session/routes/session.routes.js";
+import addressesRoutes from "./modules/users/addresses/routes/addresses.routes.js";
 
 dotenv.config();
 const app = express();
@@ -30,6 +31,7 @@ app.use("/products", productRoutes);
 app.use("/products/categories", productCategoryRoutes);
 app.use("/products/tags", productTagRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/addresses", addressesRoutes);
 
 app.listen(PORT, () => {
 	console.log(`Servidor corriendo en http://localhost:${PORT}`);
