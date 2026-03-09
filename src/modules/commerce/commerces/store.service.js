@@ -87,9 +87,9 @@ export const createStoreService = async (data) => {
     }
 
     // vrificar que sea SELLER
-    if (usuario.role !== "SELLER") {
-      throw { status: 403, message: "El usuario no es vendedor" };
-    }
+    // if (usuario.role !== "SELLER") {
+    //   throw { status: 403, message: "El usuario no es vendedor" };
+    // }
 
     // verificar que no tenga tienda
     const tiendaExistente = await prisma.stores.findUnique({
@@ -105,9 +105,9 @@ export const createStoreService = async (data) => {
       where: { id_store_category: fk_store_category }
     });
 
-    if (!categoria) {
-      throw { status: 400, message: "Categoría no válida" };
-    }
+    // if (!categoria) {
+    //   throw { status: 400, message: "Categoría no válida" };
+    // }
 
     //creear tienda
     const nuevaTienda = await prisma.$transaction(async (tx) => {
@@ -137,6 +137,12 @@ export const createStoreService = async (data) => {
           postal_code
         }
       });
+
+      // Actualizamos rol del usuario a SELLER al crearse el comercio
+      await tx.users.update({
+        where: { id_user: fk_user },
+        data: { role: "SELLER" }
+    });
 
       return store;
     });
