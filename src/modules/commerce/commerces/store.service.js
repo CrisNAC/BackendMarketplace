@@ -86,10 +86,10 @@ export const createStoreService = async (data) => {
       throw { status: 404, message: "Usuario no encontrado" };
     }
 
-    // Verificar que sea SELLER
-    // if (usuario.role !== "SELLER") {
-    //   throw { status: 403, message: "El usuario no es vendedor" };
-    // }
+    // vrificar que sea SELLER
+    if (usuario.role !== "SELLER") {
+      throw { status: 403, message: "El usuario no es vendedor" };
+    }
 
     // verificar que no tenga tienda
     const tiendaExistente = await prisma.stores.findUnique({
@@ -130,18 +130,12 @@ export const createStoreService = async (data) => {
       await tx.addresses.create({
         data: {
           fk_user,
-          fk_store: store.id,
+          fk_store: store.id_store,
           address: address.trim(),
           city: city.trim(),
           region: region.trim(),
           postal_code
         }
-      });
-
-      // Actualizamos rol del usuario a SELLER al crearse el comercio
-      await tx.users.update({
-        where: { id_user: fk_user },
-        data: { role: "SELLER" }
       });
 
       return store;
@@ -161,22 +155,22 @@ export const createStoreService = async (data) => {
 
 /**
  * Obtiene un comercio por su ID, incluyendo datos del vendedor, categoría, productos visibles y direcciones activas. Realiza validaciones básicas y maneja errores.
- * @param {*} id 
+ * @param {*} id_store 
  * @returns 
  */
-export const getStoreByIdService = async (id) => {
+export const getStoreByIdService = async (id_store) => {
   try {
     // validaciones básicas
-    if (!id) {
+    if (!id_store) {
       throw { status: 400, message: "ID de tienda es requerido" };
     }
-    if (isNaN(Number(id))) {
+    if (isNaN(Number(id_store))) {
       throw { status: 400, message: "ID de tienda debe ser un número" };
     }
 
     // Buscar comercio 
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id) },
+      where: { id_store: Number(id_store) },
       // Datos del comercio
       select: {
         id_store: true,
@@ -237,21 +231,21 @@ export const getStoreByIdService = async (id) => {
 
 /**
  * Obtiene todos los productos de una tienda específica, filtrando por productos activos y visibles. Realiza validaciones básicas y maneja errores.
- * @param {*} id 
+ * @param {*} id_store 
  * @returns 
  */
-export const getAllProductsByStoreService = async (id) => {
+export const getAllProductsByStoreService = async (id_store) => {
   try {
     // validaciones básicas
-    if (!id) {
+    if (!id_store) {
       throw { status: 400, message: "ID de tienda es requerido" };
     }
-    if (isNaN(Number(id))) {
+    if (isNaN(Number(id_store))) {
       throw { status: 400, message: "ID de tienda debe ser un número" };
     }
     // Verificar que la tienda exista
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id) },
+      where: { id_store: Number(id_store) },
       select: { id_store: true }
     });
     // Si no se encuentra la tienda, lanzar error 404
@@ -261,7 +255,7 @@ export const getAllProductsByStoreService = async (id) => {
     // Obtener productos activos y visibles de la tienda
     const products = await prisma.products.findMany({
       where: {
-        fk_store: Number(id),
+        fk_store: Number(id_store),
         status: true
       },
       select: {
@@ -299,22 +293,22 @@ export const getAllProductsByStoreService = async (id) => {
 
 /**
  * Obtiene productos de una tienda específica aplicando filtros dinámicos como nombre, categoría, visibilidad y rango de precios. Realiza validaciones básicas y maneja errores.
- * @param {*} id 
+ * @param {*} id_store 
  * @param {*} filters 
  * @returns 
  */
-export const filterStorePriductsService = async (id, filters) => {
+export const filterStorePriductsService = async (id_store, filters) => {
   try {
     // validaciones básicas
-    if (!id) {
+    if (!id_store) {
       throw { status: 400, message: "ID de tienda es requerido" };
     }
-    if (isNaN(Number(id))) {
+    if (isNaN(Number(id_store))) {
       throw { status: 400, message: "ID de tienda debe ser un número" };
     }
     // Verificar que la tienda exista
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id) },
+      where: { id_store: Number(id_store) },
       select: { id_store: true }
     });
     // Si no se encuentra la tienda, lanzar error 404
@@ -325,7 +319,7 @@ export const filterStorePriductsService = async (id, filters) => {
     const { name, category, visible, minPrice, maxPrice, sortBy, sortOrder } = filters;
     // Condiciones base para productos activos de la tienda
     const whereConditions = {
-      fk_store: Number(id),
+      fk_store: Number(id_store),
       status: true
     };
     if (name) {
