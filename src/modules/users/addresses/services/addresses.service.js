@@ -6,7 +6,7 @@ export const createAddressService = async (data, authUser) => {
 
     // Verificar que sea el mismo usuario de la cuenta el que esta realizando la peticion
     if (authUser.id_user !== fk_user) {
-        const error = new Error("No tenés permiso para crear direcciones en esta cuenta");
+        const error = new Error("Permisos insuficientes para crear direcciones en esta cuenta");
         error.statusCode = 403;
         throw error;
     }
