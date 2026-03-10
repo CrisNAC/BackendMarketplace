@@ -26,10 +26,10 @@ export const createStore = async (req, res) => {
 
 export const updateStore = async (req, res) => {
   try {
-    const { id_store } = req.params;
+    const { id } = req.params;
     const store = await updateStoreService(
       req.user?.id_user,
-      id_store,
+      id,
       req.body
     );
 
@@ -74,7 +74,7 @@ export const filterStoreProducts = async (req, res) => {
   try {
     const { id } = req.params;
     const { category, price_min, price_max } = req.query;
-    const products = await filterStorePriductsService(id_store, {
+    const products = await filterStorePriductsService(id, {
       category,
       price_min,
       price_max

@@ -12,9 +12,9 @@ import {
 const router = Router();
 
 router.post("/", createStore);
-router.put("/:id_store", authenticate, updateStore);
-router.get("/:id_store", getStoreById);
-router.get("/:id_store/products", getAllProductsByStore);
-router.get("/:id_store/products/filter", filterStoreProducts);
+router.put("/:id", authenticate, updateStore);
+router.get("/:id", getStoreById);
+router.get("/:id/products", getAllProductsByStore);
+router.get("/:id/products/filter", filterStoreProducts);
 
 export default router;

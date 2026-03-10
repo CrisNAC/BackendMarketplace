@@ -572,18 +572,18 @@ export const updateStoreService = async (
   }
 };
 
-export const getStoreByIdService = async (id_store) => {
+export const getStoreByIdService = async (id) => {
   try {
-    if (!id_store) {
+    if (!id) {
       throw { status: 400, message: "ID de tienda es requerido" };
     }
 
-    if (isNaN(Number(id_store))) {
+    if (isNaN(Number(id))) {
       throw { status: 400, message: "ID de tienda debe ser un numero" };
     }
 
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id_store) },
+      where: { id_store: Number(id) },
       select: STORE_RESPONSE_SELECT
     });
 
@@ -605,13 +605,13 @@ export const getStoreByIdService = async (id_store) => {
   }
 };
 
-export const getAllProductsByStoreService = async (id_store) => {
+export const getAllProductsByStoreService = async (id) => {
   try {
-    if (!id_store) {
+    if (!id) {
       throw { status: 400, message: "ID de tienda es requerido" };
     }
 
-    if (isNaN(Number(id_store))) {
+    if (isNaN(Number(id))) {
       throw { status: 400, message: "ID de tienda debe ser un numero" };
     }
 
@@ -665,13 +665,13 @@ export const getAllProductsByStoreService = async (id_store) => {
   }
 };
 
-export const filterStorePriductsService = async (id_store, filters) => {
+export const filterStorePriductsService = async (id, filters) => {
   try {
-    if (!id_store) {
+    if (!id) {
       throw { status: 400, message: "ID de tienda es requerido" };
     }
 
-    if (isNaN(Number(id_store))) {
+    if (isNaN(Number(id))) {
       throw { status: 400, message: "ID de tienda debe ser un numero" };
     }
 
