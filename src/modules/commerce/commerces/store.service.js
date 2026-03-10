@@ -377,7 +377,7 @@ export const createStoreService = async (data) => {
       await tx.addresses.create({
         data: {
           fk_user,
-          fk_store: store.id_store,
+          fk_store: store.id,
           address: address.trim(),
           city: city.trim(),
           region: region.trim(),
@@ -616,7 +616,7 @@ export const getAllProductsByStoreService = async (id_store) => {
     }
 
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id_store) },
+      where: { id_store: Number(id) },
       select: { id_store: true }
     });
 
@@ -626,7 +626,7 @@ export const getAllProductsByStoreService = async (id_store) => {
 
     const products = await prisma.products.findMany({
       where: {
-        fk_store: Number(id_store),
+        fk_store: Number(id),
         status: true
       },
       select: {
@@ -676,7 +676,7 @@ export const filterStorePriductsService = async (id_store, filters) => {
     }
 
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id_store) },
+      where: { id_store: Number(id) },
       select: { id_store: true }
     });
 
@@ -697,7 +697,7 @@ export const filterStorePriductsService = async (id_store, filters) => {
     } = filters;
 
     const whereConditions = {
-      fk_store: Number(id_store),
+      fk_store: Number(id),
       status: true
     };
 
