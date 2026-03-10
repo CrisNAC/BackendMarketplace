@@ -14,7 +14,7 @@ const router = Router();
 router.post("/", createStore);
 router.put("/:id", authenticate, updateStore);
 router.get("/:id", getStoreById);
-router.get("/:id/products", getAllProductsByStore);
-router.get("/:id/products/filter", filterStoreProducts);
+router.get("/products/:id", getAllProductsByStore);
+router.get("/products/filter/:id", filterStoreProducts);
 
 export default router;
