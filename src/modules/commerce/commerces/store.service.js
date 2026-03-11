@@ -518,14 +518,7 @@ export const updateStoreService = async (
       }
     });
 
-    if (!existingAddress) {
-      throw {
-        status: 404,
-        message: "Direccion del comercio no encontrada"
-      };
-    }
-
-    addressId = existingAddress.id_address;
+    addressId = existingAddress?.id_address ?? null;
   }
 
   try {
@@ -541,6 +534,17 @@ export const updateStoreService = async (
         await tx.addresses.update({
           where: { id_address: addressId },
           data: addressDataToUpdate
+        });
+      } else if (Object.keys(addressDataToUpdate).length > 0) {
+        await tx.addresses.create({
+          data: {
+            fk_user: store.fk_user,
+            fk_store: store.id_store,
+            address: addressDataToUpdate.address ?? "",
+            city: addressDataToUpdate.city ?? "",
+            region: addressDataToUpdate.region ?? "",
+            postal_code: addressDataToUpdate.postal_code ?? null
+          }
         });
       }
 
