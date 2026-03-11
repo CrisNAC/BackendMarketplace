@@ -31,12 +31,13 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
     "nodemon": "^3.1.14",
-    "pg": "^8.19.0"
+    "pg": "^8.19.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.3.2",
-    "prisma": "^7.4.1",
+    "prisma": "^6.19.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
