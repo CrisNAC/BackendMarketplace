@@ -18,18 +18,6 @@ export const createProduct = async (req, res) => {
   }
 };
 
-export const getProductById = async (req, res) => {
-  try {
-    const product = await getProductByIdService(req.params.id);
-    return res.status(200).json(product);
-  } catch (error) {
-    console.error("Error obteniendo producto:", error);
-    return res.status(error.status || 500).json({
-      message: error.message || "Error interno del servidor"
-    });
-  }
-};
-
 /** GET: Para obtener todos losproductos o buscar segun nombre o descripcion (por el momento).
  * Recibe query con parametros de nombre o descripcion del producto y retorna una lista de productos. 
  * 
@@ -47,6 +35,7 @@ export const getProductsSearch = async (request, response) => {
     return response.status(error.status || 500).json({message: error.message || "Error interno del servidor."});
   }
 };
+
 //obtener producto por id
 export const getProductById = async (request, response) => {
 
