@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
-import { validateProductCategoryService } from "../product-categories/product-category.service.js";
+import { validateProductCategoryService } from "../../global/categories/product-categories/product-category.service.js";
 import {
   parseProductTagIdsService,
   validateProductTagsService
