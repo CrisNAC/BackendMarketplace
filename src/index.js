@@ -5,10 +5,12 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import storeRoutes from "./modules/commerce/commerces/store.routes.js";
 import productRoutes from "./modules/commerce/products/product.routes.js";
-import productCategoryRoutes from "./modules/commerce/product-categories/product-category.routes.js";
+import categoriesRoutes from "./modules/global/categories/categories.routes.js";
 import productTagRoutes from "./modules/commerce/product-tags/product-tag.routes.js";
 import userRoutes from "./modules/users/users/routes/users.routes.js";
 import sessionRoutes from "./modules/session/routes/session.routes.js";
+import { errorHandler } from "./middlewares/errorHandler.js";
+import { NotFoundError } from "./lib/errors.js";
 
 dotenv.config();
 const app = express();
@@ -27,9 +29,19 @@ app.use(cors({
 app.use('/api/session', sessionRoutes);
 app.use("/api/commerces",storeRoutes);
 app.use("/products", productRoutes);
-app.use("/products/categories", productCategoryRoutes);
+//Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
+//Se encuentra indexado
+app.use("/api/categories", categoriesRoutes); 
 app.use("/products/tags", productTagRoutes);
 app.use("/api/users", userRoutes);
+
+// Ruta no encontrada — va ANTES del errorHandler
+app.use((req, _res, next) => {
+  next(new NotFoundError(`Ruta ${req.method} ${req.path} no encontrada`));
+});
+
+// captura todos los errores de las rutas anteriores
+app.use(errorHandler);
 
 app.listen(PORT, () => {
 	console.log(`Servidor corriendo en http://localhost:${PORT}`);
