@@ -289,6 +289,7 @@ export const getProductsSearchService = async (filters) => {
     totalPages: Math.ceil(totalProducts/limit)
   }};
 };
+
 export const getProductByIdService = async (id)=>{
 
   const productId = Number(id);
