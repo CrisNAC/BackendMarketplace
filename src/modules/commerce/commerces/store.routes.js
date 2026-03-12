@@ -1,16 +1,20 @@
 // src/modules/commerce/commerces/store.routes.js
 import { Router } from "express";
-import  authenticate  from '../../../config/jwt.config.js';
+import  authenticate  from '@/config/jwt.config.js';
 import { 
     createStore,
     getStoreById,
     getAllProductsByStore,
     filterStoreProducts 
 } from "./store.controller.js";
+import { 
+    CreateStoreDTO,
+} from "./dtos/index";
+import { validate } from "../../../middlewares/validate.middleware.js";
 
 const router = Router();
 
-router.post("/", createStore);
+router.post("/", validate(CreateStoreDTO, "body"), createStore);
 router.get("/:id", getStoreById);
 router.get("/products/:id", getAllProductsByStore);
 router.get("/products/filter/:id", filterStoreProducts);
