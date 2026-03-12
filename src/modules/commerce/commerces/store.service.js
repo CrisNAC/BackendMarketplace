@@ -586,15 +586,15 @@ export const updateStoreService = async (
 export const getStoreByIdService = async (id) => {
   try {
     // validaciones básicas
-    if (!id_store) {
+    if (!id) {
       throw { status: 400, message: "ID de tienda es requerido" };
     }
-    if (isNaN(Number(id_store))) {
+    if (isNaN(Number(id))) {
       throw { status: 400, message: "ID de tienda debe ser un número" };
     }
 
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id_store) },
+      where: { id_store: Number(id) },
       // Datos del comercio
       select: {
         id_store: true,
@@ -660,12 +660,12 @@ export const getAllProductsByStoreService = async (id) => {
     if (!id) {
       throw { status: 400, message: "ID de tienda es requerido" };
     }
-    if (isNaN(Number(id_store))) {
+    if (isNaN(Number(id))) {
       throw { status: 400, message: "ID de tienda debe ser un número" };
     }
 
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id_store) },
+      where: { id_store: Number(id) },
       select: { id_store: true }
     });
 
@@ -675,7 +675,7 @@ export const getAllProductsByStoreService = async (id) => {
 
     const products = await prisma.products.findMany({
       where: {
-        fk_store: Number(id_store),
+        fk_store: Number(id),
         status: true
       },
       select: {
@@ -717,15 +717,15 @@ export const getAllProductsByStoreService = async (id) => {
 export const filterStorePriductsService = async (id, filters) => {
   try {
     // validaciones básicas
-    if (!id_store) {
+    if (!id) {
       throw { status: 400, message: "ID de tienda es requerido" };
     }
-    if (isNaN(Number(id_store))) {
+    if (isNaN(Number(id))) {
       throw { status: 400, message: "ID de tienda debe ser un número" };
     }
 
     const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id_store) },
+      where: { id_store: Number(id) },
       select: { id_store: true }
     });
 
@@ -746,7 +746,7 @@ export const filterStorePriductsService = async (id, filters) => {
     } = filters;
 
     const whereConditions = {
-      fk_store: Number(id_store),
+      fk_store: Number(id),
       status: true
     };
 
