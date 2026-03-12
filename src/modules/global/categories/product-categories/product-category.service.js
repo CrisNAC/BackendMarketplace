@@ -1,4 +1,4 @@
-import { prisma } from "../../../lib/prisma.js";
+import { prisma } from "../../../../lib/prisma.js";
 
 export const validateProductCategoryService = async (categoryId) => {
   if (!Number.isInteger(categoryId) || categoryId <= 0) {
