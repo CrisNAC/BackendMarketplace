@@ -378,7 +378,7 @@ export const createStoreService = async (data) => {
       await tx.addresses.create({
         data: {
           fk_user,
-          fk_store: store.id,
+          fk_store: store.id_store,
           address: address.trim(),
           city: city.trim(),
           region: region.trim(),

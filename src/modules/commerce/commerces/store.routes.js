@@ -11,7 +11,7 @@ import {
 
 const router = Router();
 
-router.post("/", createStore);
+router.post("/", authenticate, createStore);
 router.put("/:id", authenticate, updateStore);
 router.get("/:id", getStoreById);
 router.get("/products/:id", getAllProductsByStore);

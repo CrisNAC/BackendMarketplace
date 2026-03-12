@@ -9,7 +9,18 @@ import {
 
 export const createStore = async (req, res) => {
   try {
-    const store = await createStoreService(req.body);
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        success: false,
+        message: "Usuario autenticado requerido"
+      });
+    }
+
+    const store = await createStoreService({
+      ...req.body,
+      fk_user: Number(req.user.id_user)
+    });
+
     return res.status(201).json(store);
   } catch (error) {
     console.error("Error creando comercio:", error);
