@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { 
     createProduct,
-    getProductById
+    getProductById, 
+    getProductsSearch,
 } from "./product.controller.js";
 
 const router = Router();
