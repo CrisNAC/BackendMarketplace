@@ -6,6 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"] //funcionalidad para busquedas mas avanzadas en la BD (lo use en product.service)
   //output   = "../generated/prisma"
 }
 

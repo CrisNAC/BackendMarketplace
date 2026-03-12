@@ -229,6 +229,67 @@ export const createProductService = async (authenticatedUserId, payload) => {
   return mapProductResponse(createdProduct);
 };
 
+
+/** esta funcion recibe un filtro (search) y retorna los productos con status=true y visible=true*/
+export const getProductsSearchService = async (filters) => {
+  const search = filters.search?.toString().trim();
+  
+  //Paginacion
+  const page = Number(filters.page) > 0 ? Number(filters.page) : 1;
+  const limit = Number(filters.limit) > 0 ? Number(filters.limit) : 20; //por defecto trae hasta 20 productos
+  const skip = (page - 1) * limit;
+
+  const where = {status: true, visible: true};
+
+  let orderBy = {id_product: 'desc'}; // orden por defecto
+
+  //si se le pasa un search, se busca en name y description
+  if (search) {
+    where.OR = [
+      {name: { contains: search, mode: "insensitive"},},
+      {description: {contains: search, mode: "insensitive"}}
+    ]
+
+    // cambia el orden, solo si se busca o filtra por algun parametro
+    orderBy = {
+      _relevance: {
+        fields: ['name'],
+        search: search,
+        sort: 'desc',
+      },
+    }
+  }
+  
+  const [totalProducts, products] = await Promise.all(
+    [prisma.products.count({where}), // se calcula el total de productos que cumplen el filtro
+    prisma.products.findMany({  // se trae los productos segun el filtro
+    where,
+    skip,
+    take: limit,
+    orderBy,
+    select: {
+      id_product: true,
+      name: true,
+      description: true,
+      price: true,
+      store: {
+        select: {
+          id_store: true,
+          name: true,
+        }
+      }
+    }
+  })])
+  return {
+    products,
+  pagination: {
+    totalProducts,
+    page,
+    limit,
+    totalPages: Math.ceil(totalProducts/limit)
+  }};
+};
+
 export const getProductByIdService = async (id) => {
   // validaciones básicas
     if (!id) {

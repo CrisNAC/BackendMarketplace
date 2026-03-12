@@ -98,7 +98,7 @@ export const userSession = async (req, res) => {
 
         const token_decodificado = jwt.verify(token, process.env.JWT_SECRET);
 
-        const user = await prisma.usuario.findFirst({
+        const user = await prisma.users.findFirst({
             where: {
                 id_user: token_decodificado.id_user,
                 status: true,
