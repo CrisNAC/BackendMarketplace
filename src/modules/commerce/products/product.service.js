@@ -289,65 +289,70 @@ export const getProductsSearchService = async (filters) => {
     totalPages: Math.ceil(totalProducts/limit)
   }};
 };
+export const getProductByIdService = async (id)=>{
 
-export const getProductByIdService = async (id) => {
-  // validaciones básicas
-    if (!id) {
-      throw { status: 400, message: "ID de tienda es requerido" };
-    }
-    if (isNaN(Number(id))) {
-      throw { status: 400, message: "ID de tienda debe ser un número" };
-    }
+  const productId = Number(id);
 
-  const product = await prisma.products.findUnique({
-    where: { id_product: Number(id) },
-    select: {
-      id_product: true,
-      name: true,
-      description: true,
-      price: true,
-      quantity: true,
-      visible: true,
-      status: true,
-      fk_product_category: true,
-      fk_store: true,
-      created_at: true,
-      updated_at: true,
-      product_category: {
-        select: { id_product_category: true, name: true, status: true }
-      },
-      product_tag_relations: {
-        where: { status: true },
-        select: {
-          product_tag: {
-            select: { id_product_tag: true, name: true }
-          }
-        }
-      },
-      product_reviews: {
-        where: { status: true },
-        select: { rating: true }
-      }
-    }
-  });
+  if(!Number.isInteger(productId) || productId <= 0){
 
-  if (!product || !product.status) {
-    throw { status: 404, message: "Producto no encontrado" };
+    throw {
+      status:400,
+      message:"ID de producto inválido"
+    };
+
   }
 
-  const reviewCount = product.product_reviews.length;
-  const averageRating =
-    reviewCount > 0
-      ? Number(
-          (
-            product.product_reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
-          ).toFixed(2)
-        )
-      : null;
+  const product = await prisma.products.findFirst({
 
-  return {
-    ...mapProductResponse(product),
-    averageRating,
-    reviewCount
-  };
+    where:{
+      id_product:productId,
+      status:true
+    },
+
+    select:{
+
+      id_product:true,
+      name:true,
+      description:true,
+      price:true,
+      fk_product_category:true,
+      fk_store:true,
+      visible:true,
+      created_at:true,
+      updated_at:true,
+
+      product_category:{
+        select:{
+          id_product_category:true,
+          name:true,
+          status:true
+        }
+      },
+
+      product_tag_relations:{
+        where:{status:true},
+
+        select:{
+          product_tag:{
+            select:{
+              id_product_tag:true,
+              name:true
+            }
+          }
+        }
+
+      }
+
+    }
+
+  });
+
+  if(!product){
+
+    return null;
+
+  }
+
+  return mapProductResponse(product);
+
 };
