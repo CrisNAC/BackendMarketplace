@@ -59,8 +59,8 @@ export const updateStore = async (req, res) => {
 
 export const getStoreById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const store = await getStoreByIdService(id);
+    const { id_store } = req.params;
+    const store = await getStoreByIdService(id_store);
     return res.status(200).json(store);
   } catch (error) {
     return res.status(error.status || 500).json({
@@ -71,8 +71,8 @@ export const getStoreById = async (req, res) => {
 
 export const getAllProductsByStore = async (req, res) => {
   try {
-    const { id } = req.params;
-    const products = await getAllProductsByStoreService(id);
+    const { id_store } = req.params;
+    const products = await getAllProductsByStoreService(id_store);
     return res.status(200).json(products);
   } catch (error) {
     return res.status(error.status || 500).json({
@@ -83,9 +83,9 @@ export const getAllProductsByStore = async (req, res) => {
 
 export const filterStoreProducts = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id_store } = req.params;
     const { category, price_min, price_max } = req.query;
-    const products = await filterStorePriductsService(id, {
+    const products = await filterStorePriductsService(id_store, {
       category,
       price_min,
       price_max

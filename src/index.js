@@ -12,6 +12,8 @@ import productReviewRoutes from "./modules/commerce/product-reviews/product-revi
 import userRoutes from "./modules/users/users/routes/users.routes.js";
 import addressRoutes from "./modules/users/addresses/routes/addresses.routes.js";
 import sessionRoutes from "./modules/session/routes/session.routes.js";
+import { errorHandler } from "./middlewares/errorHandler.js";
+import { NotFoundError } from "./lib/errors.js";
 
 dotenv.config();
 const app = express();
@@ -41,6 +43,14 @@ app.use("/products/reviews", productReviewRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/users", addressRoutes);
 app.use('/api/session', sessionRoutes);
+
+// Ruta no encontrada — va ANTES del errorHandler
+app.use((req, _res, next) => {
+  next(new NotFoundError(`Ruta ${req.method} ${req.path} no encontrada`));
+});
+
+// captura todos los errores de las rutas anteriores
+app.use(errorHandler);
 
 app.listen(PORT, () => {
 	console.log(`Servidor corriendo en http://localhost:${PORT}`);
