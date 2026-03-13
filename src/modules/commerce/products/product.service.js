@@ -7,6 +7,9 @@ import {
 
 const DEFAULT_PRODUCT_INITIAL_STATUS = "pending";
 const ALLOWED_PRODUCT_INITIAL_STATUS = new Set(["pending", "active"]);
+const DEFAULT_PRODUCTS_PAGE = 1;
+const DEFAULT_PRODUCTS_LIMIT = 20;
+const MAX_PRODUCTS_LIMIT = 100;
 
 const PRODUCT_RESPONSE_SELECT = {
   id_product: true,
@@ -57,6 +60,16 @@ const parsePositiveInteger = (value, fieldName) => {
   }
 
   return parsedValue;
+};
+
+const sanitizePaginationValue = (value, fallback) => {
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return fallback;
+  }
+
+  return Math.floor(parsedValue);
 };
 
 const validateRequiredStringField = (value, fieldName, maxLength = null) => {
@@ -251,11 +264,18 @@ const getExistingProductForUpdateService = async (productId) => {
   return product;
 };
 
-const getProductResponseByIdService = async (productId, tx = prisma) => {
+const getProductResponseByIdService = async (
+  productId,
+  tx = prisma,
+  options = {}
+) => {
+  const { requireVisible = false } = options;
+
   return tx.products.findFirst({
     where: {
       id_product: productId,
-      status: true
+      status: true,
+      ...(requireVisible ? { visible: true } : {})
     },
     select: PRODUCT_RESPONSE_SELECT
   });
@@ -267,7 +287,6 @@ const buildCreateProductData = async (payload) => {
   const categoryId = await parseCategoryField(payload?.categoryId);
   const quantity = parseQuantityField(payload?.quantity);
   const description = normalizeOptionalStringField(payload?.description) ?? null;
-  const visibilityOverride = parseVisibilityOverride(payload);
   const tagIds = parseProductTagIdsService(payload?.tags);
 
   await validateProductTagsService(tagIds);
@@ -280,8 +299,7 @@ const buildCreateProductData = async (payload) => {
       quantity: quantity ?? null,
       fk_product_category: categoryId
     },
-    tagIds,
-    visibilityOverride
+    tagIds
   };
 };
 
@@ -415,14 +433,10 @@ const syncProductTagsService = async (tx, productId, nextTagIds) => {
 
 export const createProductService = async (authenticatedUserId, payload) => {
   const commerceId = await getAuthenticatedSellerStore(authenticatedUserId);
-  const {
-    data,
-    tagIds,
-    visibilityOverride
-  } = await buildCreateProductData(payload);
+  const { data, tagIds } = await buildCreateProductData(payload);
 
   const initialLifecycleStatus = resolveInitialProductStatus();
-  const initialVisibility = visibilityOverride ?? (initialLifecycleStatus === "active");
+  const initialVisibility = initialLifecycleStatus === "active";
 
   const createdProduct = await prisma.$transaction(async (tx) => {
     const product = await tx.products.create({
@@ -501,8 +515,12 @@ export const getProductsSearchService = async (filters) => {
   const search = filters.search?.toString().trim();
 
   //Paginacion
-  const page = Number(filters.page) > 0 ? Number(filters.page) : 1;
-  const limit = Number(filters.limit) > 0 ? Number(filters.limit) : 20; //por defecto trae hasta 20 productos
+  const page = sanitizePaginationValue(filters.page, DEFAULT_PRODUCTS_PAGE);
+  const requestedLimit = sanitizePaginationValue(
+    filters.limit,
+    DEFAULT_PRODUCTS_LIMIT
+  );
+  const limit = Math.min(requestedLimit, MAX_PRODUCTS_LIMIT); //por defecto trae hasta 20 productos
   const skip = (page - 1) * limit;
 
   const where = { status: true, visible: true };
@@ -561,7 +579,9 @@ export const getProductsSearchService = async (filters) => {
 
 export const getProductByIdService = async (id) => {
   const productId = parsePositiveInteger(id, "ID de producto");
-  const product = await getProductResponseByIdService(productId);
+  const product = await getProductResponseByIdService(productId, prisma, {
+    requireVisible: true
+  });
 
   if (!product) {
     return null;

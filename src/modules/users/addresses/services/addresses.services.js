@@ -199,6 +199,21 @@ export const createAddressService = async (
     const dataToCreate = buildAddressData(payload, { requireAllFields: true });
 
     const newAddress = await prisma.$transaction(async (tx) => {
+        const lockedUsers = await tx.$queryRaw`
+            SELECT 1
+            FROM "Users"
+            WHERE "id_user" = ${user.id_user}
+              AND "status" = TRUE
+            FOR UPDATE
+        `;
+
+        if (!lockedUsers.length) {
+            throw {
+                status: 404,
+                message: "Usuario no encontrado o inactivo",
+            };
+        }
+
         const addressesFromUser = await tx.addresses.count({
             where: {
                 fk_user: user.id_user,

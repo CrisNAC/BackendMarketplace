@@ -98,6 +98,48 @@ export const getAuthorizedCustomerService = async (
     return user;
 };
 
+const getAuthorizedUserService = async (
+    authenticatedUserId,
+    requestedUserId
+) => {
+    if (!authenticatedUserId) {
+        throw {
+            status: 401,
+            message: "Usuario autenticado requerido",
+        };
+    }
+
+    const authenticatedId = parsePositiveInteger(
+        authenticatedUserId,
+        "ID de usuario autenticado"
+    );
+    const targetUserId = parsePositiveInteger(requestedUserId, "ID de usuario");
+
+    if (authenticatedId !== targetUserId) {
+        throw {
+            status: 403,
+            message: "No tiene permisos para ver este perfil",
+        };
+    }
+
+    const user = await prisma.users.findUnique({
+        where: { id_user: targetUserId },
+        select: {
+            id_user: true,
+            status: true,
+        },
+    });
+
+    if (!user || !user.status) {
+        throw {
+            status: 404,
+            message: "Usuario no encontrado o inactivo",
+        };
+    }
+
+    return user;
+};
+
 export const createUserService = async (data) => {
     const {
         name,
@@ -320,4 +362,19 @@ export const updateUserPasswordService = async (
 
     return updatedUser;
 };
+export const getUserProfileService = async (authenticatedUserId, requestedUserId) => {
 
+    const userProfile = await getAuthorizedUserService(
+        authenticatedUserId,
+        requestedUserId
+    );
+
+    const user = await prisma.users.findUnique({
+        where: {
+            id_user: userProfile.id_user
+        },
+        select: USER_PROFILE_SELECT
+    });
+
+    return user;
+};
