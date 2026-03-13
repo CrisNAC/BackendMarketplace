@@ -375,3 +375,24 @@ export const filterStorePriductsService = async (id, filters) => {
   }
 };
 
+
+/**
+ * Esta funcion se utiliza para el borrado logico de un comercio y sus respectivos productos en base al usuario autenticado que debe ser el dueño.
+ * 
+ * @param {*} id_user 
+ * @param {*} id_store 
+ * @returns 
+ */
+export const deleteStoreService = async (id_user, id_store) => {
+  const store = await prisma.stores.findUnique({ where: { id_store } }); //verifica si el comercio existe
+  
+  if (!store) return { error: "NOT_FOUND"}; // verifica que exista el comercio
+  if (store.fk_user !== id_user) return { error: "FORBIDDEN" }; // verifica que el usuario logueado sea el dueño del comercio
+
+  await prisma.$transaction([ // transaccion en donde ocurren los cambios de estados para el comercio y sus respectivos productos
+    prisma.stores.update({ where: { id_store }, data: { status: false }}),
+    prisma.products.updateMany({ where: { fk_store: id_store }, data: { status: false } })
+  ])
+  return { success: true };
+}
+
