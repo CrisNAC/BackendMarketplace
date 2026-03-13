@@ -149,7 +149,8 @@ const validateEmailField = (value) => {
   return normalizedEmail;
 };
 
-const getAuthorizedStoreOwnerService = async (
+// valida que el usuario autenticado sea el propietario del comercio solicitado
+export const getAuthorizedStoreOwnerService = async (
   authenticatedUserId,
   requestedStoreId
 ) => {

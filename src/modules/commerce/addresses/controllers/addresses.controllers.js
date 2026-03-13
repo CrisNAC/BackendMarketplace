@@ -1,28 +1,28 @@
 //addresses.controllers.js
 import {
-    createAddressService,
-    deleteAddressService,
-    getAddressByIdService,
-    getAddressesByUserService,
-    updateAddressService,
+    createStoreAddressService,
+    deleteStoreAddressService,
+    getStoreAddressByIdService,
+    getStoreAddressesService,
+    updateStoreAddressService,
 } from "../services/addresses.services.js";
 
 const getErrorStatusCode = (error) => error.statusCode || error.status || 500;
 
-// crea una direccion para el usuario autenticado
-export const createAddress = async (req, res) => {
+// crea una direccion para el comercio autenticado
+export const createStoreAddress = async (req, res) => {
     try {
-        const { id_user } = req.params;
+        const { id_store } = req.params;
 
-        const address = await createAddressService(
+        const address = await createStoreAddressService(
             req.user?.id_user,
-            id_user,
+            id_store,
             req.body
         );
 
         return res.status(201).json({
             success: true,
-            message: "Direccion creada exitosamente",
+            message: "Direccion del comercio creada exitosamente",
             data: address,
         });
     } catch (error) {
@@ -33,14 +33,14 @@ export const createAddress = async (req, res) => {
     }
 };
 
-// devuelve la lista de direcciones del usuario autenticado
-export const getAddressesByUser = async (req, res) => {
+// devuelve la lista de direcciones del comercio autenticado
+export const getStoreAddresses = async (req, res) => {
     try {
-        const { id_user } = req.params;
+        const { id_store } = req.params;
 
-        const addresses = await getAddressesByUserService(
+        const addresses = await getStoreAddressesService(
             req.user?.id_user,
-            id_user
+            id_store
         );
 
         return res.status(200).json({
@@ -55,14 +55,14 @@ export const getAddressesByUser = async (req, res) => {
     }
 };
 
-// devuelve una direccion puntual del usuario autenticado
-export const getAddressById = async (req, res) => {
+// devuelve una direccion puntual del comercio autenticado
+export const getStoreAddressById = async (req, res) => {
     try {
-        const { id_user, id_address } = req.params;
+        const { id_store, id_address } = req.params;
 
-        const address = await getAddressByIdService(
+        const address = await getStoreAddressByIdService(
             req.user?.id_user,
-            id_user,
+            id_store,
             id_address
         );
 
@@ -78,21 +78,21 @@ export const getAddressById = async (req, res) => {
     }
 };
 
-// actualiza una direccion puntual del usuario autenticado
-export const updateAddress = async (req, res) => {
+// actualiza una direccion puntual del comercio autenticado
+export const updateStoreAddress = async (req, res) => {
     try {
-        const { id_user, id_address } = req.params;
+        const { id_store, id_address } = req.params;
 
-        const address = await updateAddressService(
+        const address = await updateStoreAddressService(
             req.user?.id_user,
-            id_user,
+            id_store,
             id_address,
             req.body
         );
 
         return res.status(200).json({
             success: true,
-            message: "Direccion actualizada exitosamente",
+            message: "Direccion del comercio actualizada exitosamente",
             data: address,
         });
     } catch (error) {
@@ -103,20 +103,20 @@ export const updateAddress = async (req, res) => {
     }
 };
 
-// desactiva una direccion puntual del usuario autenticado
-export const deleteAddress = async (req, res) => {
+// desactiva una direccion puntual del comercio autenticado
+export const deleteStoreAddress = async (req, res) => {
     try {
-        const { id_user, id_address } = req.params;
+        const { id_store, id_address } = req.params;
 
-        const address = await deleteAddressService(
+        const address = await deleteStoreAddressService(
             req.user?.id_user,
-            id_user,
+            id_store,
             id_address
         );
 
         return res.status(200).json({
             success: true,
-            message: "Direccion desactivada correctamente",
+            message: "Direccion del comercio desactivada correctamente",
             data: address,
         });
     } catch (error) {

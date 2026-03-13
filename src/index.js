@@ -4,6 +4,7 @@ import morgan from "morgan";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import storeRoutes from "./modules/commerce/commerces/store.routes.js";
+import commerceAddressRoutes from "./modules/commerce/addresses/routes/addresses.routes.js";
 import storeCategoryRoutes from "./modules/commerce/store-categories/store-category.routes.js";
 import productRoutes from "./modules/commerce/products/product.routes.js";
 import categoriesRoutes from "./modules/global/categories/categories.routes.js";
@@ -29,11 +30,12 @@ app.use(cors({
 app.use('/api/session', sessionRoutes);
 app.use("/api/commerces/categories", storeCategoryRoutes);
 app.use("/api/commerces",storeRoutes);
-app.use("/products", productRoutes);
+app.use("/api/commerces", commerceAddressRoutes);
+ app.use("/products", productRoutes);
 //Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
 //Se encuentra indexado
 app.use("/api/categories", categoriesRoutes); 
-app.use("/products/tags", productTagRoutes);
+ app.use("/api/product-tags", productTagRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/users", addressRoutes);
 
