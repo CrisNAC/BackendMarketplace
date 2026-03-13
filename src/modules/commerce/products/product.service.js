@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
-import { validateProductCategoryService } from "../product-categories/product-category.service.js";
+import { validateProductCategoryService } from "../../global/categories/product-categories/product-category.service.js";
 import {
   parseProductTagIdsService,
   validateProductTagsService
@@ -288,4 +288,71 @@ export const getProductsSearchService = async (filters) => {
     limit,
     totalPages: Math.ceil(totalProducts/limit)
   }};
+};
+export const getProductByIdService = async (id)=>{
+
+  const productId = Number(id);
+
+  if(!Number.isInteger(productId) || productId <= 0){
+
+    throw {
+      status:400,
+      message:"ID de producto inválido"
+    };
+
+  }
+
+  const product = await prisma.products.findFirst({
+
+    where:{
+      id_product:productId,
+      status:true
+    },
+
+    select:{
+
+      id_product:true,
+      name:true,
+      description:true,
+      price:true,
+      fk_product_category:true,
+      fk_store:true,
+      visible:true,
+      created_at:true,
+      updated_at:true,
+
+      product_category:{
+        select:{
+          id_product_category:true,
+          name:true,
+          status:true
+        }
+      },
+
+      product_tag_relations:{
+        where:{status:true},
+
+        select:{
+          product_tag:{
+            select:{
+              id_product_tag:true,
+              name:true
+            }
+          }
+        }
+
+      }
+
+    }
+
+  });
+
+  if(!product){
+
+    return null;
+
+  }
+
+  return mapProductResponse(product);
+
 };
