@@ -6,7 +6,8 @@ import {
     updateStore,
     getStoreById,
     getAllProductsByStore,
-    filterStoreProducts 
+    filterStoreProducts, 
+    deleteStore
 } from "./store.controller.js";
 
 const router = Router();
@@ -16,5 +17,6 @@ router.put("/:id", authenticate, updateStore);
 router.get("/:id", getStoreById);
 router.get("/products/:id", getAllProductsByStore);
 router.get("/products/filter/:id", filterStoreProducts);
+router.delete("/:id", deleteStore);
 
 export default router;
