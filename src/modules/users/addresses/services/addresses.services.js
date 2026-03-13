@@ -292,19 +292,39 @@ export const updateAddressService = async (
         authenticatedUserId,
         requestedUserId
     );
-    const existingAddress = await getOwnedPersonalAddressOrThrow(
-        user.id_user,
-        requestedAddressId
-    );
+    const addressId = parsePositiveInteger(requestedAddressId, "ID de direccion");
     const dataToUpdate = buildAddressData(payload);
 
-    const updatedAddress = await prisma.addresses.update({
+    const updatedAddresses = await prisma.addresses.updateMany({
         where: {
-            id_address: existingAddress.id_address,
+            id_address: addressId,
+            fk_user: user.id_user,
+            fk_store: null,
+            status: true,
         },
         data: dataToUpdate,
+    });
+
+    if (updatedAddresses.count !== 1) {
+        throw {
+            status: 404,
+            message: "Direccion no encontrada",
+        };
+    }
+
+    const updatedAddress = await prisma.addresses.findUnique({
+        where: {
+            id_address: addressId,
+        },
         select: ADDRESS_SELECT,
     });
+
+    if (!updatedAddress) {
+        throw {
+            status: 500,
+            message: "No se pudo recuperar la direccion actualizada",
+        };
+    }
 
     return updatedAddress;
 };
