@@ -15,6 +15,7 @@ const router = Router();
 router.post("/", authenticate, createStore);
 router.put("/:id", authenticate, updateStore);
 router.get("/:id", getStoreById);
+router.get("/", getStores);
 router.get("/products/:id", getAllProductsByStore);
 router.get("/products/filter/:id", filterStoreProducts);
 router.delete("/:id", deleteStore);

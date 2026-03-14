@@ -797,3 +797,46 @@ export const deleteStoreService = async (id_user, id_store) => {
   return { success: true };
 }
 
+export const getStoresService = async (filters = {}) => {
+  const search = filters.search?.toString().trim();
+  const categoryIdRaw =
+    filters.storeCategoryId ?? filters.categoryId ?? filters.fk_store_category;
+
+  const where = { status: true };
+
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } }
+    ];
+  }
+
+  if (
+    categoryIdRaw !== undefined &&
+    categoryIdRaw !== null &&
+    String(categoryIdRaw).trim() !== ""
+  ) {
+    const categoryId = Number(categoryIdRaw);
+    if (!Number.isInteger(categoryId) || categoryId <= 0) {
+      throw { status: 400, message: "storeCategoryId invalido" };
+    }
+    where.fk_store_category = categoryId;
+  }
+
+  const stores = await prisma.stores.findMany({
+    where,
+    orderBy: { id_store: "desc" },
+    select: {
+      id_store: true,
+      name: true,
+      description: true,
+      logo: true,
+      status: true,
+      store_category: {
+        select: { id_store_category: true, name: true }
+      }
+    }
+  });
+
+  return stores;
+};

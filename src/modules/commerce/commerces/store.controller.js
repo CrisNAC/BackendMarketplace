@@ -3,6 +3,7 @@ import {
   createStoreService,
   updateStoreService,
   getStoreByIdService,
+  getStoresService,
   getAllProductsByStoreService,
   filterStorePriductsService,
   deleteStoreService
@@ -64,6 +65,17 @@ export const getStoreById = async (req, res) => {
     const { id } = req.params;
     const store = await getStoreByIdService(id);
     return res.status(200).json(store);
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      message: error.message || "Error interno"
+    });
+  }
+};
+
+export const getStores = async (req, res) => {
+  try {
+    const stores = await getStoresService(req.query);
+    return res.status(200).json(stores);
   } catch (error) {
     return res.status(error.status || 500).json({
       message: error.message || "Error interno"

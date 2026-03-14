@@ -233,6 +233,7 @@ export const createProductService = async (authenticatedUserId, payload) => {
 /** esta funcion recibe un filtro (search) y retorna los productos con status=true y visible=true*/
 export const getProductsSearchService = async (filters) => {
   const search = filters.search?.toString().trim();
+  const categoryIdRaw = filters.categoryId ?? filters.category_id ?? filters.fk_product_category;
   
   //Paginacion
   const page = Number(filters.page) > 0 ? Number(filters.page) : 1;
@@ -242,6 +243,15 @@ export const getProductsSearchService = async (filters) => {
   const where = {status: true, visible: true};
 
   let orderBy = {id_product: 'desc'}; // orden por defecto
+
+  // filtro por categoria (id de ProductCategories)
+  if (categoryIdRaw !== undefined && categoryIdRaw !== null && String(categoryIdRaw).trim() !== "") {
+    const categoryId = Number(categoryIdRaw);
+    if (!Number.isInteger(categoryId) || categoryId <= 0) {
+      throw { status: 400, message: "categoryId debe ser un entero mayor a 0" };
+    }
+    where.fk_product_category = categoryId;
+  }
 
   //si se le pasa un search, se busca en name y description
   if (search) {
