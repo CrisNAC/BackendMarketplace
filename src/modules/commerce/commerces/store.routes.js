@@ -5,6 +5,7 @@ import {
     createStore,
     updateStore,
     getStoreById,
+    getStores,
     getAllProductsByStore,
     filterStoreProducts, 
     deleteStore
@@ -14,8 +15,8 @@ const router = Router();
 
 router.post("/", authenticate, createStore);
 router.put("/:id", authenticate, updateStore);
-router.get("/:id", getStoreById);
 router.get("/", getStores);
+router.get("/:id", getStoreById);
 router.get("/products/:id", getAllProductsByStore);
 router.get("/products/filter/:id", filterStoreProducts);
 router.delete("/:id", deleteStore);
