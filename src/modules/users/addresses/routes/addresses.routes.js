@@ -12,14 +12,14 @@ import {
 const router = Router();
 
 // crea una nueva direccion personal
-router.post("/:id_user/addresses", authenticate, createAddress);
+router.post("/:id/addresses", authenticate, createAddress);
 // lista las direcciones personales activas del usuario
-router.get("/:id_user/addresses", authenticate, getAddressesByUser);
+router.get("/:id/addresses", authenticate, getAddressesByUser);
 // obtiene una direccion personal puntual
-router.get("/:id_user/addresses/:id_address", authenticate, getAddressById);
+router.get("/:id/addresses/:id_address", authenticate, getAddressById);
 // edita una direccion personal puntual
-router.put("/:id_user/addresses/:id_address", authenticate, updateAddress);
+router.put("/:id/addresses/:id_address", authenticate, updateAddress);
 // desactiva una direccion personal puntual
-router.delete("/:id_user/addresses/:id_address", authenticate, deleteAddress);
+router.delete("/:id/addresses/:id_address", authenticate, deleteAddress);
 
 export default router;

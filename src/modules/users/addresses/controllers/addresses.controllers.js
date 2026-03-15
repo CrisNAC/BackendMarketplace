@@ -12,11 +12,11 @@ const getErrorStatusCode = (error) => error.statusCode || error.status || 500;
 // crea una direccion para el usuario autenticado
 export const createAddress = async (req, res) => {
     try {
-        const { id_user } = req.params;
+        const { id } = req.params;
 
         const address = await createAddressService(
             req.user?.id_user,
-            id_user,
+            id,
             req.body
         );
 
@@ -36,11 +36,11 @@ export const createAddress = async (req, res) => {
 // devuelve la lista de direcciones del usuario autenticado
 export const getAddressesByUser = async (req, res) => {
     try {
-        const { id_user } = req.params;
+        const { id } = req.params;
 
         const addresses = await getAddressesByUserService(
             req.user?.id_user,
-            id_user
+            id
         );
 
         return res.status(200).json({
@@ -58,11 +58,11 @@ export const getAddressesByUser = async (req, res) => {
 // devuelve una direccion puntual del usuario autenticado
 export const getAddressById = async (req, res) => {
     try {
-        const { id_user, id_address } = req.params;
+        const { id, id_address } = req.params;
 
         const address = await getAddressByIdService(
             req.user?.id_user,
-            id_user,
+            id,
             id_address
         );
 
@@ -81,11 +81,11 @@ export const getAddressById = async (req, res) => {
 // actualiza una direccion puntual del usuario autenticado
 export const updateAddress = async (req, res) => {
     try {
-        const { id_user, id_address } = req.params;
+        const { id, id_address } = req.params;
 
         const address = await updateAddressService(
             req.user?.id_user,
-            id_user,
+            id,
             id_address,
             req.body
         );
@@ -106,11 +106,11 @@ export const updateAddress = async (req, res) => {
 // desactiva una direccion puntual del usuario autenticado
 export const deleteAddress = async (req, res) => {
     try {
-        const { id_user, id_address } = req.params;
+        const { id, id_address } = req.params;
 
         const address = await deleteAddressService(
             req.user?.id_user,
-            id_user,
+            id,
             id_address
         );
 

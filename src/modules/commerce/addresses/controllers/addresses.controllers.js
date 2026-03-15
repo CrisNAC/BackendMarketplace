@@ -12,11 +12,11 @@ const getErrorStatusCode = (error) => error.statusCode || error.status || 500;
 // crea una direccion para el comercio autenticado
 export const createStoreAddress = async (req, res) => {
     try {
-        const { id_store } = req.params;
+        const { id } = req.params;
 
         const address = await createStoreAddressService(
             req.user?.id_user,
-            id_store,
+            id,
             req.body
         );
 
@@ -36,11 +36,11 @@ export const createStoreAddress = async (req, res) => {
 // devuelve la lista de direcciones del comercio autenticado
 export const getStoreAddresses = async (req, res) => {
     try {
-        const { id_store } = req.params;
+        const { id } = req.params;
 
         const addresses = await getStoreAddressesService(
             req.user?.id_user,
-            id_store
+            id
         );
 
         return res.status(200).json({
@@ -58,11 +58,11 @@ export const getStoreAddresses = async (req, res) => {
 // devuelve una direccion puntual del comercio autenticado
 export const getStoreAddressById = async (req, res) => {
     try {
-        const { id_store, id_address } = req.params;
+        const { id, id_address } = req.params;
 
         const address = await getStoreAddressByIdService(
             req.user?.id_user,
-            id_store,
+            id,
             id_address
         );
 
@@ -81,11 +81,11 @@ export const getStoreAddressById = async (req, res) => {
 // actualiza una direccion puntual del comercio autenticado
 export const updateStoreAddress = async (req, res) => {
     try {
-        const { id_store, id_address } = req.params;
+        const { id, id_address } = req.params;
 
         const address = await updateStoreAddressService(
             req.user?.id_user,
-            id_store,
+            id,
             id_address,
             req.body
         );
@@ -106,11 +106,11 @@ export const updateStoreAddress = async (req, res) => {
 // desactiva una direccion puntual del comercio autenticado
 export const deleteStoreAddress = async (req, res) => {
     try {
-        const { id_store, id_address } = req.params;
+        const { id, id_address } = req.params;
 
         const address = await deleteStoreAddressService(
             req.user?.id_user,
-            id_store,
+            id,
             id_address
         );
 

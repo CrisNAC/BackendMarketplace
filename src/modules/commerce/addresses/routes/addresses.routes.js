@@ -12,14 +12,14 @@ import {
 const router = Router();
 
 // crea una nueva direccion para el comercio
-router.post("/:id_store/addresses", authenticate, createStoreAddress);
+router.post("/:id/addresses", authenticate, createStoreAddress);
 // lista las direcciones activas del comercio
-router.get("/:id_store/addresses", authenticate, getStoreAddresses);
+router.get("/:id/addresses", authenticate, getStoreAddresses);
 // obtiene una direccion puntual del comercio
-router.get("/:id_store/addresses/:id_address", authenticate, getStoreAddressById);
+router.get("/:id/addresses/:id_address", authenticate, getStoreAddressById);
 // edita una direccion puntual del comercio
-router.put("/:id_store/addresses/:id_address", authenticate, updateStoreAddress);
+router.put("/:id/addresses/:id_address", authenticate, updateStoreAddress);
 // desactiva una direccion puntual del comercio
-router.delete("/:id_store/addresses/:id_address", authenticate, deleteStoreAddress);
+router.delete("/:id/addresses/:id_address", authenticate, deleteStoreAddress);
 
 export default router;
