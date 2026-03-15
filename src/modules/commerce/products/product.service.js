@@ -287,6 +287,7 @@ const buildCreateProductData = async (payload) => {
   const categoryId = await parseCategoryField(payload?.categoryId);
   const quantity = parseQuantityField(payload?.quantity);
   const description = normalizeOptionalStringField(payload?.description) ?? null;
+  const visibilityOverride = parseVisibilityOverride({ visible: payload?.visible });
   const tagIds = parseProductTagIdsService(payload?.tags);
 
   await validateProductTagsService(tagIds);
@@ -299,7 +300,8 @@ const buildCreateProductData = async (payload) => {
       quantity: quantity ?? null,
       fk_product_category: categoryId
     },
-    tagIds
+    tagIds,
+    visibilityOverride
   };
 };
 
@@ -433,10 +435,11 @@ const syncProductTagsService = async (tx, productId, nextTagIds) => {
 
 export const createProductService = async (authenticatedUserId, payload) => {
   const commerceId = await getAuthenticatedSellerStore(authenticatedUserId);
-  const { data, tagIds } = await buildCreateProductData(payload);
+  const { data, tagIds, visibilityOverride } = await buildCreateProductData(payload);
 
   const initialLifecycleStatus = resolveInitialProductStatus();
-  const initialVisibility = initialLifecycleStatus === "active";
+  const initialVisibility =
+    visibilityOverride ?? (initialLifecycleStatus === "active");
 
   const createdProduct = await prisma.$transaction(async (tx) => {
     const product = await tx.products.create({
