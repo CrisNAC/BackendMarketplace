@@ -34,13 +34,13 @@ app.use(cors({
 app.use("/api/commerces/categories", storeCategoryRoutes);
 app.use("/api/commerces",storeRoutes);
 app.use("/api/commerces", commerceAddressRoutes);
- app.use("/products", productRoutes);
+
 //Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
 //Se encuentra indexado
 app.use("/api/categories", categoriesRoutes); 
 app.use("/products/tags", productTagRoutes);
 app.use("/products/reviews", productReviewRoutes);
-
+ app.use("/products", productRoutes);
 // Rutas de usuarios
 app.use("/api/users", userRoutes);
 app.use("/api/users", addressRoutes);
