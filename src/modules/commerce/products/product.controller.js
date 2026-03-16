@@ -1,4 +1,9 @@
-import { createProductService, getProductsSearchService, getProductByIdService} from "./product.service.js";
+import { 
+  createProductService,
+ 
+  getProductsSearchService,
+  getProductByIdService 
+} from "./product.service.js";
 
 export const createProduct = async (req, res) => {
   try {
@@ -31,6 +36,7 @@ export const getProductsSearch = async (request, response) => {
     return response.status(error.status || 500).json({message: error.message || "Error interno del servidor."});
   }
 };
+
 //obtener producto por id
 export const getProductById = async (request, response) => {
 
