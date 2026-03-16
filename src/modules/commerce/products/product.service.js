@@ -52,6 +52,7 @@ const parseVisibilityOverride = (payload) => {
 };
 
 const mapProductResponse = (product) => {
+  const ratings = product.product_reviews?.map(r => r.rating).filter(r => r !== null) || [];
   const lifecycleStatus = product.visible ? "active" : "pending";
 
   return {
@@ -59,6 +60,7 @@ const mapProductResponse = (product) => {
     name: product.name,
     description: product.description,
     price: Number(product.price),
+    quantity: product.quantity ?? null,
     categoryId: product.fk_product_category,
     category: product.product_category
       ? {
@@ -72,7 +74,15 @@ const mapProductResponse = (product) => {
         id: relation.product_tag.id_product_tag,
         name: relation.product_tag.name
       })) || [],
-    commerceId: product.fk_store,
+    commerce: product.store ? {
+      id: product.store.id_store,
+      name: product.store.name,
+      //logo: product.store.logo
+    } : null,
+    averageRating: ratings.length
+      ? Number((ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2))
+      : null,
+    reviewCount: ratings.length,
     status: lifecycleStatus,
     createdAt: product.created_at,
     updatedAt: product.updated_at
@@ -207,6 +217,12 @@ export const createProductService = async (authenticatedUserId, payload) => {
             status: true
           }
         },
+        store: {// agregue esto para readaptar el mapper
+          select: {
+            id_store: true,
+            name: true
+          }
+        },
         product_tag_relations: {
           where: { status: true },
           select: {
@@ -217,6 +233,10 @@ export const createProductService = async (authenticatedUserId, payload) => {
               }
             }
           }
+        },
+        product_reviews: { // agregue esto para readaptar el mapper
+          where: { status: true, approved: true },
+          select: { rating: true }
         }
       }
     });
@@ -299,6 +319,99 @@ export const getProductsSearchService = async (filters) => {
     totalPages: Math.ceil(totalProducts/limit)
   }};
 };
+
+
+/**
+ * 
+ * @param {*} id 
+ * @returns 
+ */
+export const getProductByIdService = async (id)=>{
+
+  const productId = Number(id);
+
+  if(!Number.isInteger(productId) || productId <= 0){
+
+    throw {
+      status:400,
+      message:"ID de producto inválido"
+    };
+
+  }
+
+  const product = await prisma.products.findFirst({
+
+    where:{
+      id_product:productId,
+      status:true,
+      visible:true
+    },
+
+    select:{
+
+      id_product:true,
+      name:true,
+      description:true,
+      price:true,
+      fk_store:true,
+      visible:true,
+      quantity:true,
+      created_at:true,
+      updated_at:true,
+
+      product_category:{
+        select:{
+          id_product_category:true,
+          name:true,
+          status:true
+        }
+      },
+      
+      store: {
+        select:{
+          id_store:true,
+          name:true
+          //logo:true
+        }
+      },
+
+      product_tag_relations:{
+        where:{status:true},
+
+        select:{
+          product_tag:{
+            select:{
+              id_product_tag:true,
+              name:true
+            }
+          }
+        }
+
+      },
+      product_reviews: {
+        where: { status: true, approved: true },
+        select: { rating: true }
+      }
+
+    }
+
+  });
+
+  if(!product){
+
+    return null;
+
+  }
+  
+  return mapProductResponse(product);
+
+};
+
+
+//---ESTE SERVICE LO HIZO LIAN EN EL SPRINT 1, PERO LO MODIFICÓ LEO PARA TRAER MAS DETALLES DEL PRODUCTO, BASADO EN LO QUE EXIGE EL TICKET OM-89 DEL SPRINT 2---
+
+/**
+ *
 export const getProductByIdService = async (id)=>{
 
   const productId = Number(id);
@@ -365,4 +478,4 @@ export const getProductByIdService = async (id)=>{
 
   return mapProductResponse(product);
 
-};
+}; */
