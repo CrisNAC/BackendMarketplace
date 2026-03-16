@@ -1,19 +1,47 @@
-import { 
+import {
   createProductService,
- 
   getProductsSearchService,
-  getProductByIdService 
+  getProductByIdService,
+  updateProductService
 } from "./product.service.js";
 
 export const createProduct = async (req, res) => {
   try {
-    const authenticatedUserId = req.headers["x-user-id"];
-    const product = await createProductService(authenticatedUserId, req.body);
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        success: false,
+        message: "Usuario autenticado requerido"
+      });
+    }
+
+    const product = await createProductService(req.user.id_user, req.body);
     return res.status(201).json(product);
   } catch (error) {
     console.error("Error creando producto:", error);
 
     return res.status(error.status || 500).json({
+      message: error.message || "Error interno del servidor"
+    });
+  }
+};
+
+export const updateProduct = async (req, res) => {
+  try {
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        success: false,
+        message: "Usuario autenticado requerido"
+      });
+    }
+
+    const { id } = req.params;
+    const product = await updateProductService(req.user.id_user, id, req.body);
+
+    return res.status(200).json(product);
+  } catch (error) {
+    console.error("Error actualizando producto:", error);
+
+    return res.status(error.status || error.statusCode || 500).json({
       message: error.message || "Error interno del servidor"
     });
   }
