@@ -211,14 +211,14 @@ const mapProductResponse = (product) => {
       })) || [],
     commerce: product.store ? {
       id: product.store.id_store,
-    visible: product.visible,
-      name: product.store.name,
+      name: product.store.name
       //logo: product.store.logo
     } : null,
     averageRating: ratings.length
       ? Number((ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2))
       : null,
     reviewCount: ratings.length,
+    visible: product.visible,
     status: lifecycleStatus,
     createdAt: product.created_at,
     updatedAt: product.updated_at
@@ -610,12 +610,25 @@ export const getProductsSearchService = async (filters) => {
 };
 
 
+export const getProductByIdService = async (id) => {
+  const productId = parsePositiveInteger(id, "ID de producto");
+  const product = await getProductResponseByIdService(productId, prisma, {
+    requireVisible: true
+  });
+
+  if (!product) {
+    return null;
+  }
+
+  return mapProductResponse(product);
+};
+
+
+//---ESTE SERVICE LO HIZO LEO PARA TRAER MAS DETALLES DEL PRODUCTO, BASADO EN LO QUE EXIGE EL TICKET OM-89 DEL SPRINT 2---
 
 /**
- * 
- * @param {*} id 
- * @returns 
- */
+ *
+
 export const getProductByIdService = async (id)=>{
 
   const productId = Number(id);
@@ -695,23 +708,5 @@ export const getProductByIdService = async (id)=>{
   
   return mapProductResponse(product);
 
-};
-
-
-//---ESTE SERVICE LO HIZO LIAN EN EL SPRINT 1, PERO LO MODIFICÓ LEO PARA TRAER MAS DETALLES DEL PRODUCTO, BASADO EN LO QUE EXIGE EL TICKET OM-89 DEL SPRINT 2---
-
-/**
- *
-export const getProductByIdService = async (id) => {
-  const productId = parsePositiveInteger(id, "ID de producto");
-  const product = await getProductResponseByIdService(productId, prisma, {
-    requireVisible: true
-  });
-
-  if (!product) {
-    return null;
-  }
-
-  return mapProductResponse(product);
 };
  */
