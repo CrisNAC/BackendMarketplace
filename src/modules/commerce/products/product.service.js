@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
-import { validateProductCategoryService } from "../product-categories/product-category.service.js";
+import { validateProductCategoryService } from "../../global/categories/product-categories/product-category.service.js";
 import {
   parseProductTagIdsService,
   validateProductTagsService
@@ -227,4 +227,142 @@ export const createProductService = async (authenticatedUserId, payload) => {
   }
 
   return mapProductResponse(createdProduct);
+};
+
+
+/** esta funcion recibe un filtro (search) y retorna los productos con status=true y visible=true*/
+export const getProductsSearchService = async (filters) => {
+  const search = filters.search?.toString().trim();
+  const categoryIdRaw = filters.categoryId ?? filters.category_id ?? filters.fk_product_category;
+  
+  //Paginacion
+  const page = Number(filters.page) > 0 ? Number(filters.page) : 1;
+  const limit = Number(filters.limit) > 0 ? Number(filters.limit) : 20; //por defecto trae hasta 20 productos
+  const skip = (page - 1) * limit;
+
+  const where = {status: true, visible: true};
+
+  let orderBy = {id_product: 'desc'}; // orden por defecto
+
+  // filtro por categoria (id de ProductCategories)
+  if (categoryIdRaw !== undefined && categoryIdRaw !== null && String(categoryIdRaw).trim() !== "") {
+    const categoryId = Number(categoryIdRaw);
+    if (!Number.isInteger(categoryId) || categoryId <= 0) {
+      throw { status: 400, message: "categoryId debe ser un entero mayor a 0" };
+    }
+    where.fk_product_category = categoryId;
+  }
+
+  //si se le pasa un search, se busca en name y description
+  if (search) {
+    where.OR = [
+      {name: { contains: search, mode: "insensitive"},},
+      {description: {contains: search, mode: "insensitive"}}
+    ]
+
+    // cambia el orden, solo si se busca o filtra por algun parametro
+    orderBy = {
+      _relevance: {
+        fields: ['name'],
+        search: search,
+        sort: 'desc',
+      },
+    }
+  }
+  
+  const [totalProducts, products] = await Promise.all(
+    [prisma.products.count({where}), // se calcula el total de productos que cumplen el filtro
+    prisma.products.findMany({  // se trae los productos segun el filtro
+    where,
+    skip,
+    take: limit,
+    orderBy,
+    select: {
+      id_product: true,
+      name: true,
+      description: true,
+      price: true,
+      store: {
+        select: {
+          id_store: true,
+          name: true,
+        }
+      }
+    }
+  })])
+  return {
+    products,
+  pagination: {
+    totalProducts,
+    page,
+    limit,
+    totalPages: Math.ceil(totalProducts/limit)
+  }};
+};
+export const getProductByIdService = async (id)=>{
+
+  const productId = Number(id);
+
+  if(!Number.isInteger(productId) || productId <= 0){
+
+    throw {
+      status:400,
+      message:"ID de producto inválido"
+    };
+
+  }
+
+  const product = await prisma.products.findFirst({
+
+    where:{
+      id_product:productId,
+      status:true
+    },
+
+    select:{
+
+      id_product:true,
+      name:true,
+      description:true,
+      price:true,
+      fk_product_category:true,
+      fk_store:true,
+      visible:true,
+      created_at:true,
+      updated_at:true,
+
+      product_category:{
+        select:{
+          id_product_category:true,
+          name:true,
+          status:true
+        }
+      },
+
+      product_tag_relations:{
+        where:{status:true},
+
+        select:{
+          product_tag:{
+            select:{
+              id_product_tag:true,
+              name:true
+            }
+          }
+        }
+
+      }
+
+    }
+
+  });
+
+  if(!product){
+
+    return null;
+
+  }
+
+  return mapProductResponse(product);
+
 };

@@ -3,13 +3,27 @@ import {
   createStoreService,
   updateStoreService,
   getStoreByIdService,
+  getStoresService,
   getAllProductsByStoreService,
-  filterStorePriductsService
+  filterStorePriductsService,
+  deleteStoreService
 } from "./store.service.js";
+import jwt from "jsonwebtoken";
 
 export const createStore = async (req, res) => {
   try {
-    const store = await createStoreService(req.body);
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        success: false,
+        message: "Usuario autenticado requerido"
+      });
+    }
+
+    const store = await createStoreService({
+      ...req.body,
+      fk_user: Number(req.user.id_user)
+    });
+
     return res.status(201).json(store);
   } catch (error) {
     console.error("Error creando comercio:", error);
@@ -58,6 +72,17 @@ export const getStoreById = async (req, res) => {
   }
 };
 
+export const getStores = async (req, res) => {
+  try {
+    const stores = await getStoresService(req.query);
+    return res.status(200).json(stores);
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      message: error.message || "Error interno"
+    });
+  }
+};
+
 export const getAllProductsByStore = async (req, res) => {
   try {
     const { id } = req.params;
@@ -74,7 +99,11 @@ export const filterStoreProducts = async (req, res) => {
   try {
     const { id } = req.params;
     const { category, price_min, price_max } = req.query;
-    const products = await filterStorePriductsService(id, { category, price_min, price_max });
+    const products = await filterStorePriductsService(id, {
+      category,
+      price_min,
+      price_max
+    });
     return res.status(200).json(products);
   } catch (error) {
     return res.status(error.status || 500).json({
@@ -82,4 +111,51 @@ export const filterStoreProducts = async (req, res) => {
     });
   }
 };
+
+/**
+ * 
+ * @param {*} req 
+ * @param {*} res 
+ * @returns 
+ */
+export const deleteStore = async (req, res) => {
+  try {
+
+    //primeramente se hace la comprobacion de que el usuario este autenticado
+    const token = req.cookies.userToken;
+    if (!token) {
+      console.error("Usuario no autenticado.");
+      return res.status(401).json({ success: false, error: "Usuario no autenticado."});
+    }
+
+    //se descifra el token para obtener el usuario
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const id_user = decoded.id_user;
+
+    //se obtiene el parametro id de la url
+    const id_store = parseInt(req.params.id);
+
+    //se ejecuta el servicio delete
+    const result = await deleteStoreService(id_user, id_store);
+
+    //Manejo de ciertos errores
+    if (result.error === "NOT_FOUND") {
+      console.info("Comercio no encontrado")
+      return res.status(404).json({ message: "Comercio no encontrado"});
+    }
+    if (result.error === "FORBIDDEN") {
+      console.info("No tienes permiso para eliminar este comercio.")
+      return res.status(403).json({ message: "No tienes permiso para eliminar este comercio." });
+    }
+
+
+    //en caso de exito se retorna el emsaje correspondiente
+    console.info("Se eliminó correctamente el comercio...")
+    return res.status(204).send();
+  }
+  catch (error) {
+    console.error("Error al eliminar el comercio: ", error);
+    return res.status(500).json({ error: "Error interno del servidor." })
+  }
+}
 
