@@ -29,6 +29,13 @@ const PRODUCT_RESPONSE_SELECT = {
       status: true
     }
   },
+  store: {
+    select: {
+      id_store: true,
+      name: true
+      //logo: true
+    }
+  },
   product_tag_relations: {
     where: { status: true },
     select: {
@@ -39,6 +46,10 @@ const PRODUCT_RESPONSE_SELECT = {
         }
       }
     }
+  },
+  product_reviews: {
+    where: { status: true, approved: true },
+    select: { rating: true }
   }
 };
 
@@ -176,6 +187,7 @@ const parseVisibilityOverride = (payload) => {
 };
 
 const mapProductResponse = (product) => {
+  const ratings = product.product_reviews?.map(r => r.rating).filter(r => r !== null) || [];
   const lifecycleStatus = product.visible ? "active" : "pending";
 
   return {
@@ -197,7 +209,15 @@ const mapProductResponse = (product) => {
         id: relation.product_tag.id_product_tag,
         name: relation.product_tag.name
       })) || [],
-    commerceId: product.fk_store,
+    commerce: product.store ? {
+      id: product.store.id_store,
+      name: product.store.name
+      //logo: product.store.logo
+    } : null,
+    averageRating: ratings.length
+      ? Number((ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2))
+      : null,
+    reviewCount: ratings.length,
     visible: product.visible,
     status: lifecycleStatus,
     createdAt: product.created_at,
@@ -588,6 +608,7 @@ export const getProductsSearchService = async (filters) => {
     totalPages: Math.ceil(totalProducts/limit)
   }};
 };
+
 
 export const getProductByIdService = async (id) => {
   const productId = parsePositiveInteger(id, "ID de producto");
