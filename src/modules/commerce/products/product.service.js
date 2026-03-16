@@ -29,6 +29,13 @@ const PRODUCT_RESPONSE_SELECT = {
       status: true
     }
   },
+  store: {
+    select: {
+      id_store: true,
+      name: true
+      //logo: true
+    }
+  },
   product_tag_relations: {
     where: { status: true },
     select: {
@@ -39,6 +46,10 @@ const PRODUCT_RESPONSE_SELECT = {
         }
       }
     }
+  },
+  product_reviews: {
+    where: { status: true, approved: true },
+    select: { rating: true }
   }
 };
 
