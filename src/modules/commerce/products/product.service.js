@@ -554,6 +554,27 @@ export const getProductsSearchService = async (filters) => {
         search: search,
         sort: "desc"
       }
+    }
+  })])
+  return {
+    products,
+  pagination: {
+    totalProducts,
+    page,
+    limit,
+    totalPages: Math.ceil(totalProducts/limit)
+  }};
+};
+
+export const getProductByIdService = async (id)=>{
+
+  const productId = Number(id);
+
+  if(!Number.isInteger(productId) || productId <= 0){
+
+    throw {
+      status:400,
+      message:"ID de producto inválido"
     };
   }
 

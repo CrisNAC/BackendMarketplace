@@ -64,6 +64,7 @@ export const getProductsSearch = async (request, response) => {
     return response.status(error.status || 500).json({message: error.message || "Error interno del servidor."});
   }
 };
+
 //obtener producto por id
 export const getProductById = async (request, response) => {
 

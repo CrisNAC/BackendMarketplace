@@ -13,4 +13,5 @@ router.post("/", authenticate, createProduct);
 router.put("/:id", authenticate, updateProduct);
 router.get("/", getProductsSearch);
 router.get("/:id", getProductById);
+
 export default router;
