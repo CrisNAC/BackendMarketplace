@@ -554,34 +554,12 @@ export const getProductsSearchService = async (filters) => {
         search: search,
         sort: "desc"
       }
-    }
-  })])
-  return {
-    products,
-  pagination: {
-    totalProducts,
-    page,
-    limit,
-    totalPages: Math.ceil(totalProducts/limit)
-  }};
-};
-
-export const getProductByIdService = async (id)=>{
-
-  const productId = Number(id);
-
-  if(!Number.isInteger(productId) || productId <= 0){
-
-    throw {
-      status:400,
-      message:"ID de producto inválido"
     };
   }
 
   const [totalProducts, products] = await Promise.all([
-    prisma.products.count({ where }), // se calcula el total de productos que cumplen el filtro
+    prisma.products.count({ where }),
     prisma.products.findMany({
-      // se trae los productos segun el filtro
       where,
       skip,
       take: limit,
@@ -600,15 +578,15 @@ export const getProductByIdService = async (id)=>{
       }
     })
   ]);
+
   return {
     products,
-    pagination: {
-      totalProducts,
-      page,
-      limit,
-      totalPages: Math.ceil(totalProducts / limit)
-    }
-  };
+  pagination: {
+    totalProducts,
+    page,
+    limit,
+    totalPages: Math.ceil(totalProducts/limit)
+  }};
 };
 
 export const getProductByIdService = async (id) => {
