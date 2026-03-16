@@ -2,6 +2,7 @@ import {
     createUserService,
     updateUserPasswordService,
     updateUserService,
+    getUserProfileService
 } from "../services/users.services.js";
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -92,4 +93,30 @@ export const updateUserPassword = async (req, res) => {
             message: error.message || "Error interno del servidor",
         });
     }
+}
+export const getUserProfile = async (req,res) => {
+
+    try{
+
+        const {id_user} = req.params;
+
+        const user = await getUserProfileService(
+            req.user?.id_user,
+            id_user
+        );
+
+        return res.status(200).json({
+            success:true,
+            data:user
+        });
+
+    }catch(error){
+
+        return res.status(error.status || 500).json({
+            success:false,
+            message:error.message
+        });
+
+    }
+
 }
