@@ -64,6 +64,9 @@ export const getStoreById = async (req, res) => {
   try {
     const { id } = req.params;
     const store = await getStoreByIdService(id);
+    if (!store || !store.status) {
+      throw { status: 404, message: "Comercio no encontrado" };
+    }
     return res.status(200).json(store);
   } catch (error) {
     return res.status(error.status || 500).json({
@@ -125,7 +128,7 @@ export const deleteStore = async (req, res) => {
     const token = req.cookies.userToken;
     if (!token) {
       console.error("Usuario no autenticado.");
-      return res.status(401).json({ success: false, error: "Usuario no autenticado."});
+      return res.status(401).json({ message: "Usuario no autenticado."});
     }
 
     //se descifra el token para obtener el usuario
@@ -134,28 +137,19 @@ export const deleteStore = async (req, res) => {
 
     //se obtiene el parametro id de la url
     const id_store = parseInt(req.params.id);
+    if (isNaN(id_store) || id_store <= 0) return res.status(400).json({ message: "Id de comercio invalido."}); //validacion de id
 
     //se ejecuta el servicio delete
-    const result = await deleteStoreService(id_user, id_store);
-
-    //Manejo de ciertos errores
-    if (result.error === "NOT_FOUND") {
-      console.info("Comercio no encontrado")
-      return res.status(404).json({ message: "Comercio no encontrado"});
-    }
-    if (result.error === "FORBIDDEN") {
-      console.info("No tienes permiso para eliminar este comercio.")
-      return res.status(403).json({ message: "No tienes permiso para eliminar este comercio." });
-    }
-
+    await deleteStoreService(id_user, id_store);
 
     //en caso de exito se retorna el emsaje correspondiente
     console.info("Se eliminó correctamente el comercio...")
     return res.status(204).send();
   }
   catch (error) {
+    if(error.status) return res.status(error.status).json({ message: error.message })
     console.error("Error al eliminar el comercio: ", error);
-    return res.status(500).json({ error: "Error interno del servidor." })
+    return res.status(500).json({ message: "Error interno del servidor." })
   }
 }
 
