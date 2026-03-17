@@ -24,6 +24,9 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,12 +39,10 @@ jobs:
       # Esperar a que Postgres esté listo
       - run: npx wait-on tcp:5432
 
-      # Crear schema
-      - name: Push DB schema
-        run: npx prisma db push
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+      - run: node -e "console.log(process.env.DATABASE_URL)"
 
+      # Crear schema
+      - run: npx prisma db push
+
+      # Ejecutar tests
       - run: npm run test:run
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
