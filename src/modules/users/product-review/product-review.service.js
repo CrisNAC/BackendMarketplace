@@ -1,4 +1,3 @@
-// src/modules/users/product-reviews/product-review.service.js
 import { prisma } from "../../../lib/prisma.js";
 
 export const createProductReviewService = async (productId, customerId, data) => {

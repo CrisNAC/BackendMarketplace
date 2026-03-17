@@ -1,4 +1,3 @@
-// src/modules/users/product-reviews/product-review.controller.js
 import { createProductReviewService } from "./product-review.service.js";
 
 export const createProductReview = async (req, res) => {
