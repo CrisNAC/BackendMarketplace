@@ -831,7 +831,8 @@ export const deleteStoreService = async (id_user, id_store) => {
 
   await prisma.$transaction([ // transaccion en donde ocurren los cambios de estados para el comercio y sus respectivos productos
     prisma.stores.update({ where: { id_store }, data: { status: false }}),
-    prisma.products.updateMany({ where: { fk_store: id_store }, data: { status: false } })
+    prisma.products.updateMany({ where: { fk_store: id_store }, data: { status: false } }),
+    prisma.users.update({ where: { id_user }, data: { role: "CUSTOMER"} }) //actualizar role del usuario a CUSTOMER
   ])
   return { success: true };
 }
