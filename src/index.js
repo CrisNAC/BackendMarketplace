@@ -13,6 +13,8 @@ import productReviewRoutes from "./modules/commerce/product-reviews/product-revi
 import userRoutes from "./modules/users/users/routes/users.routes.js";
 import addressRoutes from "./modules/users/addresses/routes/addresses.routes.js";
 import sessionRoutes from "./modules/session/routes/session.routes.js";
+import userProductReviewRoutes from "./modules/users/product-review/product-review.routes.js";
+
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { NotFoundError } from "./lib/errors.js";
 
@@ -40,7 +42,11 @@ app.use("/api/commerces", commerceAddressRoutes);
 app.use("/api/categories", categoriesRoutes); 
 app.use("/products/tags", productTagRoutes);
 app.use("/products/reviews", productReviewRoutes);
- app.use("/products", productRoutes);
+app.use("/products", productRoutes);
+
+// Rutas del Cliente
+app.use("/products/:id/reviews", userProductReviewRoutes);
+
 // Rutas de usuarios
 app.use("/api/users", userRoutes);
 app.use("/api/users", addressRoutes);
