@@ -613,16 +613,23 @@ export const getProductsSearchService = async (filters) => {
 
 export const deleteProductService = async (authenticatedUserId, productId) => {
   const sellerStoreId = await getAuthenticatedSellerStore(authenticatedUserId);
+
+  // Verifica existencia del producto (lanza 404 si no existe o ya fue eliminado)
   const existingProduct = await getExistingProductForUpdateService(productId);
 
-  if (existingProduct.fk_store !== sellerStoreId) {
-    throw new ForbiddenError("No tiene permisos para eliminar este producto");
-  }
-
-  await prisma.products.update({
-    where: { id_product: existingProduct.id_product },
+  // Actualización atómica con ownership en el WHERE para evitar race conditions
+  const result = await prisma.products.updateMany({
+    where: {
+      id_product: existingProduct.id_product,
+      fk_store: sellerStoreId,
+      status: true
+    },
     data: { status: false, visible: false }
   });
+
+  if (result.count === 0) {
+    throw new ForbiddenError("No tiene permisos para eliminar este producto");
+  }
 };
 
 export const getProductByIdService = async (id) => {

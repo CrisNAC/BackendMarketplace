@@ -68,6 +68,13 @@ export const getProductsSearch = async (request, response) => {
 
 export const deleteProduct = async (req, res, next) => {
   try {
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        success: false,
+        message: "Usuario autenticado requerido"
+      });
+    }
+
     await deleteProductService(req.user.id_user, req.params.id);
     return res.status(204).send();
   } catch (error) {
