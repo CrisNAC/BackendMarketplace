@@ -66,12 +66,32 @@ export const createProductReviewService = async (productId, customerId, data) =>
     throw { status: 403, message: "Solo podés reseñar productos que hayas recibido" };
   }
 
-  // 4. Crear la reseña — Revisión 3: manejamos P2002 para la race condition
-  try {
-    const review = await prisma.productReviews.create({
+  // 4. Buscar si ya existe una reseña (activa o borrada)
+  const existingReview = await prisma.productReviews.findFirst({
+    where: {
+      fk_user: buyerId,
+      fk_product: id
+    },
+    select: {
+      id_product_review: true,
+      status: true
+    }
+  });
+
+  // Si existe y está activa → no puede crear otra
+  if (existingReview && existingReview.status === true) {
+    throw { status: 400, message: "Ya dejaste una reseña para este producto" };
+  }
+
+  // 5. Crear o reactivar la reseña
+  let review;
+
+  if (existingReview && existingReview.status === false) {
+    // Reactivar la reseña borrada con los nuevos datos — no necesita try/catch
+    // porque update no puede violar unicidad
+    review = await prisma.productReviews.update({
+      where: { id_product_review: existingReview.id_product_review },
       data: {
-        fk_user: buyerId,
-        fk_product: id,
         rating,
         comment: data.comment?.trim() || null,
         approved: true,
@@ -86,20 +106,41 @@ export const createProductReviewService = async (productId, customerId, data) =>
         user: { select: { name: true } }
       }
     });
-
-    return {
-      id: review.id_product_review,
-      customerName: review.user.name,
-      rating: review.rating,
-      comment: review.comment,
-      date: review.created_at,
-      isVerified: review.approved
-    };
-  } catch (err) {
-    // Revisión 3: P2002 = violación de constraint único → reseña duplicada
-    if (err?.code === "P2002") {
-      throw { status: 400, message: "Ya dejaste una reseña para este producto" };
+  } else {
+    // Crear reseña nueva — acá sí puede ocurrir P2002 en race condition
+    try {
+      review = await prisma.productReviews.create({
+        data: {
+          fk_user: buyerId,
+          fk_product: id,
+          rating,
+          comment: data.comment?.trim() || null,
+          approved: true,
+          status: true
+        },
+        select: {
+          id_product_review: true,
+          rating: true,
+          comment: true,
+          approved: true,
+          created_at: true,
+          user: { select: { name: true } }
+        }
+      });
+    } catch (err) {
+      if (err?.code === "P2002") {
+        throw { status: 400, message: "Ya dejaste una reseña para este producto" };
+      }
+      throw err;
     }
-    throw err;
   }
+
+  return {
+    id: review.id_product_review,
+    customerName: review.user.name,
+    rating: review.rating,
+    comment: review.comment,
+    date: review.created_at,
+    isVerified: review.approved
+  };
 };
