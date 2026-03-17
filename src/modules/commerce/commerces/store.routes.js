@@ -3,16 +3,22 @@ import { Router } from "express";
 import  authenticate  from '../../../config/jwt.config.js';
 import { 
     createStore,
+    updateStore,
     getStoreById,
+    getStores,
     getAllProductsByStore,
-    filterStoreProducts 
+    filterStoreProducts, 
+    deleteStore
 } from "./store.controller.js";
 
 const router = Router();
 
-router.post("/", createStore);
-router.get("/:id_store", getStoreById);
-router.get("/:id_store/products", getAllProductsByStore);
-router.get("/:id_store/products/filter", filterStoreProducts);
+router.post("/", authenticate, createStore);
+router.put("/:id", authenticate, updateStore);
+router.get("/", getStores);
+router.get("/:id", getStoreById);
+router.get("/products/:id", getAllProductsByStore);
+router.get("/products/filter/:id", filterStoreProducts);
+router.delete("/:id", deleteStore);
 
 export default router;
