@@ -4,6 +4,7 @@ import {
   parseProductTagIdsService,
   validateProductTagsService
 } from "../product-tags/product-tag.service.js";
+import { ForbiddenError } from "../../../lib/errors.js";
 
 const DEFAULT_PRODUCT_INITIAL_STATUS = "pending";
 const ALLOWED_PRODUCT_INITIAL_STATUS = new Set(["pending", "active"]);
@@ -609,6 +610,20 @@ export const getProductsSearchService = async (filters) => {
   }};
 };
 
+
+export const deleteProductService = async (authenticatedUserId, productId) => {
+  const sellerStoreId = await getAuthenticatedSellerStore(authenticatedUserId);
+  const existingProduct = await getExistingProductForUpdateService(productId);
+
+  if (existingProduct.fk_store !== sellerStoreId) {
+    throw new ForbiddenError("No tiene permisos para eliminar este producto");
+  }
+
+  await prisma.products.update({
+    where: { id_product: existingProduct.id_product },
+    data: { status: false, visible: false }
+  });
+};
 
 export const getProductByIdService = async (id) => {
   const productId = parsePositiveInteger(id, "ID de producto");

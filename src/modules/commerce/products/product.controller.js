@@ -2,7 +2,8 @@ import {
   createProductService,
   getProductsSearchService,
   getProductByIdService,
-  updateProductService
+  updateProductService,
+  deleteProductService
 } from "./product.service.js";
 
 export const createProduct = async (req, res) => {
@@ -62,6 +63,15 @@ export const getProductsSearch = async (request, response) => {
   catch (error) {
     console.error("Error al obtener productos:", error);
     return response.status(error.status || 500).json({message: error.message || "Error interno del servidor."});
+  }
+};
+
+export const deleteProduct = async (req, res, next) => {
+  try {
+    await deleteProductService(req.user.id_user, req.params.id);
+    return res.status(204).send();
+  } catch (error) {
+    next(error);
   }
 };
 

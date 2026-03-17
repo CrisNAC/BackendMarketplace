@@ -34,6 +34,17 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
+  // Compatibilidad con objetos planos lanzados como: throw { status: 404, message: "..." }
+  const legacyStatus = err?.status || err?.statusCode;
+  if (legacyStatus && err?.message) {
+    return res.status(legacyStatus).json({
+      error: {
+        code: legacyStatus,
+        message: err.message
+      }
+    });
+  }
+
   // Error inesperado — loguear internamente pero no exponer detalles al cliente
   console.error(`[ERROR INESPERADO] ${req.method} ${req.path}`, err);
 
