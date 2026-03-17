@@ -64,6 +64,9 @@ export const getStoreById = async (req, res) => {
   try {
     const { id } = req.params;
     const store = await getStoreByIdService(id);
+    if (!store || !store.status) {
+      throw { status: 404, message: "Comercio no encontrado" };
+    }
     return res.status(200).json(store);
   } catch (error) {
     return res.status(error.status || 500).json({
