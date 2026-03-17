@@ -1,8 +1,8 @@
 import express from "express";
-import dotenv from "dotenv";
 import morgan from "morgan";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+
 import storeRoutes from "./modules/commerce/commerces/store.routes.js";
 import commerceAddressRoutes from "./modules/commerce/addresses/routes/addresses.routes.js";
 import storeCategoryRoutes from "./modules/commerce/store-categories/store-category.routes.js";
@@ -18,9 +18,7 @@ import userProductReviewRoutes from "./modules/users/product-review/product-revi
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { NotFoundError } from "./lib/errors.js";
 
-dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 //Para debug en consola de las peticiones
 app.use(morgan('dev'));
@@ -34,7 +32,7 @@ app.use(cors({
 
 // Rutas de comercio
 app.use("/api/commerces/categories", storeCategoryRoutes);
-app.use("/api/commerces",storeRoutes);
+app.use("/api/commerces", storeRoutes);
 app.use("/api/commerces", commerceAddressRoutes);
 
 //Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
@@ -60,7 +58,4 @@ app.use((req, _res, next) => {
 // captura todos los errores de las rutas anteriores
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-	console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
-
+export default app;

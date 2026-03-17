@@ -103,6 +103,12 @@ export const userSession = async (req, res) => {
                 id_user: token_decodificado.id_user,
                 status: true,
             },
+            include: {
+                store: {
+                    where: { status: true },
+                    select: { id_store: true }
+                }
+            }
         });
 
         if (!user) {
@@ -119,7 +125,8 @@ export const userSession = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 phone: user.phone,
-                role: user.role
+                role: user.role,
+                id_store: user.store?.id_store ?? null
             },
         });
     } catch (error) {
