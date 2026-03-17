@@ -1,8 +1,6 @@
 //addresses.services.js
 import { prisma } from "../../../../lib/prisma.js";
-
-// limita la cantidad de direcciones activas que puede tener un usuario
-const MAX_USER_ADDRESSES = 5;
+import { getAuthorizedStoreOwnerService } from "../../commerces/store.service.js";
 
 // mantiene uniforme la informacion que devolvemos en las respuestas
 const ADDRESS_SELECT = {
@@ -30,49 +28,6 @@ const parsePositiveInteger = (value, fieldName) => {
     }
 
     return parsedValue;
-};
-
-// valida que el usuario autenticado sea el mismo de la ruta y que siga activo
-const getAuthorizedUserService = async (
-    authenticatedUserId,
-    requestedUserId
-) => {
-    if (!authenticatedUserId) {
-        throw {
-            status: 401,
-            message: "Usuario autenticado requerido",
-        };
-    }
-
-    const authenticatedId = parsePositiveInteger(
-        authenticatedUserId,
-        "ID de usuario autenticado"
-    );
-    const targetUserId = parsePositiveInteger(requestedUserId, "ID de usuario");
-
-    if (authenticatedId !== targetUserId) {
-        throw {
-            status: 403,
-            message: "No tiene permisos para gestionar estas direcciones",
-        };
-    }
-
-    const user = await prisma.users.findUnique({
-        where: { id_user: targetUserId },
-        select: {
-            id_user: true,
-            status: true,
-        },
-    });
-
-    if (!user || !user.status) {
-        throw {
-            status: 404,
-            message: "Usuario no encontrado o inactivo",
-        };
-    }
-
-    return user;
 };
 
 // valida campos de texto obligatorios al crear o editar una direccion
@@ -162,15 +117,14 @@ const buildAddressData = (payload, { requireAllFields = false } = {}) => {
     return data;
 };
 
-// busca una direccion personal activa y confirma que pertenezca al usuario autenticado
-const getOwnedPersonalAddressOrThrow = async (userId, requestedAddressId) => {
+// busca una direccion activa y confirma que pertenezca al comercio autenticado
+const getOwnedStoreAddressOrThrow = async (storeId, requestedAddressId) => {
     const addressId = parsePositiveInteger(requestedAddressId, "ID de direccion");
 
     const address = await prisma.addresses.findFirst({
         where: {
             id_address: addressId,
-            fk_user: userId,
-            fk_store: null,
+            fk_store: storeId,
             status: true,
         },
         select: ADDRESS_SELECT,
@@ -179,83 +133,50 @@ const getOwnedPersonalAddressOrThrow = async (userId, requestedAddressId) => {
     if (!address) {
         throw {
             status: 404,
-            message: "Direccion no encontrada",
+            message: "Direccion del comercio no encontrada",
         };
     }
 
     return address;
 };
 
-// crea una direccion personal y valida el limite maximo de direcciones activas
-export const createAddressService = async (
+// crea una direccion asociada al comercio del usuario autenticado
+export const createStoreAddressService = async (
     authenticatedUserId,
-    requestedUserId,
+    requestedStoreId,
     payload
 ) => {
-    const user = await getAuthorizedUserService(
+    const store = await getAuthorizedStoreOwnerService(
         authenticatedUserId,
-        requestedUserId
+        requestedStoreId
     );
     const dataToCreate = buildAddressData(payload, { requireAllFields: true });
 
-    const newAddress = await prisma.$transaction(async (tx) => {
-        const lockedUsers = await tx.$queryRaw`
-            SELECT 1
-            FROM "Users"
-            WHERE "id_user" = ${user.id_user}
-              AND "status" = TRUE
-            FOR UPDATE
-        `;
-
-        if (!lockedUsers.length) {
-            throw {
-                status: 404,
-                message: "Usuario no encontrado o inactivo",
-            };
-        }
-
-        const addressesFromUser = await tx.addresses.count({
-            where: {
-                fk_user: user.id_user,
-                fk_store: null,
-                status: true,
-            },
-        });
-
-        if (addressesFromUser >= MAX_USER_ADDRESSES) {
-            throw {
-                status: 400,
-                message: `El usuario ya alcanzo el limite de ${MAX_USER_ADDRESSES} direcciones`,
-            };
-        }
-
-        return tx.addresses.create({
-            data: {
-                fk_user: user.id_user,
-                fk_store: null,
-                ...dataToCreate,
-            },
-            select: ADDRESS_SELECT,
-        });
+    const newAddress = await prisma.addresses.create({
+        data: {
+            fk_user: store.fk_user,
+            fk_store: store.id_store,
+            ...dataToCreate,
+        },
+        select: ADDRESS_SELECT,
     });
 
     return newAddress;
 };
 
-// devuelve la lista de direcciones personales activas del usuario autenticado
-export const getAddressesByUserService = async (
+// devuelve la lista de direcciones activas del comercio autenticado
+export const getStoreAddressesService = async (
     authenticatedUserId,
-    requestedUserId
+    requestedStoreId
 ) => {
-    const user = await getAuthorizedUserService(
+    const store = await getAuthorizedStoreOwnerService(
         authenticatedUserId,
-        requestedUserId
+        requestedStoreId
     );
 
     const addresses = await prisma.addresses.findMany({
         where: {
-            fk_user: user.id_user,
-            fk_store: null,
+            fk_store: store.id_store,
             status: true,
         },
         orderBy: {
@@ -267,80 +188,60 @@ export const getAddressesByUserService = async (
     return addresses;
 };
 
-// devuelve una sola direccion si pertenece al usuario autenticado
-export const getAddressByIdService = async (
+// devuelve una sola direccion del comercio autenticado
+export const getStoreAddressByIdService = async (
     authenticatedUserId,
-    requestedUserId,
+    requestedStoreId,
     requestedAddressId
 ) => {
-    const user = await getAuthorizedUserService(
+    const store = await getAuthorizedStoreOwnerService(
         authenticatedUserId,
-        requestedUserId
+        requestedStoreId
     );
 
-    return getOwnedPersonalAddressOrThrow(user.id_user, requestedAddressId);
+    return getOwnedStoreAddressOrThrow(store.id_store, requestedAddressId);
 };
 
-// actualiza solo los campos enviados de una direccion personal del usuario
-export const updateAddressService = async (
+// actualiza una direccion puntual del comercio autenticado
+export const updateStoreAddressService = async (
     authenticatedUserId,
-    requestedUserId,
+    requestedStoreId,
     requestedAddressId,
     payload
 ) => {
-    const user = await getAuthorizedUserService(
+    const store = await getAuthorizedStoreOwnerService(
         authenticatedUserId,
-        requestedUserId
+        requestedStoreId
     );
-    const addressId = parsePositiveInteger(requestedAddressId, "ID de direccion");
+    const existingAddress = await getOwnedStoreAddressOrThrow(
+        store.id_store,
+        requestedAddressId
+    );
     const dataToUpdate = buildAddressData(payload);
 
-    const updatedAddresses = await prisma.addresses.updateMany({
+    const updatedAddress = await prisma.addresses.update({
         where: {
-            id_address: addressId,
-            fk_user: user.id_user,
-            fk_store: null,
-            status: true,
+            id_address: existingAddress.id_address,
         },
         data: dataToUpdate,
-    });
-
-    if (updatedAddresses.count !== 1) {
-        throw {
-            status: 404,
-            message: "Direccion no encontrada",
-        };
-    }
-
-    const updatedAddress = await prisma.addresses.findUnique({
-        where: {
-            id_address: addressId,
-        },
         select: ADDRESS_SELECT,
     });
-
-    if (!updatedAddress) {
-        throw {
-            status: 500,
-            message: "No se pudo recuperar la direccion actualizada",
-        };
-    }
 
     return updatedAddress;
 };
 
-// aplica borrado logico para que la direccion deje de estar disponible
-export const deleteAddressService = async (
+// aplica borrado logico para desactivar una direccion del comercio
+export const deleteStoreAddressService = async (
     authenticatedUserId,
-    requestedUserId,
+    requestedStoreId,
     requestedAddressId
 ) => {
-    const user = await getAuthorizedUserService(
+    const store = await getAuthorizedStoreOwnerService(
         authenticatedUserId,
-        requestedUserId
+        requestedStoreId
     );
-    const existingAddress = await getOwnedPersonalAddressOrThrow(
-        user.id_user,
+    const existingAddress = await getOwnedStoreAddressOrThrow(
+        store.id_store,
         requestedAddressId
     );
 
