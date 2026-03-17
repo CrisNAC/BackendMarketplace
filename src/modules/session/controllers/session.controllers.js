@@ -105,6 +105,7 @@ export const userSession = async (req, res) => {
             },
             include: {
                 store: {
+                    where: { status: true },
                     select: { id_store: true }
                 }
             }
