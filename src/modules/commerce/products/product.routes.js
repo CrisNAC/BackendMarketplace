@@ -5,15 +5,15 @@ import {
   getProductsSearch,
   getProductById,
   updateProduct,
-  deleteProduct
+  compareProducts
 } from "./product.controller.js";
 
 const router = Router();
 
 router.post("/", authenticate, createProduct);
 router.put("/:id", authenticate, updateProduct);
-router.delete("/:id", authenticate, deleteProduct);
 router.get("/", getProductsSearch);
+router.get("/compare/search", compareProducts);
 router.get("/:id", getProductById);
 
 export default router;

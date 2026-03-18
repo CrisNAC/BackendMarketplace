@@ -4,7 +4,6 @@ import {
   parseProductTagIdsService,
   validateProductTagsService
 } from "../product-tags/product-tag.service.js";
-import { ForbiddenError } from "../../../lib/errors.js";
 
 const DEFAULT_PRODUCT_INITIAL_STATUS = "pending";
 const ALLOWED_PRODUCT_INITIAL_STATUS = new Set(["pending", "active"]);
@@ -568,14 +567,25 @@ export const getProductsSearchService = async (filters) => {
       { description: { contains: search, mode: "insensitive" } }
     ];
 
+    // Sanitizar el término para usarlo en búsquedas de relevancia (tsquery)
+    const safeSearch = search
+      // reemplazar caracteres reservados de tsquery por espacios
+      .replace(/[':()&|!]/g, " ")
+      .trim()
+      // convertir espacios múltiples en operador AND
+      .split(/\s+/)
+      .join(" & ");
+
     // cambia el orden, solo si se busca o filtra por algun parametro
-    orderBy = {
-      _relevance: {
-        fields: ["name"],
-        search: search,
-        sort: "desc"
-      }
-    };
+    orderBy = safeSearch
+      ? {
+          _relevance: {
+            fields: ["name"],
+            search: safeSearch,
+            sort: "desc"
+          }
+        }
+      : orderBy;
   }
 
   const [totalProducts, products] = await Promise.all([
@@ -610,27 +620,6 @@ export const getProductsSearchService = async (filters) => {
   }};
 };
 
-
-export const deleteProductService = async (authenticatedUserId, productId) => {
-  const sellerStoreId = await getAuthenticatedSellerStore(authenticatedUserId);
-
-  // Verifica existencia del producto (lanza 404 si no existe o ya fue eliminado)
-  const existingProduct = await getExistingProductForUpdateService(productId);
-
-  // Actualización atómica con ownership en el WHERE para evitar race conditions
-  const result = await prisma.products.updateMany({
-    where: {
-      id_product: existingProduct.id_product,
-      fk_store: sellerStoreId,
-      status: true
-    },
-    data: { status: false, visible: false }
-  });
-
-  if (result.count === 0) {
-    throw new ForbiddenError("No tiene permisos para eliminar este producto");
-  }
-};
 
 export const getProductByIdService = async (id) => {
   const productId = parsePositiveInteger(id, "ID de producto");
