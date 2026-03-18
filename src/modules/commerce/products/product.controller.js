@@ -146,7 +146,7 @@ export const compareProducts = async (request, response) => {
     }));
 
     return response.status(200).json({
-      product: baseProduct,
+      product: offers[0],  // Usa la versión normalizada
       offers,
       pagination: result.pagination
     });
