@@ -5,7 +5,8 @@ import {
   getProductsSearch,
   getProductById,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  compareProducts
 } from "./product.controller.js";
 
 const router = Router();
@@ -15,5 +16,6 @@ router.put("/:id", authenticate, updateProduct);
 router.delete("/:id", authenticate, deleteProduct);
 router.get("/", getProductsSearch);
 router.get("/:id", getProductById);
+router.get("/compare/search", compareProducts);
 
 export default router;

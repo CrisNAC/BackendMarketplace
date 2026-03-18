@@ -103,3 +103,58 @@ export const getProductById = async (request, response) => {
     });
   }
 };
+
+
+// Comparar productos similares por precio entre distintas tiendas
+export const compareProducts = async (request, response) => {
+  try {
+    const { search, categoryId } = request.query;
+
+    // Reutiliza la búsqueda actual, pero con un límite mayor
+    const filters = {
+      search,
+      categoryId,
+      page: 1,
+      limit: 50
+    };
+
+    const result = await getProductsSearchService(filters);
+    const products = Array.isArray(result?.products) ? result.products : [];
+
+    if (!products.length) {
+      return response.status(200).json({
+        product: null,
+        offers: [],
+        pagination: result?.pagination || null
+      });
+    }
+
+    // Producto base: el primero de la lista (más relevante según tu servicio)
+    const baseProduct = products[0];
+
+    const offers = products.map((p) => ({
+      productId: p.id_product,
+      name: p.name,
+      description: p.description,
+      price: Number(p.price),
+      store: p.store
+        ? {
+            id: p.store.id_store,
+            name: p.store.name
+          }
+        : null
+    }));
+
+    return response.status(200).json({
+      product: baseProduct,
+      offers,
+      pagination: result.pagination
+    });
+  } catch (error) {
+    console.error("Error al comparar productos:", error);
+    return response
+      .status(error.status || 500)
+      .json({ message: error.message || "Error interno del servidor." });
+  }
+};
+
