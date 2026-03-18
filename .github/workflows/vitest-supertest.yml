@@ -1,0 +1,46 @@
+name: Vitest + Supertest (Backend)
+
+on:
+  pull_request:
+    branches: [ dev, main ]
+
+jobs:
+  test:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - run: npm install
+
+      # Esperar a que Postgres esté listo
+      - run: npx wait-on tcp:5432
+
+      # Crear schema
+      - run: npx prisma db push
+
+      # Ejecutar tests
+      - run: npm run test:run

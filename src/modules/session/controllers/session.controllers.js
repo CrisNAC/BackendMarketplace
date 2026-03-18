@@ -98,11 +98,17 @@ export const userSession = async (req, res) => {
 
         const token_decodificado = jwt.verify(token, process.env.JWT_SECRET);
 
-        const user = await prisma.usuario.findFirst({
+        const user = await prisma.users.findFirst({
             where: {
                 id_user: token_decodificado.id_user,
                 status: true,
             },
+            include: {
+                store: {
+                    where: { status: true },
+                    select: { id_store: true }
+                }
+            }
         });
 
         if (!user) {
@@ -119,7 +125,8 @@ export const userSession = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 phone: user.phone,
-                role: user.role
+                role: user.role,
+                id_store: user.store?.id_store ?? null
             },
         });
     } catch (error) {

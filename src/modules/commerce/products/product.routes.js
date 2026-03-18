@@ -1,19 +1,19 @@
 import { Router } from "express";
-import { 
-    createProduct,
-    getProductById,
-    getProductsSearch,
+import authenticate from "../../../config/jwt.config.js";
+import {
+  createProduct,
+  getProductsSearch,
+  getProductById,
+  updateProduct,
+  deleteProduct
 } from "./product.controller.js";
-import { 
-    CreateProductDTO, 
-    FilterProductDTO,
-} from ".dtos/index";
-import validate from "@/middlewares/validate.middleware.js";
 
 const router = Router();
 
-router.post("/", validate(CreateProductDTO), createProduct);
+router.post("/", authenticate, createProduct);
+router.put("/:id", authenticate, updateProduct);
+router.delete("/:id", authenticate, deleteProduct);
+router.get("/", getProductsSearch);
 router.get("/:id", getProductById);
-router.get("/", validate(FilterProductDTO, "query"), getProductsSearch);
 
 export default router;

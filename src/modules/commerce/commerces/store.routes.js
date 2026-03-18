@@ -3,9 +3,12 @@ import { Router } from "express";
 import  authenticate  from '@/config/jwt.config.js';
 import { 
     createStore,
+    updateStore,
     getStoreById,
+    getStores,
     getAllProductsByStore,
-    filterStoreProducts 
+    filterStoreProducts, 
+    deleteStore
 } from "./store.controller.js";
 import { 
     CreateStoreDTO,
@@ -14,9 +17,12 @@ import { validate } from "../../../middlewares/validate.middleware.js";
 
 const router = Router();
 
-router.post("/", validate(CreateStoreDTO, "body"), createStore);
+router.post("/", authenticate, createStore);
+router.put("/:id", authenticate, updateStore);
+router.get("/", getStores);
 router.get("/:id", getStoreById);
 router.get("/products/:id", getAllProductsByStore);
 router.get("/products/filter/:id", filterStoreProducts);
+router.delete("/:id", deleteStore);
 
 export default router;
