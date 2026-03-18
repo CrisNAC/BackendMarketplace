@@ -13,15 +13,15 @@ export const createProductReview = async (req, res) => {
     const review = await createProductReviewService(req.params.id, customerId, req.body);
     return res.status(201).json(review);
   } catch (error) {
-    // Revisión 2: limitar al rango HTTP válido 400-599, fallback a 500
-    const rawStatus = error?.status;
-    const status =
-      Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 599
-        ? rawStatus
-        : 500;
+    const safeMessage =
+      error.status < 500 && typeof error?.message === "string" && error.message.trim()
+        ? error.message
+        : error.status < 500
+          ? "Solicitud inválida"
+          : "Error interno del servidor";
 
-    return res.status(status).json({
-      message: status < 500 ? error.message : "Error interno del servidor"
+    return res.status(error.status).json({
+      message: safeMessage
     });
   }
 };
