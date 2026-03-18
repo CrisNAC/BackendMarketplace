@@ -1,8 +1,10 @@
-import { prisma } from "../../../../../src/lib/prisma.js";
+//addresses.services.js
+import { prisma } from "../../../../lib/prisma.js";
 
 // limita la cantidad de direcciones activas que puede tener un usuario
 const MAX_USER_ADDRESSES = 5;
 
+// mantiene uniforme la informacion que devolvemos en las respuestas
 const ADDRESS_SELECT = {
     id_address: true,
     fk_user: true,
@@ -14,8 +16,9 @@ const ADDRESS_SELECT = {
     status: true,
     created_at: true,
     updated_at: true,
-}
+};
 
+// asegura que los ids recibidos por params sean enteros positivos
 const parsePositiveInteger = (value, fieldName) => {
     const parsedValue = Number(value);
 
@@ -91,9 +94,9 @@ const validateRequiredStringField = (value, fieldName, maxLength = null) => {
     }
 
     return parsedValue;
-}
+};
 
-// normaliza campos opcionales para permitir null cuando corresponde
+// normaliza campos opcionales para permitir null cuando corresponda
 const validateOptionalStringField = (value, fieldName, maxLength = null) => {
     if (value === undefined) {
         return undefined;
@@ -120,8 +123,9 @@ const validateOptionalStringField = (value, fieldName, maxLength = null) => {
     }
 
     return parsedValue;
-}
+};
 
+// centraliza la validacion del payload para reutilizarla en create y update
 const buildAddressData = (payload, { requireAllFields = false } = {}) => {
     const data = {};
 
@@ -156,10 +160,10 @@ const buildAddressData = (payload, { requireAllFields = false } = {}) => {
     }
 
     return data;
-}
+};
 
 // busca una direccion personal activa y confirma que pertenezca al usuario autenticado
-const getOwnedPersonalAddressOrThrow = async (userId, requestAddressId) => {
+const getOwnedPersonalAddressOrThrow = async (userId, requestedAddressId) => {
     const addressId = parsePositiveInteger(requestedAddressId, "ID de direccion");
 
     const address = await prisma.addresses.findFirst({
@@ -180,12 +184,15 @@ const getOwnedPersonalAddressOrThrow = async (userId, requestAddressId) => {
     }
 
     return address;
-}
+};
 
 // crea una direccion personal y valida el limite maximo de direcciones activas
-export const createAddressService = async (authenticatedUserId, requestedUserId, payload) => {
-    const { fk_store, address, city, region, postal_code } = payload;
-
+export const createAddressService = async (
+    authenticatedUserId,
+    requestedUserId,
+    payload
+) => {
+    //const { fk_store, address, city, region, postal_code } = payload;
     const user = await getAuthorizedUserService(
         authenticatedUserId,
         requestedUserId
@@ -196,11 +203,11 @@ export const createAddressService = async (authenticatedUserId, requestedUserId,
     const newAddress = await prisma.$transaction(async (tx) => {
 
         const lockedUsers = await tx.$queryRaw`
-        SELECT 1
-        FROM "Users"
-        WHERE "id_user" = ${user.id_user}
-        AND "status" = TRUE
-        FOR UPDATE
+            SELECT 1
+            FROM "Users"
+            WHERE "id_user" = ${user.id_user}
+            AND "status" = TRUE
+            FOR UPDATE
         `;
 
         if (!lockedUsers.length) {
@@ -234,10 +241,10 @@ export const createAddressService = async (authenticatedUserId, requestedUserId,
             select: ADDRESS_SELECT,
         });
 
-    })
+    });
 
     return newAddress;
-}
+};
 
 // devuelve la lista de direcciones personales activas del usuario autenticado
 export const getAddressesByUserService = async (
@@ -322,7 +329,6 @@ export const updateAddressService = async (
             message: "No se pudo recuperar la direccion actualizada",
         };
     }
-
     return updatedAddress;
 };
 
