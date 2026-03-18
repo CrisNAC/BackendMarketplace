@@ -1,8 +1,9 @@
 import { prisma } from "../../../../lib/prisma.js";
+import { ValidationError, NotFoundError } from "../../../../lib/errors.js";
 
 export const validateProductCategoryService = async (categoryId) => {
   if (!Number.isInteger(categoryId) || categoryId <= 0) {
-    throw { status: 400, message: "categoryId debe ser un numero valido" };
+    throw new ValidationError("categoryId debe ser un numero valido");
   }
 
   const category = await prisma.productCategories.findUnique({
@@ -11,7 +12,7 @@ export const validateProductCategoryService = async (categoryId) => {
   });
 
   if (!category || !category.status) {
-    throw { status: 400, message: "categoryId no es valida" };
+    throw new NotFoundError("categoryId no es valida");
   }
 };
 

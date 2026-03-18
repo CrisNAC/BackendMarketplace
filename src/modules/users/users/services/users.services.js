@@ -5,7 +5,6 @@ import bcrypt from "bcrypt";
 //const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-
 const USER_PROFILE_SELECT = {
     id_user: true,
     name: true,
@@ -364,27 +363,3 @@ export const updateUserPasswordService = async (
     return updatedUser;
 };
 
-export const getUserProfileService = async (authenticatedUserId, requestedUserId) => {
-
-    const userProfile = await getAuthorizedUserService(
-        authenticatedUserId,
-        requestedUserId
-    );
-
-    const user = await prisma.users.findFirst({
-        where: {
-            id_user: userProfile.id_user,
-            status: true,
-        },
-        select: USER_PROFILE_SELECT
-    });
-
-    if (!user) {
-        throw {
-            status: 404,
-            message: "Usuario no encontrado o inactivo",
-        };
-    }
-
-    return user;
-};

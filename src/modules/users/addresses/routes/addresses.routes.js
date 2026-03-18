@@ -1,6 +1,13 @@
+//addresses.routes.js
 import { Router } from "express";
 import authenticate from "../../../../config/jwt.config.js";
-import { createAddress, updateAddress, deleteAddress, getAddressById, getAddressesByUser } from "../controllers/addresses.controllers.js";
+import {
+    createAddress,
+    deleteAddress,
+    getAddressById,
+    getAddressesByUser,
+    updateAddress,
+} from "../controllers/addresses.controllers.js";
 
 const router = Router();
 

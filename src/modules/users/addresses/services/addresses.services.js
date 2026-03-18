@@ -197,11 +197,9 @@ export const createAddressService = async (
         authenticatedUserId,
         requestedUserId
     );
-
     const dataToCreate = buildAddressData(payload, { requireAllFields: true });
 
     const newAddress = await prisma.$transaction(async (tx) => {
-
         const lockedUsers = await tx.$queryRaw`
             SELECT 1
             FROM "Users"
@@ -240,7 +238,6 @@ export const createAddressService = async (
             },
             select: ADDRESS_SELECT,
         });
-
     });
 
     return newAddress;
@@ -329,7 +326,85 @@ export const updateAddressService = async (
             message: "No se pudo recuperar la direccion actualizada",
         };
     }
+
+    if (!updatedAddress) {
+        throw {
+            status: 500,
+            message: "No se pudo recuperar la direccion actualizada",
+        };
+    }
+
+    if (!updatedAddress) {
+        throw {
+            status: 500,
+            message: "No se pudo recuperar la direccion actualizada",
+        };
+    }
     return updatedAddress;
+};
+
+// aplica borrado logico para que la direccion deje de estar disponible
+export const deleteAddressService = async (
+    authenticatedUserId,
+    requestedUserId,
+    requestedAddressId
+) => {
+    const user = await getAuthorizedUserService(
+        authenticatedUserId,
+        requestedUserId
+    );
+    const existingAddress = await getOwnedPersonalAddressOrThrow(
+        user.id_user,
+        requestedAddressId
+    );
+
+    const deletedAddress = await prisma.addresses.update({
+        where: {
+            id_address: existingAddress.id_address,
+        },
+        data: {
+            status: false,
+        },
+        select: {
+            id_address: true,
+            status: true,
+            updated_at: true,
+        },
+    });
+
+    return deletedAddress;
+};
+
+// aplica borrado logico para que la direccion deje de estar disponible
+export const deleteAddressService = async (
+    authenticatedUserId,
+    requestedUserId,
+    requestedAddressId
+) => {
+    const user = await getAuthorizedUserService(
+        authenticatedUserId,
+        requestedUserId
+    );
+    const existingAddress = await getOwnedPersonalAddressOrThrow(
+        user.id_user,
+        requestedAddressId
+    );
+
+    const deletedAddress = await prisma.addresses.update({
+        where: {
+            id_address: existingAddress.id_address,
+        },
+        data: {
+            status: false,
+        },
+        select: {
+            id_address: true,
+            status: true,
+            updated_at: true,
+        },
+    });
+
+    return deletedAddress;
 };
 
 // aplica borrado logico para que la direccion deje de estar disponible

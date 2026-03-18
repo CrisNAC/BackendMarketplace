@@ -1,4 +1,9 @@
-import { createUserService, updateUserPasswordService, updateUserService, getUserProfileService } from "../services/users.services.js";
+import {
+    createUserService,
+    updateUserPasswordService,
+    updateUserService,
+    getUserProfileService
+} from "../services/users.services.js";
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -89,7 +94,6 @@ export const updateUserPassword = async (req, res) => {
         });
     }
 }
-
 export const getUserProfile = async (req,res) => {
 
     try{

@@ -1,14 +1,48 @@
-import { createProductService, getProductsSearchService, getProductByIdService} from "./product.service.js";
+import {
+  createProductService,
+  getProductsSearchService,
+  getProductByIdService,
+  updateProductService,
+  deleteProductService
+} from "./product.service.js";
 
 export const createProduct = async (req, res) => {
   try {
-    const authenticatedUserId = req.headers["x-user-id"];
-    const product = await createProductService(authenticatedUserId, req.body);
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        success: false,
+        message: "Usuario autenticado requerido"
+      });
+    }
+
+    const product = await createProductService(req.user.id_user, req.body);
     return res.status(201).json(product);
   } catch (error) {
     console.error("Error creando producto:", error);
 
     return res.status(error.status || 500).json({
+      message: error.message || "Error interno del servidor"
+    });
+  }
+};
+
+export const updateProduct = async (req, res) => {
+  try {
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        success: false,
+        message: "Usuario autenticado requerido"
+      });
+    }
+
+    const { id } = req.params;
+    const product = await updateProductService(req.user.id_user, id, req.body);
+
+    return res.status(200).json(product);
+  } catch (error) {
+    console.error("Error actualizando producto:", error);
+
+    return res.status(error.status || error.statusCode || 500).json({
       message: error.message || "Error interno del servidor"
     });
   }
@@ -31,6 +65,23 @@ export const getProductsSearch = async (request, response) => {
     return response.status(error.status || 500).json({message: error.message || "Error interno del servidor."});
   }
 };
+
+export const deleteProduct = async (req, res, next) => {
+  try {
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        success: false,
+        message: "Usuario autenticado requerido"
+      });
+    }
+
+    await deleteProductService(req.user.id_user, req.params.id);
+    return res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
 //obtener producto por id
 export const getProductById = async (request, response) => {
 
@@ -52,3 +103,58 @@ export const getProductById = async (request, response) => {
     });
   }
 };
+
+
+// Comparar productos similares por precio entre distintas tiendas
+export const compareProducts = async (request, response) => {
+  try {
+    const { search, categoryId } = request.query;
+
+    // Reutiliza la búsqueda actual, pero con un límite mayor
+    const filters = {
+      search,
+      categoryId,
+      page: 1,
+      limit: 50
+    };
+
+    const result = await getProductsSearchService(filters);
+    const products = Array.isArray(result?.products) ? result.products : [];
+
+    if (!products.length) {
+      return response.status(200).json({
+        product: null,
+        offers: [],
+        pagination: result?.pagination || null
+      });
+    }
+
+    // Producto base: el primero de la lista (más relevante según tu servicio)
+    const baseProduct = products[0];
+
+    const offers = products.map((p) => ({
+      productId: p.id_product,
+      name: p.name,
+      description: p.description,
+      price: Number(p.price),
+      store: p.store
+        ? {
+            id: p.store.id_store,
+            name: p.store.name
+          }
+        : null
+    }));
+
+    return response.status(200).json({
+      product: offers[0],  // Usa la versión normalizada
+      offers,
+      pagination: result.pagination
+    });
+  } catch (error) {
+    console.error("Error al comparar productos:", error);
+    return response
+      .status(error.status || 500)
+      .json({ message: error.message || "Error interno del servidor." });
+  }
+};
+

@@ -1,9 +1,21 @@
 import { Router } from "express";
-import { createProduct, getProductsSearch, getProductById} from "./product.controller.js";
+import authenticate from "../../../config/jwt.config.js";
+import {
+  createProduct,
+  getProductsSearch,
+  getProductById,
+  updateProduct,
+  deleteProduct,
+  compareProducts
+} from "./product.controller.js";
 
 const router = Router();
 
-router.post("/", createProduct);
+router.post("/", authenticate, createProduct);
+router.put("/:id", authenticate, updateProduct);
+router.delete("/:id", authenticate, deleteProduct);
 router.get("/", getProductsSearch);
+router.get("/compare/search", compareProducts);
 router.get("/:id", getProductById);
+
 export default router;
