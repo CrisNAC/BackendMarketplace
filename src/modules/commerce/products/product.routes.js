@@ -15,7 +15,7 @@ router.post("/", authenticate, createProduct);
 router.put("/:id", authenticate, updateProduct);
 router.delete("/:id", authenticate, deleteProduct);
 router.get("/", getProductsSearch);
-router.get("/:id", getProductById);
 router.get("/compare/search", compareProducts);
+router.get("/:id", getProductById);
 
 export default router;
