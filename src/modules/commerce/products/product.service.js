@@ -568,14 +568,25 @@ export const getProductsSearchService = async (filters) => {
       { description: { contains: search, mode: "insensitive" } }
     ];
 
+    // Sanitizar el término para usarlo en búsquedas de relevancia (tsquery)
+    const safeSearch = search
+      // reemplazar caracteres reservados de tsquery por espacios
+      .replace(/[':()&|!]/g, " ")
+      .trim()
+      // convertir espacios múltiples en operador AND
+      .split(/\s+/)
+      .join(" & ");
+
     // cambia el orden, solo si se busca o filtra por algun parametro
-    orderBy = {
-      _relevance: {
-        fields: ["name"],
-        search: search,
-        sort: "desc"
-      }
-    };
+    orderBy = safeSearch
+      ? {
+          _relevance: {
+            fields: ["name"],
+            search: safeSearch,
+            sort: "desc"
+          }
+        }
+      : orderBy;
   }
 
   const [totalProducts, products] = await Promise.all([
@@ -609,7 +620,6 @@ export const getProductsSearchService = async (filters) => {
     totalPages: Math.ceil(totalProducts/limit)
   }};
 };
-
 
 export const deleteProductService = async (authenticatedUserId, productId) => {
   const sellerStoreId = await getAuthenticatedSellerStore(authenticatedUserId);
