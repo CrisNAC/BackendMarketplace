@@ -5,14 +5,7 @@ import {
   NotFoundError,
   ConflictError
 } from "../../../lib/errors.js";
-
-const parsePositiveInteger = (value, fieldName) => {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new ValidationError(`${fieldName} debe ser un entero mayor a 0`);
-  }
-  return parsed;
-};
+import { parsePositiveInteger } from "../../../lib/validators.js";
 
 const mapOrderResponse = (order) => ({
   id: order.id_order,

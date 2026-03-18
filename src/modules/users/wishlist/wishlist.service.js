@@ -1,17 +1,6 @@
 import { prisma } from "../../../lib/prisma.js";
-import {
-  ValidationError,
-  ForbiddenError,
-  NotFoundError
-} from "../../../lib/errors.js";
-
-const parsePositiveInteger = (value, fieldName) => {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new ValidationError(`${fieldName} debe ser un entero mayor a 0`);
-  }
-  return parsed;
-};
+import { ForbiddenError, NotFoundError, ValidationError } from "../../../lib/errors.js";
+import { parsePositiveInteger } from "../../../lib/validators.js";
 
 const getOrCreateActiveWishlist = async (userId) => {
   const existing = await prisma.wishlists.findFirst({
@@ -74,32 +63,17 @@ export const getWishlistService = async (authenticatedUserId, customerId) => {
     throw new ForbiddenError("No tienes permisos para ver esta lista");
   }
 
-  const wishlist = await prisma.wishlists.findFirst({
+  // TERCERO: reutilizar getWishlistWithItems en vez de duplicar la query
+  const existingWishlist = await prisma.wishlists.findFirst({
     where: { fk_user: resolvedCustomerId, status: true },
-    select: {
-      id_wishlist: true,
-      name: true,
-      wishlist_items: {
-        where: { status: true },
-        select: {
-          id_wishlist_item: true,
-          quantity: true,
-          product: {
-            select: {
-              id_product: true,
-              name: true,
-              price: true
-            }
-          }
-        }
-      }
-    }
+    select: { id_wishlist: true }
   });
 
-  if (!wishlist) {
+  if (!existingWishlist) {
     return { id: null, name: null, items: [] };
   }
 
+  const wishlist = await getWishlistWithItems(existingWishlist.id_wishlist);
   return mapWishlistResponse(wishlist);
 };
 
@@ -121,7 +95,6 @@ export const addWishlistItemService = async (
     throw new ValidationError("quantity debe ser un entero mayor a 0");
   }
 
-  // Validar que el producto exista y esté activo
   const product = await prisma.products.findFirst({
     where: { id_product: resolvedProductId, status: true, visible: true },
     select: { id_product: true }
@@ -133,34 +106,33 @@ export const addWishlistItemService = async (
 
   const wishlist = await getOrCreateActiveWishlist(resolvedCustomerId);
 
-  // Verificar si el producto ya está en la lista
-  const existingItem = await prisma.wishlistItems.findFirst({
-    where: { fk_wishlist: wishlist.id_wishlist, fk_product: resolvedProductId }
-  });
+  // PRIMERO: envolver en transacción para evitar race conditions
+  await prisma.$transaction(async (tx) => {
+    const existingItem = await tx.wishlistItems.findFirst({
+      where: { fk_wishlist: wishlist.id_wishlist, fk_product: resolvedProductId }
+    });
 
-  if (existingItem && existingItem.status) {
-    // Ya existe y está activo — incrementar quantity
-    await prisma.wishlistItems.update({
-      where: { id_wishlist_item: existingItem.id_wishlist_item },
-      data: { quantity: existingItem.quantity + resolvedQuantity }
-    });
-  } else if (existingItem && !existingItem.status) {
-    // Existía pero fue eliminado — reactivar con nueva quantity
-    await prisma.wishlistItems.update({
-      where: { id_wishlist_item: existingItem.id_wishlist_item },
-      data: { quantity: resolvedQuantity, status: true }
-    });
-  } else {
-    // No existe — crear nuevo item
-    await prisma.wishlistItems.create({
-      data: {
-        fk_wishlist: wishlist.id_wishlist,
-        fk_product: resolvedProductId,
-        quantity: resolvedQuantity,
-        status: true
-      }
-    });
-  }
+    if (existingItem && existingItem.status) {
+      await tx.wishlistItems.update({
+        where: { id_wishlist_item: existingItem.id_wishlist_item },
+        data: { quantity: { increment: resolvedQuantity } }
+      });
+    } else if (existingItem && !existingItem.status) {
+      await tx.wishlistItems.update({
+        where: { id_wishlist_item: existingItem.id_wishlist_item },
+        data: { quantity: resolvedQuantity, status: true }
+      });
+    } else {
+      await tx.wishlistItems.create({
+        data: {
+          fk_wishlist: wishlist.id_wishlist,
+          fk_product: resolvedProductId,
+          quantity: resolvedQuantity,
+          status: true
+        }
+      });
+    }
+  });
 
   const updated = await getWishlistWithItems(wishlist.id_wishlist);
   return mapWishlistResponse(updated);
