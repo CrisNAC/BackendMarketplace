@@ -363,3 +363,27 @@ export const updateUserPasswordService = async (
     return updatedUser;
 };
 
+export const getUserProfileService = async (authenticatedUserId, requestedUserId) => {
+
+    const userProfile = await getAuthorizedUserService(
+        authenticatedUserId,
+        requestedUserId
+    );
+
+    const user = await prisma.users.findFirst({
+        where: {
+            id_user: userProfile.id_user,
+            status: true,
+        },
+        select: USER_PROFILE_SELECT
+    });
+
+    if (!user) {
+        throw {
+            status: 404,
+            message: "Usuario no encontrado o inactivo",
+        };
+    }
+
+    return user;
+};
