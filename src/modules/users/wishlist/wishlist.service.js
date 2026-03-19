@@ -176,3 +176,47 @@ export const removeWishlistItemService = async (
     data: { status: false }
   });
 };
+
+export const updateWishlistItemQuantityService = async (
+  authenticatedUserId,
+  customerId,
+  productId,
+  { quantity }
+) => {
+  const resolvedCustomerId = parsePositiveInteger(customerId, "customerId");
+
+  if (Number(authenticatedUserId) !== resolvedCustomerId) {
+    throw new ForbiddenError("No tienes permisos para modificar esta lista");
+  }
+
+  const resolvedProductId = parsePositiveInteger(productId, "productId");
+  const resolvedQuantity = Number(quantity);
+
+  if (!Number.isInteger(resolvedQuantity) || resolvedQuantity < 1) {
+    throw new ValidationError("quantity debe ser un entero mayor a 0");
+  }
+
+  const wishlist = await prisma.wishlists.findFirst({
+    where: { fk_user: resolvedCustomerId, status: true }
+  });
+
+  if (!wishlist) {
+    throw new NotFoundError("Lista de deseos no encontrada");
+  }
+
+  const item = await prisma.wishlistItems.findFirst({
+    where: { fk_wishlist: wishlist.id_wishlist, fk_product: resolvedProductId, status: true }
+  });
+
+  if (!item) {
+    throw new NotFoundError("Producto no encontrado en la lista");
+  }
+
+  await prisma.wishlistItems.update({
+    where: { id_wishlist_item: item.id_wishlist_item },
+    data: { quantity: resolvedQuantity }
+  });
+
+  const updated = await getWishlistWithItems(wishlist.id_wishlist);
+  return mapWishlistResponse(updated);
+};
