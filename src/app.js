@@ -15,6 +15,10 @@ import addressRoutes from "./modules/users/addresses/routes/addresses.routes.js"
 import sessionRoutes from "./modules/session/routes/session.routes.js";
 import userProductReviewRoutes from "./modules/users/product-review/product-review.routes.js";
 
+import wishlistRoutes from "./modules/users/wishlist/wishlist.routes.js";
+
+import { orderRouter, userOrderRouter } from "./modules/users/orders/order.routes.js";
+
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { NotFoundError } from "./lib/errors.js";
 
@@ -48,7 +52,12 @@ app.use("/products/:id/reviews", userProductReviewRoutes);
 // Rutas de usuarios
 app.use("/api/users", userRoutes);
 app.use("/api/users", addressRoutes);
+app.use("/api/users", wishlistRoutes);
+app.use("/api/users", userOrderRouter);
 app.use('/api/session', sessionRoutes);
+
+// Rutas de pedidos
+app.use("/api/orders", orderRouter);
 
 // Ruta no encontrada — va ANTES del errorHandler
 app.use((req, _res, next) => {
