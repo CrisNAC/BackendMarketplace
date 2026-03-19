@@ -5,7 +5,7 @@ const router = Router();
 
 /**
  * @swagger
- * /products/{id}/reviews:
+ * /products/reviews/{id}:
  *   get:
  *     summary: Obtener reseñas de un producto
  *     tags: [Reviews]
