@@ -5,9 +5,11 @@ export const getProductReviews = async (req, res) => {
         const result = await getProductReviewsService(req.params.id, req.query);
         return res.status(200).json(result);
     } catch (error) {
-        console.error("Error obteniendo reseñas:", error);
-        return res.status(error.status || 500).json({
-            message: error.message || "Error interno del servidor"
+        const status = Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599
+            ? error.status
+            : 500;
+        return res.status(status).json({
+            message: status < 500 ? error.message : "Error interno del servidor"
         });
     }
 };
