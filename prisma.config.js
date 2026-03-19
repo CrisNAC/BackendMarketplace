@@ -2,12 +2,18 @@
 // npm install --save-dev prisma dotenv
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+
+const directUrl = process.env["DIRECT_URL"];
+if (!directUrl) {
+    throw new Error("La variable de entorno DIRECT_URL es requerida y no está definida");
+}
+
 export default defineConfig({
     schema: "prisma/schema.prisma",
     migrations: {
         path: "prisma/migrations",
     },
     datasource: {
-        url: process.env["DIRECT_URL"] || "",
+        url: directUrl,
     },
 });

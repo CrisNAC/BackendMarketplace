@@ -33,7 +33,7 @@ export const UpdateProductReviewDTO = z
       .nullable()
       .optional()
   })
-  .refine((data) => Object.keys(data).length > 0, {
+  .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "Debe enviar al menos un campo para actualizar"
   });
 
@@ -76,6 +76,18 @@ export const FilterProductReviewDTO = z.object({
     .pipe(z.number().int().min(1).max(100, "limit no puede superar 100"))
     .optional()
     .default(10)
+}).superRefine((data, ctx) => {
+  if (
+    data.minRating !== undefined &&
+    data.maxRating !== undefined &&
+    data.minRating > data.maxRating
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "minRating no puede ser mayor que maxRating",
+      path: ["maxRating"]
+    });
+  }
 });
 
 export type FilterProductReviewDTOType = z.infer<typeof FilterProductReviewDTO>;

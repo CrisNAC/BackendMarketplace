@@ -1,6 +1,6 @@
 // src/modules/commerce/commerces/store.routes.js
 import { Router } from "express";
-import  authenticate  from '@/config/jwt.config.js';
+import  authenticate  from '../../../config/jwt.config.js';
 import { 
     createStore,
     updateStore,
@@ -10,10 +10,6 @@ import {
     filterStoreProducts, 
     deleteStore
 } from "./store.controller.js";
-import { 
-    CreateStoreDTO,
-} from "./dtos/index";
-import { validate } from "../../../middlewares/validate.middleware.js";
 
 const router = Router();
 

@@ -27,8 +27,8 @@ export class PaginatedResponseDTO<T> {
   }) {
     this.content = data.content;
     this.total_elements = data.total_elements;
-    this.total_pages = Math.ceil(data.total_elements / data.size);
-    this.size = data.size;
+    this.size = data.size > 0 ? data.size : 0;
+    this.total_pages = data.size > 0 ? Math.ceil(data.total_elements / data.size) : 0;
     this.page = data.page;
   }
 

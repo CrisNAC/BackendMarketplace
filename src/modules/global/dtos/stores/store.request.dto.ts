@@ -125,7 +125,7 @@ export const UpdateStoreDTO = z
       .nullable()
       .optional()
   })
-  .refine((data) => Object.keys(data).length > 0, {
+  .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "Debe enviar al menos un campo para actualizar"
   });
 

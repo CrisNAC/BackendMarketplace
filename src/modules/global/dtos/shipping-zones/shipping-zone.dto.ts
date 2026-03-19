@@ -54,7 +54,7 @@ export const UpdateShippingZoneDTO = z
       .min(0, "distance_price no puede ser negativo")
       .optional()
   })
-  .refine((data) => Object.keys(data).length > 0, {
+  .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "Debe enviar al menos un campo para actualizar"
   });
 

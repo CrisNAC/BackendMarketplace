@@ -19,7 +19,7 @@ export const UpdateWishlistDTO = z
       .max(50, "name no puede superar 50 caracteres")
       .optional()
   })
-  .refine((data) => Object.keys(data).length > 0, {
+  .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "Debe enviar al menos un campo para actualizar"
   });
 
@@ -66,7 +66,7 @@ export const UpdateWishlistItemDTO = z
       .min(1, "quantity debe ser al menos 1")
       .optional()
   })
-  .refine((data) => Object.keys(data).length > 0, {
+  .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "Debe enviar al menos un campo para actualizar"
   });
 
