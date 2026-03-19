@@ -49,7 +49,7 @@ export const login = async (req, res) => {
         const token = jwt.sign(
             { id_user: user.id_user, email: user.email, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: "10m" }
+            { expiresIn: "30m" }
         );
 
         //Enviar token en cookie o json
