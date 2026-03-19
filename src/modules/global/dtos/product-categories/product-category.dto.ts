@@ -4,7 +4,12 @@ import { BaseResponseDTO } from "../base/base.response.dto.js";
 // ─── REQUEST ─────────────────────────────────────────────────────
 export const CreateProductCategoryDTO = z.object({
   name: z
-    .string({ error: "name es requerido" })
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? "name es requerido"
+          : "name debe ser un texto"
+    })
     .min(1, "name no puede estar vacío")
     .max(100, "name no puede superar 100 caracteres")
 });
@@ -14,7 +19,12 @@ export type CreateProductCategoryDTOType = z.infer<typeof CreateProductCategoryD
 export const UpdateProductCategoryDTO = z
   .object({
     name: z
-      .string()
+      .string({
+        error: (issue) =>
+          issue.input === undefined
+            ? "name es requerido"
+            : "name debe ser un texto"
+      })
       .min(1, "name no puede estar vacío")
       .max(100, "name no puede superar 100 caracteres")
       .optional()

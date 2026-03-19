@@ -4,7 +4,13 @@ import { BaseResponseDTO } from "../base/base.response.dto.js";
 // ─── REQUEST ─────────────────────────────────────────────────────
 export const CreateWishlistDTO = z.object({
   name: z
-    .string({ error: "name es requerido" })
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? "name es requerido"
+          : "name debe ser un texto"
+    })
+    .trim()
     .min(1, "name no puede estar vacío")
     .max(50, "name no puede superar 50 caracteres")
 });
@@ -14,7 +20,12 @@ export type CreateWishlistDTOType = z.infer<typeof CreateWishlistDTO>;
 export const UpdateWishlistDTO = z
   .object({
     name: z
-      .string()
+      .string({
+        error: (issue) =>
+          issue.input === undefined
+            ? "name es requerido"
+            : "name debe ser un texto"
+      })
       .min(1, "name no puede estar vacío")
       .max(50, "name no puede superar 50 caracteres")
       .optional()

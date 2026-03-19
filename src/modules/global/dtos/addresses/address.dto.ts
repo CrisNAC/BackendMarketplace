@@ -17,10 +17,13 @@ export const CreateAddressDTO = z.object({
 
   address: z
     .string({ error: "address es requerido" })
-    .min(1, "address no puede estar vacío"),
+    .trim()
+    .min(1, "address no puede estar vacío")
+    .max(500, "address no puede superar 500 caracteres"),
 
   city: z
     .string({ error: "city es requerido" })
+    .trim()
     .min(1, "city no puede estar vacío")
     .max(100, "city no puede superar 100 caracteres"),
 
@@ -40,10 +43,15 @@ export type CreateAddressDTOType = z.infer<typeof CreateAddressDTO>;
 
 export const UpdateAddressDTO = z
   .object({
-    address: z.string().min(1, "address no puede estar vacío").optional(),
+    address: z
+      .string()
+      .trim()
+      .min(1, "address no puede estar vacío")
+      .max(500, "address no puede superar 500 caracteres").optional(),
 
     city: z
       .string()
+      .trim()
       .min(1, "city no puede estar vacío")
       .max(100, "city no puede superar 100 caracteres")
       .optional(),

@@ -3,20 +3,34 @@ import { z } from "zod";
 // ─── CREATE ──────────────────────────────────────────────────────
 export const CreateUserDTO = z.object({
   name: z
-    .string({ error: "name es requerido" })
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? "name es requerido"
+          : "name debe ser un texto"
+    })
     .trim()
     .min(1, "name no puede estar vacío")
     .max(100, "name no puede superar 100 caracteres"),
 
   email: z
-    .string({ error: "email es requerido" })
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? "email es requerido"
+          : "email debe ser un texto"
+    })
     .trim()
     .email("email no tiene formato válido")
     .max(100, "email no puede superar 100 caracteres"),
 
   password: z
-    .string({ error: "password es requerido" })
-    .trim()
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? "password es requerido"
+          : "password debe ser un texto"
+    })
     .min(8, "password debe tener al menos 8 caracteres")
     .max(255, "password no puede superar 255 caracteres"),
 
@@ -56,7 +70,6 @@ export const UpdateUserDTO = z
 
     password: z
       .string()
-      .trim()
       .min(8, "password debe tener al menos 8 caracteres")
       .max(255, "password no puede superar 255 caracteres")
       .optional(),
