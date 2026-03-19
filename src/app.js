@@ -22,7 +22,7 @@ import { orderRouter, userOrderRouter } from "./modules/users/orders/order.route
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { NotFoundError } from "./lib/errors.js";
 
-import { setupSwagger } from "./docs/swagger.config.js";
+import { setupSwagger } from "./config/swagger.config.js";
 
 const app = express();
 
