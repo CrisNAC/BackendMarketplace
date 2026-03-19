@@ -29,11 +29,13 @@ export const CreateAddressDTO = z.object({
 
   region: z
     .string({ error: "region es requerida" })
+    .trim()
     .min(1, "region no puede estar vacía")
     .max(100, "region no puede superar 100 caracteres"),
 
   postal_code: z
     .string()
+    .trim()
     .max(20, "postal_code no puede superar 20 caracteres")
     .nullable()
     .optional()
@@ -58,12 +60,14 @@ export const UpdateAddressDTO = z
 
     region: z
       .string()
+      .trim()
       .min(1, "region no puede estar vacía")
       .max(100, "region no puede superar 100 caracteres")
       .optional(),
 
     postal_code: z
       .string()
+      .trim()
       .max(20, "postal_code no puede superar 20 caracteres")
       .nullable()
       .optional()
@@ -81,8 +85,8 @@ export const FilterAddressDTO = z.object({
     .pipe(z.number().int().positive("fk_user debe ser un ID válido"))
     .optional(),
 
-  city: z.string().optional(),
-  region: z.string().optional(),
+  city: z.string().trim().optional(),
+  region: z.string().trim().optional(),
 
   page: z
     .string()
