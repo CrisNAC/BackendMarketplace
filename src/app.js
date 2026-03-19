@@ -22,6 +22,8 @@ import { orderRouter, userOrderRouter } from "./modules/users/orders/order.route
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { NotFoundError } from "./lib/errors.js";
 
+import { setupSwagger } from "./docs/swagger.config.js";
+
 const app = express();
 
 //Para debug en consola de las peticiones
@@ -34,6 +36,8 @@ app.use(cors({
   credentials: true
 }));
 
+setupSwagger(app);
+
 // Rutas de comercio
 app.use("/api/commerces/categories", storeCategoryRoutes);
 app.use("/api/commerces", storeRoutes);
@@ -41,7 +45,7 @@ app.use("/api/commerces", commerceAddressRoutes);
 
 //Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
 //Se encuentra indexado
-app.use("/api/categories", categoriesRoutes); 
+app.use("/api/categories", categoriesRoutes);
 app.use("/products/tags", productTagRoutes);
 app.use("/products/reviews", productReviewRoutes);
 app.use("/products", productRoutes);
