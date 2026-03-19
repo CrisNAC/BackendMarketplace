@@ -20,4 +20,20 @@ export const commonSchemas = {
             }
         }
     },
+    AuthErrorResponse: {
+        type: "object",
+        properties: {
+            errors: {
+                type: "object",
+                properties: {
+                    auth: {
+                        type: "object",
+                        properties: {
+                            message: { type: "string", example: "No autenticado" }
+                        }
+                    }
+                }
+            }
+        }
+    },
 }

@@ -80,7 +80,7 @@ export const productSchemas = {
     ProductSearchItemResponse: {
         type: "object",
         properties: {
-            id_product: { type: "integer", example: 1 },
+            id: { type: "integer", example: 1 },
             name: { type: "string", example: "Auriculares Bluetooth" },
             description: { type: "string", nullable: true },
             price: { type: "number", example: 150000 },
