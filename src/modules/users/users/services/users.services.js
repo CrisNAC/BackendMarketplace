@@ -188,10 +188,7 @@ export const updateUserService = async (
     requestedUserId,
     payload
 ) => {
-    const customer = await getAuthorizedCustomerService(
-        authenticatedUserId,
-        requestedUserId
-    );
+    const customer = await getAuthorizedUserForUpdateService(authenticatedUserId, requestedUserId);
 
     const dataToUpdate = {};
 
@@ -386,4 +383,30 @@ export const getUserProfileService = async (authenticatedUserId, requestedUserId
     }
 
     return user;
+};
+const getAuthorizedUserForUpdateService = async (
+    authenticatedUserId,
+    requestedUserId
+) => {
+    if (!authenticatedUserId) {
+        throw { status: 401, message: "Usuario autenticado requerido" };
+    }
+
+    const authenticatedId = parsePositiveInteger(authenticatedUserId, "ID de usuario autenticado");
+    const targetUserId = parsePositiveInteger(requestedUserId, "ID de usuario");
+
+    if (authenticatedId !== targetUserId) {
+        throw { status: 403, message: "No tiene permisos para editar este perfil" };
+    }
+
+    const user = await prisma.users.findUnique({
+        where: { id_user: targetUserId },
+        select: { id_user: true, role: true, status: true },
+    });
+
+    if (!user || !user.status) {
+        throw { status: 404, message: "Usuario no encontrado o inactivo" };
+    }
+
+    return user; // sin restricción de rol
 };
