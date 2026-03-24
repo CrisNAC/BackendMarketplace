@@ -11,6 +11,7 @@ import {
 } from "./store.controller.js";
 import { parsePagination } from "../../../middlewares/pagination.middleware.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
+import { FilterStoreProductsDTO } from "../../global/dtos/commerce/filter-store-products.dto.js";
 
 const router = Router();
 

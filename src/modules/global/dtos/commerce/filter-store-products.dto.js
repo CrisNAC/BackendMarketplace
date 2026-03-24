@@ -47,5 +47,3 @@ export const FilterStoreProductsDTO = z.object({
             data.price_min <= data.price_max,
         { message: "price_min no puede ser mayor que price_max", path: ["price_min"] }
     );
-
-export type FilterStoreProductsDTOType = z.infer<typeof FilterStoreProductsDTO>;

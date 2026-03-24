@@ -1,16 +1,7 @@
 import { PaginatedResponseDTO } from "../base/base.response.dto.js";
 
 export class StoreProductItemDTO {
-    id_product: number;
-    name: string;
-    description: string | null;
-    price: number;
-    quantity: number | null;
-    visible: boolean;
-    created_at: Date;
-    product_category: { id_product_category: number; name: string } | null;
-
-    constructor(data: any) {
+    constructor(data) {
         this.id_product = data.id_product;
         this.name = data.name;
         this.description = data.description ?? null;
@@ -26,10 +17,26 @@ export class StoreProductItemDTO {
             : null;
     }
 
-    static map(data: any): StoreProductItemDTO {
+    static map(data) {
         return new StoreProductItemDTO(data);
+    }
+
+    static mapList(data) {
+        return data.map(StoreProductItemDTO.map);
     }
 }
 
-// Tipo concreto de la respuesta paginada
-export type StoreProductsPageDTO = PaginatedResponseDTO<StoreProductItemDTO>;
+export class StoreProductsPageDTO extends PaginatedResponseDTO {
+    constructor(items, totalCount, page, limit) {
+        super({
+            content: StoreProductItemDTO.mapList(items),
+            total_elements: totalCount,
+            size: limit,
+            page
+        });
+    }
+
+    static from(items, totalCount, page, limit) {
+        return new StoreProductsPageDTO(items, totalCount, page, limit);
+    }
+}

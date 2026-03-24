@@ -8,8 +8,7 @@ import {
   deleteStoreService
 } from "./store.service.js";
 import jwt from "jsonwebtoken";
-import { StoreProductItemDTO } from "./dtos/filter-store-products.response.dto.js";
-import { PaginatedResponseDTO } from "../../../lib/dto/base.response.dto.js";
+import { StoreProductsPageDTO } from "../../global/dtos/commerce/filter-store-products.response.js";
 
 export const createStore = async (req, res) => {
   try {
@@ -102,25 +101,16 @@ export const getAllProductsByStore = async (req, res) => {
 export const filterStoreProducts = async (req, res) => {
   try {
     const { id } = req.params;
-    const filters = req.query;           // ya validado por validate(FilterStoreProductsDTO)
-    const pagination = req.pagination;   // ya parseado por parsePagination
-
+    const filters = req.validated ?? req.query;
     const { products, totalProducts } = await filterStoreProductsService(
       id,
       filters,
-      pagination
+      req.pagination
     );
 
-    const response = PaginatedResponseDTO.from(
-      StoreProductItemDTO.mapList
-        ? products.map(StoreProductItemDTO.map)
-        : products.map((p) => new StoreProductItemDTO(p)),
-      totalProducts,
-      pagination.page,
-      pagination.limit
+    return res.status(200).json(
+      StoreProductsPageDTO.from(products, totalProducts, req.pagination.page, req.pagination.limit)
     );
-
-    return res.status(200).json(response);
   } catch (error) {
     const status =
       Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599
