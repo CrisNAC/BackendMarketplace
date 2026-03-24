@@ -4,7 +4,7 @@ import {
   getStoreByIdService,
   getStoresService,
   getAllProductsByStoreService,
-  filterStorePriductsService,
+  filterStoreProductsService,
   deleteStoreService
 } from "./store.service.js";
 import jwt from "jsonwebtoken";
