@@ -102,14 +102,15 @@ export const filterStoreProducts = async (req, res) => {
   try {
     const { id } = req.params;
     const filters = req.validated ?? req.query;
+    const pagination = req.pagination ?? { page: 1, limit: 20, skip: 0 };
     const { products, totalProducts } = await filterStoreProductsService(
       id,
       filters,
-      req.pagination
+      pagination
     );
 
     return res.status(200).json(
-      StoreProductsPageDTO.from(products, totalProducts, req.pagination.page, req.pagination.limit)
+      StoreProductsPageDTO.from(products, totalProducts, pagination.page, pagination.limit)
     );
   } catch (error) {
     const status =
