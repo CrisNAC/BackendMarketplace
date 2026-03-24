@@ -362,6 +362,7 @@ export const updateUserPasswordService = async (
 
     return updatedUser;
 };
+
 export const getUserProfileService = async (authenticatedUserId, requestedUserId) => {
 
     const userProfile = await getAuthorizedUserService(
