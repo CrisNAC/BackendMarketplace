@@ -103,7 +103,6 @@ export const updateAddress = async (req, res) => {
     }
 };
 
-// desactiva una direccion puntual del usuario autenticado
 export const deleteAddress = async (req, res) => {
     try {
         const { id, id_address } = req.params;
