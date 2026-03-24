@@ -1,14 +1,14 @@
-// src/modules/commerce/commerces/store.controller.js
 import {
   createStoreService,
   updateStoreService,
   getStoreByIdService,
   getStoresService,
   getAllProductsByStoreService,
-  filterStorePriductsService,
+  filterStoreProductsService,
   deleteStoreService
 } from "./store.service.js";
 import jwt from "jsonwebtoken";
+import { StoreProductsPageDTO } from "../../global/dtos/commerce/filter-store-products.response.js";
 
 export const createStore = async (req, res) => {
   try {
@@ -101,16 +101,24 @@ export const getAllProductsByStore = async (req, res) => {
 export const filterStoreProducts = async (req, res) => {
   try {
     const { id } = req.params;
-    const { category, price_min, price_max } = req.query;
-    const products = await filterStorePriductsService(id, {
-      category,
-      price_min,
-      price_max
-    });
-    return res.status(200).json(products);
+    const filters = req.validated ?? req.query;
+    const pagination = req.pagination ?? { page: 1, limit: 20, skip: 0 };
+    const { products, totalProducts } = await filterStoreProductsService(
+      id,
+      filters,
+      pagination
+    );
+
+    return res.status(200).json(
+      StoreProductsPageDTO.from(products, totalProducts, pagination.page, pagination.limit)
+    );
   } catch (error) {
-    return res.status(error.status || 500).json({
-      message: error.message || "Error interno"
+    const status =
+      Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599
+        ? error.status
+        : 500;
+    return res.status(status).json({
+      message: status < 500 ? error.message : "Error interno del servidor"
     });
   }
 };
@@ -128,7 +136,7 @@ export const deleteStore = async (req, res) => {
     const token = req.cookies.userToken;
     if (!token) {
       console.error("Usuario no autenticado.");
-      return res.status(401).json({ message: "Usuario no autenticado."});
+      return res.status(401).json({ message: "Usuario no autenticado." });
     }
 
     //se descifra el token para obtener el usuario
@@ -137,7 +145,7 @@ export const deleteStore = async (req, res) => {
 
     //se obtiene el parametro id de la url
     const id_store = parseInt(req.params.id);
-    if (isNaN(id_store) || id_store <= 0) return res.status(400).json({ message: "Id de comercio invalido."}); //validacion de id
+    if (isNaN(id_store) || id_store <= 0) return res.status(400).json({ message: "Id de comercio invalido." }); //validacion de id
 
     //se ejecuta el servicio delete
     await deleteStoreService(id_user, id_store);
@@ -147,7 +155,7 @@ export const deleteStore = async (req, res) => {
     return res.status(204).send();
   }
   catch (error) {
-    if(error.status) return res.status(error.status).json({ message: error.message })
+    if (error.status) return res.status(error.status).json({ message: error.message })
     console.error("Error al eliminar el comercio: ", error);
     return res.status(500).json({ message: "Error interno del servidor." })
   }

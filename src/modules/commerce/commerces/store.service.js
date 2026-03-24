@@ -720,7 +720,7 @@ export const getAllProductsByStoreService = async (id) => {
   }
 };
 
-export const filterStorePriductsService = async (id, filters) => {
+export const filterStoreProductsService = async (id, filters, pagination) => {
   try {
     // validaciones básicas
     if (!id) {
