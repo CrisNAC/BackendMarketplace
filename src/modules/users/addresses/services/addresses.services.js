@@ -192,6 +192,7 @@ export const createAddressService = async (
     requestedUserId,
     payload
 ) => {
+    //const { fk_store, address, city, region, postal_code } = payload;
     const user = await getAuthorizedUserService(
         authenticatedUserId,
         requestedUserId
@@ -203,7 +204,7 @@ export const createAddressService = async (
             SELECT 1
             FROM "Users"
             WHERE "id_user" = ${user.id_user}
-              AND "status" = TRUE
+            AND "status" = TRUE
             FOR UPDATE
         `;
 
@@ -326,6 +327,19 @@ export const updateAddressService = async (
         };
     }
 
+    if (!updatedAddress) {
+        throw {
+            status: 500,
+            message: "No se pudo recuperar la direccion actualizada",
+        };
+    }
+
+    if (!updatedAddress) {
+        throw {
+            status: 500,
+            message: "No se pudo recuperar la direccion actualizada",
+        };
+    }
     return updatedAddress;
 };
 

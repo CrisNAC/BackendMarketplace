@@ -1,11 +1,9 @@
-import { Request, Response, NextFunction } from "express";
-import { ZodSchema, ZodError } from "zod";
-
-type RequestSection = "body" | "query" | "params";
+// src/middlewares/validate.middleware.js
+import { ZodError } from "zod";
 
 export const validate =
-    (schema: ZodSchema, section: RequestSection = "body") =>
-        (req: Request, res: Response, next: NextFunction): void => {
+    (schema, section = "body") =>
+        (req, res, next) => {
             const result = schema.safeParse(req[section]);
 
             if (!result.success) {
@@ -21,7 +19,11 @@ export const validate =
                 return;
             }
 
-            // Reemplaza el valor original con el dato ya parseado y transformado por Zod
-            req[section] = result.data as any;
+            if (section === "query") {
+                req.validated = result.data;
+            } else {
+                req[section] = result.data;
+            }
+
             next();
         };

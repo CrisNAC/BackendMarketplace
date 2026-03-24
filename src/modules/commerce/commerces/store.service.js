@@ -270,7 +270,7 @@ export const createStoreService = async (data) => {
     address,
     city,
     region,
-    postal_code
+    postal_code,
   } = data;
 
   if (
@@ -332,7 +332,7 @@ export const createStoreService = async (data) => {
 
   try {
     const usuario = await prisma.users.findUnique({
-      where: { id_user: fk_user }
+      where: { id_user: fk_user },
     });
 
     if (!usuario) {
@@ -345,7 +345,7 @@ export const createStoreService = async (data) => {
     // }
 
     const tiendaExistente = await prisma.stores.findUnique({
-      where: { fk_user }
+      where: { fk_user },
     });
 
     if (tiendaExistente) {
@@ -353,7 +353,7 @@ export const createStoreService = async (data) => {
     }
 
     const categoria = await prisma.storeCategories.findUnique({
-      where: { id_store_category: fk_store_category }
+      where: { id_store_category: fk_store_category },
     });
 
     if (!categoria) {
@@ -372,8 +372,8 @@ export const createStoreService = async (data) => {
           logo,
           website_url,
           instagram_url,
-          tiktok_url
-        }
+          tiktok_url,
+        },
       });
 
       await tx.addresses.create({
@@ -642,6 +642,7 @@ export const getStoreByIdService = async (id) => {
     }
 
     return store;
+
   } catch (error) {
     if (error.status) {
       throw error;
@@ -650,7 +651,7 @@ export const getStoreByIdService = async (id) => {
     throw {
       status: 500,
       message: "Error al obtener la tienda",
-      details: error.message
+      details: error.message,
     };
   }
 };
@@ -667,17 +668,20 @@ export const getAllProductsByStoreService = async (id) => {
 
     const store = await prisma.stores.findUnique({
       where: { id_store: Number(id) },
-      select: { id_store: true }
+      select: { id_store: true },
     });
 
     if (!store) {
-      throw { status: 404, message: "Comercio no encontrado" };
+      throw { 
+        status: 404, 
+        message: "Comercio no encontrado" 
+      };
     }
 
     const products = await prisma.products.findMany({
       where: {
         fk_store: Number(id),
-        status: true
+        status: true,
       },
       select: {
         id_product: true,
@@ -688,10 +692,10 @@ export const getAllProductsByStoreService = async (id) => {
         visible: true,
         created_at: true,
         product_category: {
-          select: { id_product_category: true, name: true }
-        }
+          select: { id_product_category: true, name: true },
+        },
       },
-      orderBy: { created_at: "desc" }
+      orderBy: { created_at: "desc" },
     });
 
     if (!products || products.length === 0) {
@@ -702,6 +706,7 @@ export const getAllProductsByStoreService = async (id) => {
     }
 
     return products;
+
   } catch (error) {
     if (error.status) {
       throw error;
@@ -710,12 +715,12 @@ export const getAllProductsByStoreService = async (id) => {
     throw {
       status: 500,
       message: "Error al obtener la tienda",
-      details: error.message
+      details: error.message,
     };
   }
 };
 
-export const filterStorePriductsService = async (id, filters) => {
+export const filterStoreProductsService = async (id, filters, pagination) => {
   try {
     // validaciones básicas
     if (!id) {
@@ -727,7 +732,7 @@ export const filterStorePriductsService = async (id, filters) => {
 
     const store = await prisma.stores.findUnique({
       where: { id_store: Number(id) },
-      select: { id_store: true }
+      select: { id_store: true },
     });
 
     if (!store) {
@@ -748,7 +753,7 @@ export const filterStorePriductsService = async (id, filters) => {
 
     const whereConditions = {
       fk_store: Number(id),
-      status: true
+      status: true,
     };
 
     if (name) {
@@ -788,8 +793,8 @@ export const filterStorePriductsService = async (id, filters) => {
         visible: true,
         created_at: true,
         product_category: {
-          select: { id_product_category: true, name: true }
-        }
+          select: { id_product_category: true, name: true },
+        },
       },
       orderBy: { [sortBy || "created_at"]: sortOrder === "asc" ? "asc" : "desc" }
     });
@@ -802,6 +807,7 @@ export const filterStorePriductsService = async (id, filters) => {
     }
 
     return products;
+
   } catch (error) {
     if (error.status) {
       throw error;
@@ -810,7 +816,7 @@ export const filterStorePriductsService = async (id, filters) => {
     throw {
       status: 500,
       message: "Error al obtener la tienda",
-      details: error.message
+      details: error.message,
     };
   }
 };

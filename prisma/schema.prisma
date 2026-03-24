@@ -32,6 +32,7 @@ model Users {
   addresses         Addresses[] //Multiples direcciones registradas
   orders            Orders[]    //Multiples pedidos asociados
   wishlists         Wishlists[] //Usuario puede tener multiples listas de deseos
+  carts             Carts[]     //Usuario puede generar multiples carritos (Un carrito por tienda)
   notifications     Notifications[] //Usuario puede recibir varias notificaciones
   product_reviews   ProductReviews[] //Usuario puede dejar multiples resenas en distintos productos
 }
@@ -63,7 +64,8 @@ model Stores {
   website_url       String?   @db.VarChar(500) //Por si el comercio tiene su pagina propia
   instagram_url     String?   @db.VarChar(500)
   tiktok_url        String?   @db.VarChar(500)
-  status            Boolean   @default(true)
+  store_status      StoreStatus   @default(ACTIVE)  
+  status            Boolean   @default(true)  //Para borrado logico
   created_at        DateTime  @default(now()) @db.Timestamptz
   updated_at        DateTime  @updatedAt @db.Timestamptz
 
@@ -75,6 +77,8 @@ model Stores {
   shipping_zones      ShippingZones[] //Un comercio puede abarcar distintos precios para las regiones a las que envia el pedido
   collections         Collections[] //Un comercio puede agrupar sus productos a través de colecciones
   deliveries          Deliveries[]  //Un comercio puede tener asociado muchos deliveries que trabajan con el mismo
+  carts               Carts[]
+  order               Orders[]
 }
 
 //------------------------------------COMERCIOS-CATEGORIAS----------------------------------------
@@ -129,9 +133,11 @@ model Products {
   fk_store             Int
   name                 String    @db.VarChar(100)
   description          String?   @db.Text
-  price                Decimal   @db.Decimal(10, 2)
+  price                Decimal   @db.Decimal(10, 2)   //Precio fijo del producto
+  offer_price          Decimal?   @db.Decimal(10, 2)  //Precio del producto en oferta
   visible              Boolean   @default(true)
   quantity             Int?
+  is_offer             Boolean   @default(false)  //Describe si un producto esta en oferta o no
   status               Boolean   @default(true)
   created_at           DateTime  @default(now()) @db.Timestamptz
   updated_at           DateTime  @updatedAt @db.Timestamptz
@@ -144,6 +150,7 @@ model Products {
   order_items             OrderItems[]
   wishlist_items          WishlistItems[]
   product_reviews         ProductReviews[]
+  cart_items              CartItems[]
 }
 
 //------------------------------------PRODUCTOS-CATEGORIAS----------------------------------------
@@ -233,7 +240,6 @@ model Wishlists {
 
   user Users  @relation(fields: [fk_user], references: [id_user])
   wishlist_items  WishlistItems[]
-  orders Orders? //Relacion 1 a 1 Lista_deseo <-> Pedido 
 }
 
 model WishlistItems {
@@ -247,6 +253,39 @@ model WishlistItems {
 
   wishlist Wishlists  @relation(fields: [fk_wishlist], references: [id_wishlist])
   product Products @relation(fields: [fk_product], references: [id_product])
+}
+
+//------------------------------------CARRITOS----------------------------------------
+model Carts {
+  id_cart     Int       @id @default(autoincrement())
+  fk_user     Int       
+  fk_store    Int       
+  cart_status CartStatus  @default(ACTIVE)
+  status            Boolean  @default(true)
+  created_at        DateTime @default(now()) @db.Timestamptz
+  updated_at        DateTime @updatedAt @db.Timestamptz
+
+  user             Users           @relation(fields: [fk_user], references: [id_user])
+  store            Stores          @relation(fields: [fk_store], references: [id_store])
+  items            CartItems[]
+  order Orders?  //Relacion 1 a 1 Carrito <-> Pedido 
+
+  @@unique([fk_user, fk_store, cart_status]) // 1 carrito ACTIVO por tienda para el usuario
+}
+
+model CartItems {
+  id_cart_item      Int     @id @default(autoincrement())
+  fk_cart           Int
+  fk_product        Int
+  quantity          Int
+  status            Boolean  @default(true)
+  created_at        DateTime @default(now()) @db.Timestamptz
+  updated_at        DateTime @updatedAt @db.Timestamptz
+
+  cart Carts  @relation(fields: [fk_cart], references: [id_cart])
+  product Products @relation(fields: [fk_product], references: [id_product])
+
+  @@unique([fk_cart, fk_product])  //Para que no se dupliquen productos en el mismo carrito
 }
 
 //------------------------------------DELIVERIES----------------------------------------
@@ -279,8 +318,9 @@ model DeliveryAssignments  {
 model Orders {
   id_order          Int           @id @default(autoincrement())
   fk_user           Int
+  fk_store          Int
   fk_address        Int
-  fk_wishlist       Int           @unique  //La lista de deseo se transforma en un pedido, y esa misma lista no puede concretarse en un pedido multiples veces
+  fk_cart           Int           @unique  //El carrito se relaciona en un pedido al confirmarse la compra, y ese mismo carrito no puede concretarse en un pedido multiples veces
   total             Decimal       @db.Decimal(10, 2)
   order_status      OrderStatus   @default(PROCESSING) //procesando porque la lista_deseo es el estado pendiente
   notes             String?       @db.Text
@@ -288,8 +328,9 @@ model Orders {
   created_at        DateTime      @default(now()) @db.Timestamptz
   updated_at        DateTime      @updatedAt @db.Timestamptz
 
-  wishlist             Wishlists          @relation(fields: [fk_wishlist], references: [id_wishlist])
+  cart                 Carts          @relation(fields: [fk_cart], references: [id_cart])
   user                 Users              @relation(fields: [fk_user], references: [id_user])
+  store                Stores              @relation(fields: [fk_store], references: [id_store])
   address              Addresses           @relation(fields: [fk_address], references: [id_address])
   order_items          OrderItems[]
   delivery_assignment  DeliveryAssignments?
@@ -298,7 +339,10 @@ model Orders {
 model OrderItems {
   id_order_item     Int      @id @default(autoincrement())
   fk_order          Int
-  fk_product        Int
+  fk_product        Int      
+  price             Decimal  @db.Decimal(10, 2)  //precio final cobrado
+  original_price    Decimal  @db.Decimal(10, 2)  //precio sin oferta
+  is_offer_applied   Boolean
   quantity          Int      @db.SmallInt
   subtotal          Decimal  @db.Decimal(10, 2)
   status            Boolean  @default(true)
@@ -325,9 +369,21 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum CartStatus {
+  ACTIVE
+  CHECKED_OUT
+  ABANDONED
+}
+
 enum Role {
   ADMIN
   CUSTOMER
   SELLER
   DELIVERY
+}
+
+enum StoreStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
