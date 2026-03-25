@@ -295,10 +295,7 @@ export const updateUserPasswordService = async (
     requestedUserId,
     payload
 ) => {
-    const customer = await getAuthorizedCustomerService(
-        authenticatedUserId,
-        requestedUserId
-    );
+    const customer = await getAuthorizedUserForUpdateService(authenticatedUserId, requestedUserId);
 
     const currentPassword = payload?.currentPassword?.toString();
     const newPassword = payload?.newPassword?.toString();
