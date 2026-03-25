@@ -24,6 +24,8 @@ import { NotFoundError } from "./lib/errors.js";
 
 import { setupSwagger } from "./config/swagger.config.js";
 
+import distanceRoutes from "./modules/global/distances/routes/distance.routes.js";
+
 const app = express();
 
 //Para debug en consola de las peticiones
@@ -62,6 +64,9 @@ app.use('/api/session', sessionRoutes);
 
 // Rutas de pedidos
 app.use("/api/orders", orderRouter);
+
+// Rutas de distancias
+app.use("/api/distances", distanceRoutes);
 
 // Ruta no encontrada — va ANTES del errorHandler
 app.use((req, _res, next) => {
