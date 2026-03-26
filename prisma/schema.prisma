@@ -79,6 +79,7 @@ model Stores {
   deliveries          Deliveries[]  //Un comercio puede tener asociado muchos deliveries que trabajan con el mismo
   carts               Carts[]
   order               Orders[]
+  //wishlist_items      WishlistItems[]
 }
 
 //------------------------------------COMERCIOS-CATEGORIAS----------------------------------------
@@ -246,13 +247,16 @@ model WishlistItems {
   id_wishlist_item  Int  @id @default(autoincrement())
   fk_wishlist       Int 
   fk_product        Int
+  //fk_store          Int
   quantity          Int
   status            Boolean  @default(true)
   created_at        DateTime @default(now()) @db.Timestamptz
   updated_at        DateTime @updatedAt @db.Timestamptz
 
   wishlist Wishlists  @relation(fields: [fk_wishlist], references: [id_wishlist])
-  product Products @relation(fields: [fk_product], references: [id_product])
+  product  Products   @relation(fields: [fk_product], references: [id_product])
+  //store    Stores     @relation(fields: [fk_store], references: [id_store])
+  @@unique([fk_wishlist, fk_product])  //Para evitar duplicados del mismo producto en una Wishlist
 }
 
 //------------------------------------CARRITOS----------------------------------------
