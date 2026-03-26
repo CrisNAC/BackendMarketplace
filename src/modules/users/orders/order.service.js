@@ -21,63 +21,88 @@ const mapOrderResponse = (order) => ({
   items: order.order_items.map((item) => ({
     id: item.id_order_item,
     quantity: item.quantity,
+    price: Number(item.price),
+    originalPrice: Number(item.original_price),
+    isOfferApplied: item.is_offer_applied,
     subtotal: Number(item.subtotal),
-    product: {
-      id: item.product.id_product,
-      name: item.product.name,
-      price: Number(item.product.price)
-    }
   })),
   createdAt: order.created_at,
   updatedAt: order.updated_at
 });
 
-export const createOrderService = async (authenticatedUserId, { wishlistId, addressId, notes }) => {
+
+
+/**
+ * Crea un pedido confirmando el carrito activo del usuario.
+ * Calcula los precios históricos de cada item, marca el carrito como CHECKED_OUT
+ * y crea la orden con sus items en una sola transacción.
+ *
+ * POST /api/orders/
+ * Body:
+ * {
+ *   "fk_cart": 1,         // id del carrito activo a confirmar
+ *   "fk_address": 1,      // id de la dirección de entrega
+ *   "total": 150000,      // total calculado en el frontend por ahora, debido a que no hay registro de costo de envío, o sea andres lo hace
+ *   "notes": "Puedo recibir solo de mañana" // esto es opcional
+ * }
+ */
+export const createOrderService = async (authenticatedUserId, { cartId, addressId, notes, total }) => {
   const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
-  const resolvedWishlistId = parsePositiveInteger(wishlistId, "wishlistId");
+  const resolvedCartId = parsePositiveInteger(cartId, "cartId");
   const resolvedAddressId = parsePositiveInteger(addressId, "addressId");
 
-  // Validar que la wishlist existe, está activa y pertenece al usuario
-  const wishlist = await prisma.wishlists.findFirst({
-    where: { id_wishlist: resolvedWishlistId, fk_user: resolvedUserId, status: true },
+  // Validar que el carrito existe, está activa y pertenece al usuario
+  const cart = await prisma.carts.findFirst({
+    where: {
+      id_cart: resolvedCartId,
+      fk_user: resolvedUserId,
+      cart_status: "ACTIVE",
+      status: true
+    },
     select: {
-      id_wishlist: true,
-      orders: { select: { id_order: true } },
-      wishlist_items: {
+      id_cart: true,
+      fk_store: true,
+      order: { select: { id_order: true } },
+      items: {
         where: { status: true },
         select: {
           fk_product: true,
           quantity: true,
           product: {
-            select: { id_product: true, price: true, status: true, visible: true }
+            select: {
+              id_product: true,
+              price: true,
+              offer_price: true,
+              is_offer: true,
+              status: true,
+              visible: true
+            }
           }
         }
       }
     }
   });
 
-  if (!wishlist) {
-    throw new NotFoundError("Lista de deseos no encontrada");
+  if (!cart) {
+    throw new NotFoundError("Carrito no encontrado");
   }
 
-  // Una wishlist solo puede convertirse en pedido una vez
-  if (wishlist.orders) {
-    throw new ConflictError("Esta lista de deseos ya fue convertida en un pedido");
+  // Un carrito solo puede convertirse en pedido una vez
+  if (cart.order) {
+    throw new ConflictError("Este carrito ya fue convertido en un pedido");
   }
 
-  // La wishlist debe tener al menos un item
-  if (wishlist.wishlist_items.length === 0) {
-    throw new ValidationError("La lista de deseos no tiene productos para ordenar");
+  // El carrito debe tener al menos un item
+  if (cart.items.length === 0) {
+    throw new ValidationError("El carrito no tiene productos");
   }
 
   // Validar que todos los productos siguen activos y visibles
-  const unavailable = wishlist.wishlist_items.filter(
+  const unavailable = cart.items.filter(
     (item) => !item.product.status || !item.product.visible
   );
   if (unavailable.length > 0) {
-    throw new ValidationError(
-      "Uno o más productos de la lista ya no están disponibles"
-    );
+    throw new ValidationError("Uno o más productos del carrito ya no están disponibles");
   }
 
   // Validar que la dirección existe y pertenece al usuario
@@ -89,23 +114,32 @@ export const createOrderService = async (authenticatedUserId, { wishlistId, addr
     throw new NotFoundError("Dirección no encontrada");
   }
 
-  // Calcular subtotales y total
-  const itemsData = wishlist.wishlist_items.map((item) => ({
-    fk_product: item.fk_product,
-    quantity: item.quantity,
-    subtotal: Number(item.product.price) * item.quantity,
-    status: true
-  }));
+  // Calcular precios historicos por item
+  const itemsData = cart.items.map((item) => {
+    const isOfferApplied = item.product.is_offer && item.product.offer_price != null;
+    const price = isOfferApplied ? Number(item.product.offer_price) : Number(item.product.price);
+    const originalPrice = Number(item.product.price);
+    const subtotal = price * item.quantity;
 
-  const total = itemsData.reduce((sum, item) => sum + item.subtotal, 0);
+    return {
+      fk_product: item.fk_product,
+      quantity: item.quantity,
+      price,
+      original_price: originalPrice,
+      is_offer_applied: isOfferApplied,
+      subtotal,
+      status: true
+    };
+  });
 
-  // Crear orden e items en una sola transacción
+  // Crear orden, items y marcar carrito como CHECKED_OUT en una sola transacción
   const createdOrder = await prisma.$transaction(async (tx) => {
     const order = await tx.orders.create({
       data: {
         fk_user: resolvedUserId,
+        fk_store: cart.fk_store,
         fk_address: resolvedAddressId,
-        fk_wishlist: resolvedWishlistId,
+        fk_cart: resolvedCartId,
         total,
         notes: notes ?? null,
         status: true
@@ -119,6 +153,12 @@ export const createOrderService = async (authenticatedUserId, { wishlistId, addr
         ...item
       }))
     });
+
+    //marcar el carrito como CHECKED_OUT
+    await tx.carts.update({
+      where: { id_cart: resolvedCartId },
+      data: { cart_status: "CHECKED_OUT" }
+    })
 
     return tx.orders.findUnique({
       where: { id_order: order.id_order },
@@ -137,10 +177,10 @@ export const createOrderService = async (authenticatedUserId, { wishlistId, addr
           select: {
             id_order_item: true,
             quantity: true,
-            subtotal: true,
-            product: {
-              select: { id_product: true, name: true, price: true }
-            }
+            price: true,
+            original_price: true,
+            is_offer_applied: true,
+            subtotal: true
           }
         }
       }
@@ -150,15 +190,46 @@ export const createOrderService = async (authenticatedUserId, { wishlistId, addr
   return mapOrderResponse(createdOrder);
 };
 
+/**
+ * Obtener el historial de pedidos de un cliente.
+ * Si el usuario autenticado es el mismo cliente, ve todos sus pedidos.
+ * Si es un SELLER, solo puede ver los pedidos de ese cliente que pertenecen a su tienda.
+ *
+ * GET /api/orders/user/:customerId
+ * Params:
+ *   customerId — id del cliente cuyos pedidos se quieren ver
+ */
 export const getOrdersService = async (authenticatedUserId, customerId) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
   const resolvedCustomerId = parsePositiveInteger(customerId, "customerId");
 
-  if (resolvedCustomerId !== parsePositiveInteger(authenticatedUserId, "userId")) {
-    throw new ForbiddenError("No tienes permisos para ver estos pedidos");
+  let storeId = null;
+
+  // si son distintos users, se verifica que el user auth sea SELLER y tenga un store con pedidos de customerId
+  if (resolvedCustomerId !== resolvedUserId) {
+    const store = await prisma.stores.findFirst({
+      where: {
+        fk_user: resolvedUserId,
+        status: true,
+        order: {
+          some: {
+            fk_user: resolvedCustomerId,
+            status: true
+          }
+        }
+      },
+      select: { id_store: true }
+    });
+    if (!store) throw new ForbiddenError("No tienes permisos para ver estos pedidos");
+    storeId = store.id_store;
   }
 
   const orders = await prisma.orders.findMany({
-    where: { fk_user: resolvedCustomerId, status: true },
+    where: {
+      fk_user: resolvedCustomerId,
+      status: true,
+      ...(storeId && { fk_store: storeId }) // si el user es SELLER filtra pedidos por su tienda
+    },
     orderBy: { created_at: "desc" },
     select: {
       id_order: true,
@@ -175,14 +246,202 @@ export const getOrdersService = async (authenticatedUserId, customerId) => {
         select: {
           id_order_item: true,
           quantity: true,
-          subtotal: true,
-          product: {
-            select: { id_product: true, name: true, price: true }
-          }
+          price: true,
+          original_price: true,
+          is_offer_applied: true,
+          subtotal: true
         }
       }
     }
   });
 
   return orders.map(mapOrderResponse);
+};
+
+
+/**
+ * Obtener los pedidos de una tienda con filtros opcionales.
+ * Solo el dueño del comercio puede acceder.
+ *
+ * GET /api/orders/store/:storeId
+ * Params:
+ *   storeId — id del comercio
+ * Query:
+ * {
+ *   "order_status": "PENDING",       // opcional — filtra por estado
+ *   "date_from": "2025-01-01",       // opcional — fecha inicio del rango
+ *   "date_to": "2025-12-31",         // opcional — fecha fin del rango
+ *   "page": 1,                       // opcional — pagina actual (default: 1)
+ *   "limit": 10                      // opcional — resultados por página (default: 10)
+ * }
+ */
+export const getStoreOrdersService = async (authenticatedUserId, storeId, filters) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
+  const resolvedStoreId = parsePositiveInteger(storeId, 'storeId');
+
+  // validar que el comercio existe y pertenece al usuario autenticado
+  const store = prisma.stores.findFirst({
+    where: { id_store: storeId, fk_user: resolvedUserId, status: true }
+  });
+
+  if (!store) throw new NotFoundError("Comercio no encontrado.");
+
+  const { order_status, date_from, date_to, page = 1, limit = 10 } = filters;
+
+  const where = {
+    fk_store: resolvedStoreId,
+    status: true,
+    ...(order_status && { order_status }),
+    ...(date_from || date_to ? {
+      created_at: {
+        ...(date_from && { gte: new Date(date_from) }),
+        ...(date_to && { lte: new Date(date_to) })
+      }
+    } : {})
+  };
+
+  const [orders, total] = await prisma.$transaction([
+    prisma.orders.findMany({
+      where,
+      orderBy: { created_at: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id_order: true,
+        order_status: true,
+        total: true,
+        notes: true,
+        created_at: true,
+        updated_at: true,
+        address: {
+          select: { id_address: true, address: true, city: true, region: true }
+        },
+        order_items: {
+          where: { status: true },
+          select: {
+            id_order_item: true,
+            quantity: true,
+            price: true,
+            original_price: true,
+            is_offer_applied: true,
+            subtotal: true
+          }
+        }
+      }
+    }),
+    prisma.orders.count({ where })
+  ]);
+
+  return {
+    orders: orders.map(mapOrderResponse),
+    total,
+    page,
+    limit,
+    total_page: Math.ceil(total / limit)
+  };
+};
+
+/**
+ * Actualizar el estado de un pedido según el rol del usuario autenticado.
+ * Cada rol tiene transiciones permitidas específicas:
+ *   - SELLER:   PENDING → PROCESSING (acepta) | PENDING → CANCELLED (rechaza)
+ *   - DELIVERY: SHIPPED → DELIVERED (entrega)
+ *   - CUSTOMER: PENDING → CANCELLED (cancela antes de que el comercio acepte)
+ *
+ * PATCH /api/orders/:orderId/status
+ * Params:
+ *   orderId — id del pedido a modificar
+ * Body:
+ * {
+ *   "order_status": "PROCESSING" // nuevo estado a asignar
+ * }
+ */
+export const updateOrderStatusService = async (authenticatedUserId, orderId, order_status) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
+  const resolvedOrderId = parsePositiveInteger(orderId, "orderId");
+
+  //obtener rol del usuario autenticado
+  const user = await prisma.users.findFirst({
+    where: { id_user: resolvedUserId, status: true },
+    select: { role: true }
+  });
+
+  if (!user) throw new NotFoundError("Usuario no encontrado.");
+
+  //validar que el pedido existe
+  const order = await prisma.orders.findFirst({
+    where: { id_order: resolvedOrderId, status: true },
+    select: { id_order: true, order_status: true, fk_store: true }
+  });
+
+  if (!order) throw new NotFoundError("Pedido no encontrado.");
+
+  //validar que el comercio del pedido pertenece al user de rol SELLER
+  if (user.role === "SELLER") {
+    const store = await prisma.stores.findFirst({
+      where: { id_store: order.fk_store, fk_user: resolvedUserId, status: true }
+    });
+
+    if (!store) throw new ForbiddenError("No tienes permisos para modificar este pedido.");
+  }
+
+  //validar que el pedido pertenece al CUSTOMER autenticado
+  if (user.role === "CUSTOMER") {
+    const customerOrder = await prisma.orders.findFirst({
+      where: { id_order: resolvedOrderId, fk_user: resolvedUserId, status: true }
+    });
+
+    if (!customerOrder) throw new ForbiddenError("No tienes permisos para modificar este pedido.");
+  }
+
+  //validar transiciones permitidas por rol de user autenticado
+  const allowedTransitions = {
+    SELLER: {
+      PENDING: ["PROCESSING", "CANCELLED"]
+    },
+    DELIVERY: {
+      SHIPPED: ["DELIVERED"]
+    },
+    CUSTOMER: {
+      PENDING: ["CANCELLED"] //el cliente puede cancelar solo hasta antes de que se acepte el pedido
+    }
+  };
+
+  const roleTransitions = allowedTransitions[user.role]
+
+  if (!roleTransitions) throw new ForbiddenError("No puedes modificar el estado del pedido.");
+
+  const allowed = roleTransitions[order.order_status];
+
+  if (!allowed) throw new ValidationError(`No se puede modificar un pedido en estado ${order.order_status}`)
+
+  if (!allowed.includes(order_status)) throw new ValidationError(`Transicion invalida: ${order.order_status} a ${order_status}`);
+
+  const updated = await prisma.orders.update({
+    where: { id_order: resolvedOrderId },
+    data: { order_status },
+    select: {
+      id_order: true,
+      order_status: true,
+      total: true,
+      notes: true,
+      created_at: true,
+      updated_at: true,
+      address: {
+        select: { id_address: true, address: true, city: true, region: true }
+      },
+      order_items: {
+        where: { status: true },
+        select: {
+          id_order_item: true,
+          quantity: true,
+          price: true,
+          original_price: true,
+          is_offer_applied: true,
+          subtotal: true
+        }
+      }
+    }
+  });
+  return mapOrderResponse(updated);
 };
