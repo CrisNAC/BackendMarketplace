@@ -33,7 +33,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/ProductResponse'
  *       400:
- *         description: Campos inválidos o faltantes
+ *         description: Campos invalidos o faltantes
  *         content:
  *           application/json:
  *             schema:
@@ -82,7 +82,7 @@ router.post("/", authenticate, createProduct);
  *             schema:
  *               $ref: '#/components/schemas/ProductResponse'
  *       400:
- *         description: Sin campos para actualizar o campos inválidos
+ *         description: Sin campos para actualizar o campos invalidos
  *         content:
  *           application/json:
  *             schema:
@@ -112,7 +112,7 @@ router.put("/:id", authenticate, updateProduct);
  * @swagger
  * /products/{id}:
  *   delete:
- *     summary: Eliminar un producto (borrado lógico)
+ *     summary: Eliminar un producto (borrado logico)
  *     tags: [Products]
  *     security:
  *       - cookieAuth: []
@@ -158,24 +158,29 @@ router.delete("/:id", authenticate, deleteProduct);
  *         name: search
  *         schema:
  *           type: string
- *         description: Buscar por nombre o descripción
+ *         description: Buscar por nombre o descripcion
  *       - in: query
  *         name: categoryId
  *         schema:
  *           type: integer
- *         description: Filtrar por ID de categoría
+ *         description: Filtrar por ID de categoria
+ *       - in: query
+ *         name: isOffer
+ *         schema:
+ *           type: boolean
+ *         description: Filtrar productos en oferta (`true`) o fuera de oferta (`false`)
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
  *           default: 1
- *         description: Número de página
+ *         description: Numero de pagina
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           default: 20
- *         description: Cantidad de productos por página (máx. 100)
+ *         description: Cantidad de productos por pagina (max. 100)
  *     responses:
  *       200:
  *         description: Lista paginada de productos
@@ -184,7 +189,7 @@ router.delete("/:id", authenticate, deleteProduct);
  *             schema:
  *               $ref: '#/components/schemas/ProductSearchResponse'
  *       400:
- *         description: Parámetros inválidos
+ *         description: Parametros invalidos
  *         content:
  *           application/json:
  *             schema:
@@ -203,12 +208,12 @@ router.get("/", getProductsSearch);
  *         name: search
  *         schema:
  *           type: string
- *         description: Término de búsqueda del producto a comparar
+ *         description: Termino de busqueda del producto a comparar
  *       - in: query
  *         name: categoryId
  *         schema:
  *           type: integer
- *         description: Filtrar por categoría
+ *         description: Filtrar por categoria
  *     responses:
  *       200:
  *         description: Producto base y ofertas similares en otras tiendas

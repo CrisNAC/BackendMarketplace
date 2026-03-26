@@ -6,6 +6,8 @@ export const productSchemas = {
         properties: {
             name: { type: "string", maxLength: 100, example: "Auriculares Bluetooth" },
             price: { type: "number", example: 150000 },
+            offerPrice: { type: "number", nullable: true, example: 120000 },
+            isOffer: { type: "boolean", example: true },
             categoryId: { type: "integer", example: 3 },
             description: { type: "string", nullable: true, example: "Auriculares de alta calidad" },
             quantity: { type: "integer", nullable: true, example: 50 },
@@ -23,6 +25,8 @@ export const productSchemas = {
         properties: {
             name: { type: "string", maxLength: 100, example: "Auriculares Bluetooth Pro" },
             price: { type: "number", example: 200000 },
+            offerPrice: { type: "number", nullable: true, example: 150000 },
+            isOffer: { type: "boolean", example: true },
             categoryId: { type: "integer", example: 3 },
             description: { type: "string", nullable: true },
             quantity: { type: "integer", nullable: true },
@@ -38,7 +42,10 @@ export const productSchemas = {
             id: { type: "integer", example: 1 },
             name: { type: "string", example: "Auriculares Bluetooth" },
             description: { type: "string", nullable: true },
-            price: { type: "number", example: 150000 },
+            price: { type: "number", example: 120000 },
+            originalPrice: { type: "number", example: 150000 },
+            offerPrice: { type: "number", nullable: true, example: 120000 },
+            isOffer: { type: "boolean", example: true },
             quantity: { type: "integer", nullable: true, example: 50 },
             categoryId: { type: "integer", example: 3 },
             category: {
@@ -83,7 +90,10 @@ export const productSchemas = {
             id: { type: "integer", example: 1 },
             name: { type: "string", example: "Auriculares Bluetooth" },
             description: { type: "string", nullable: true },
-            price: { type: "number", example: 150000 },
+            price: { type: "number", example: 120000 },
+            original_price: { type: "number", example: 150000 },
+            offer_price: { type: "number", nullable: true, example: 120000 },
+            is_offer: { type: "boolean", example: true },
             store: {
                 type: "object",
                 nullable: true,
@@ -124,7 +134,10 @@ export const productSchemas = {
                     productId: { type: "integer", example: 1 },
                     name: { type: "string", example: "Auriculares Bluetooth" },
                     description: { type: "string", nullable: true },
-                    price: { type: "number", example: 150000 },
+                    price: { type: "number", example: 120000 },
+                    originalPrice: { type: "number", example: 150000 },
+                    offerPrice: { type: "number", nullable: true, example: 120000 },
+                    isOffer: { type: "boolean", example: true },
                     store: {
                         type: "object",
                         nullable: true,
@@ -144,6 +157,9 @@ export const productSchemas = {
                         name: { type: "string", example: "Auriculares Bluetooth" },
                         description: { type: "string", nullable: true },
                         price: { type: "number", example: 120000 },
+                        originalPrice: { type: "number", example: 150000 },
+                        offerPrice: { type: "number", nullable: true, example: 120000 },
+                        isOffer: { type: "boolean", example: true },
                         store: {
                             type: "object",
                             nullable: true,

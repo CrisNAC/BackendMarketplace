@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../../../lib/prisma.js";
+import { getProductPricing } from "../../../lib/product-pricing.js";
 import { validateStoreCategoryService } from "../store-categories/store-category.service.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -43,8 +44,10 @@ const STORE_RESPONSE_SELECT = {
       id_product: true,
       name: true,
       price: true,
+      offer_price: true,
       quantity: true,
       visible: true,
+      is_offer: true,
       product_category: {
         select: {
           id_product_category: true,
@@ -147,6 +150,52 @@ const validateEmailField = (value) => {
   }
 
   return normalizedEmail;
+};
+
+const parseBooleanField = (value, fieldName) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalizedValue = String(value).trim().toLowerCase();
+
+  if (normalizedValue === "true" || normalizedValue === "1") {
+    return true;
+  }
+
+  if (normalizedValue === "false" || normalizedValue === "0") {
+    return false;
+  }
+
+  throw {
+    status: 400,
+    message: `${fieldName} debe ser booleano`
+  };
+};
+
+const mapStoreProductPricing = (product) => {
+  const pricing = getProductPricing(product);
+
+  return {
+    ...product,
+    price: pricing.price,
+    original_price: pricing.originalPrice,
+    offer_price: pricing.offerPrice,
+    is_offer: pricing.isOffer
+  };
+};
+
+const mapStoreWithPricedProducts = (store) => {
+  if (!store) {
+    return store;
+  }
+
+  return {
+    ...store,
+    products: Array.isArray(store.products)
+      ? store.products.map(mapStoreProductPricing)
+      : []
+  };
 };
 
 // valida que el usuario autenticado sea el propietario del comercio solicitado
@@ -571,7 +620,7 @@ export const updateStoreService = async (
 
     await deletePreviousStoreLogoFromStorage(store.logo, updatedStore.logo);
 
-    return updatedStore;
+    return mapStoreWithPricedProducts(updatedStore);
   } catch (error) {
     if (error.code === "P2002") {
       throw {
@@ -622,8 +671,10 @@ export const getStoreByIdService = async (id) => {
             id_product: true,
             name: true,
             price: true,
+            offer_price: true,
             quantity: true,
             visible: true,
+            is_offer: true,
             product_category: {
               select: { id_product_category: true, name: true }
             }
@@ -641,7 +692,7 @@ export const getStoreByIdService = async (id) => {
       throw { status: 404, message: "Comercio no encontrado" };
     }
 
-    return store;
+    return mapStoreWithPricedProducts(store);
 
   } catch (error) {
     if (error.status) {
@@ -688,8 +739,10 @@ export const getAllProductsByStoreService = async (id) => {
         name: true,
         description: true,
         price: true,
+        offer_price: true,
         quantity: true,
         visible: true,
+        is_offer: true,
         created_at: true,
         product_category: {
           select: { id_product_category: true, name: true },
@@ -705,7 +758,7 @@ export const getAllProductsByStoreService = async (id) => {
       };
     }
 
-    return products;
+    return products.map(mapStoreProductPricing);
 
   } catch (error) {
     if (error.status) {
@@ -743,10 +796,13 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
       name,
       category,
       visible,
+      available,
       minPrice,
       maxPrice,
       price_min,
       price_max,
+      isOffer,
+      is_offer,
       sortBy,
       sortOrder
     } = filters;
@@ -764,8 +820,17 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
       whereConditions.fk_product_category = Number(category);
     }
 
-    if (visible !== undefined && visible !== null) {
-      whereConditions.visible = visible;
+    const resolvedVisible = visible ?? available;
+    if (resolvedVisible !== undefined && resolvedVisible !== null) {
+      whereConditions.visible = resolvedVisible;
+    }
+
+    const resolvedIsOffer = isOffer ?? is_offer;
+    if (resolvedIsOffer !== undefined && resolvedIsOffer !== null) {
+      whereConditions.is_offer =
+        typeof resolvedIsOffer === "boolean"
+          ? resolvedIsOffer
+          : parseBooleanField(resolvedIsOffer, "isOffer");
     }
 
     const resolvedMinPrice = minPrice ?? price_min;
@@ -782,31 +847,43 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
       };
     }
 
-    const products = await prisma.products.findMany({
+    const [totalProducts, products] = await Promise.all([
+      prisma.products.count({
+        where: whereConditions
+      }),
+      prisma.products.findMany({
       where: whereConditions,
+      skip: pagination?.skip ?? 0,
+      take: pagination?.limit ?? 20,
       select: {
         id_product: true,
         name: true,
         description: true,
         price: true,
+        offer_price: true,
         quantity: true,
         visible: true,
+        is_offer: true,
         created_at: true,
         product_category: {
           select: { id_product_category: true, name: true },
         },
       },
       orderBy: { [sortBy || "created_at"]: sortOrder === "asc" ? "asc" : "desc" }
-    });
+      })
+    ]);
 
-    if (!products || products.length === 0) {
+    if (totalProducts === 0) {
       throw {
         status: 404,
         message: "No se encontraron productos para esta tienda con los filtros aplicados"
       };
     }
 
-    return products;
+    return {
+      products: products.map(mapStoreProductPricing),
+      totalProducts
+    };
 
   } catch (error) {
     if (error.status) {
