@@ -256,7 +256,7 @@ model WishlistItems {
   wishlist Wishlists  @relation(fields: [fk_wishlist], references: [id_wishlist])
   product  Products   @relation(fields: [fk_product], references: [id_product])
   //store    Stores     @relation(fields: [fk_store], references: [id_store])
-  //@@unique([fk_wishlist, fk_product])  //Para evitar duplicados del mismo producto en una Wishlist, descomentar esta linea cuando hable con Andres
+  @@unique([fk_wishlist, fk_product])  //Para evitar duplicados del mismo producto en una Wishlist
 }
 
 //------------------------------------CARRITOS----------------------------------------
