@@ -6,6 +6,12 @@ export class StoreProductItemDTO {
         this.name = data.name;
         this.description = data.description ?? null;
         this.price = Number(data.price);
+        this.original_price = Number(data.original_price ?? data.price);
+        this.offer_price =
+            data.offer_price === null || data.offer_price === undefined
+                ? null
+                : Number(data.offer_price);
+        this.is_offer = Boolean(data.is_offer);
         this.quantity = data.quantity ?? null;
         this.visible = data.visible;
         this.created_at = data.created_at;

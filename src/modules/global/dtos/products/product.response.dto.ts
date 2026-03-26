@@ -27,6 +27,9 @@ export class ProductResponseDTO extends BaseResponseDTO {
   name: string;
   description: string | null;
   price: number;
+  originalPrice: number;
+  offerPrice: number | null;
+  isOffer: boolean;
   quantity: number | null;
   visible: boolean;
   fk_store: number;
@@ -42,7 +45,15 @@ export class ProductResponseDTO extends BaseResponseDTO {
     this.id_product = data.id_product;
     this.name = data.name;
     this.description = data.description ?? null;
-    this.price = Number(data.price);
+    this.originalPrice = Number(data.price);
+    this.offerPrice =
+      data.offer_price === null || data.offer_price === undefined
+        ? null
+        : Number(data.offer_price);
+    this.isOffer = Boolean(data.is_offer);
+    this.price = this.isOffer && this.offerPrice !== null
+      ? this.offerPrice
+      : this.originalPrice;
     this.quantity = data.quantity ?? null;
     this.visible = data.visible;
     this.fk_store = data.fk_store;
