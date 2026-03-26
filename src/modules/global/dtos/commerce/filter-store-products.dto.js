@@ -41,6 +41,14 @@ export const FilterStoreProductsDTO = z.object({
             .optional()
     ),
 
+    isOffer: z.preprocess(
+        emptyToUndefined,
+        z
+            .enum(["true", "false", "1", "0"])
+            .transform((v) => v === "true" || v === "1")
+            .optional()
+    ),
+
     sortBy: z.preprocess(
         emptyToUndefined,
         z
