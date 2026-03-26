@@ -148,5 +148,19 @@ export const storeSchemas = {
                 }
             }
         }
+    },
+
+    StoreProductsPageResponse: {
+        type: "object",
+        properties: {
+            content: {
+                type: "array",
+                items: { $ref: "#/components/schemas/StoreProductResponse" }
+            },
+            total_elements: { type: "integer", example: 68 },
+            total_pages: { type: "integer", example: 4 },
+            size: { type: "integer", example: 20 },
+            page: { type: "integer", example: 1 }
+        }
     }
 };
