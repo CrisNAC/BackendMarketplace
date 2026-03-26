@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { BaseResponseDTO } from "../base/base.response.dto.js";
+import { BaseResponseDTO } from "../base/base.response.dto";
+
+const ORDER_STATUSES = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const; //ESTADOS
 
 // ─── REQUEST ─────────────────────────────────────────────────────
 const OrderItemRequestDTO = z.object({
@@ -15,25 +17,22 @@ const OrderItemRequestDTO = z.object({
 });
 
 export const CreateOrderDTO = z.object({
+
+  fk_cart: z
+    .number({ error: "fk_cart es requerido" })
+    .int()
+    .positive("fk_cart debe ser ID valido"),
+
   fk_address: z
     .number({ error: "fk_address es requerido" })
     .int()
     .positive("fk_address debe ser un ID válido"),
 
-  fk_wishlist: z
-    .number({ error: "fk_wishlist es requerido" })
-    .int()
-    .positive("fk_wishlist debe ser un ID válido"),
-
   notes: z
     .string()
     .max(2000, "notes no puede superar 2000 caracteres")
     .nullable()
-    .optional(),
-
-  items: z
-    .array(OrderItemRequestDTO)
-    .min(1, "El pedido debe tener al menos un producto")
+    .optional()
 });
 
 export type CreateOrderDTOType = z.infer<typeof CreateOrderDTO>;
@@ -41,7 +40,7 @@ export type CreateOrderDTOType = z.infer<typeof CreateOrderDTO>;
 export const UpdateOrderDTO = z
   .object({
     order_status: z
-      .enum(["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"], {
+      .enum(ORDER_STATUSES, {
         error: "order_status debe ser PENDING, PROCESSING, SHIPPED, DELIVERED o CANCELLED"
       })
       .optional(),
@@ -72,7 +71,7 @@ export const FilterOrderDTO = z.object({
     .optional(),
 
   order_status: z
-    .enum(["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"], {
+    .enum(ORDER_STATUSES, {
       error: "order_status debe ser PENDING, PROCESSING, SHIPPED, DELIVERED o CANCELLED"
     })
     .optional(),
@@ -96,28 +95,42 @@ export type FilterOrderDTOType = z.infer<typeof FilterOrderDTO>;
 
 // ─── RESPONSE ────────────────────────────────────────────────────
 export class OrderItemResponseDTO {
-  id_order_item: number;
-  fk_product: number;
+  id: number;
+  productId: number;
+  productName: string;
   quantity: number;
+  price: number;           // precio final cobrado
+  originalPrice: number;   // precio sin oferta
+  isOfferApplied: boolean;
   subtotal: number;
 
   constructor(data: any) {
-    this.id_order_item = data.id_order_item;
-    this.fk_product = data.fk_product;
+    this.id = data.id_order_item;
+    this.productId = data.product.id_product;
+    this.productName = data.product.name;
     this.quantity = data.quantity;
+    this.price = Number(data.price);
+    this.originalPrice = Number(data.original_price);
+    this.isOfferApplied = data.is_offer_applied;
     this.subtotal = Number(data.subtotal);
   }
 }
 
 export class OrderResponseDTO extends BaseResponseDTO {
-  id_order: number;
-  fk_user: number;
-  fk_address: number;
-  fk_wishlist: number;
+  id: number;
+  userId: number;
+  storeId: number;
+  cartId: number;
   total: number;
-  order_status: string;
+  orderStatus: string;
   notes: string | null;
-  order_items: OrderItemResponseDTO[];
+  address: {
+    id: number;
+    address: string;
+    city: string;
+    region: string;
+  };
+  items: OrderItemResponseDTO[];
 
   constructor(data: any) {
     super({
@@ -125,14 +138,20 @@ export class OrderResponseDTO extends BaseResponseDTO {
       created_at: data.created_at,
       updated_at: data.updated_at
     });
-    this.id_order = data.id_order;
-    this.fk_user = data.fk_user;
-    this.fk_address = data.fk_address;
-    this.fk_wishlist = data.fk_wishlist;
+    this.id = data.id_order;
+    this.userId = data.fk_user;
+    this.storeId = data.fk_store;
+    this.cartId = data.fk_cart;
     this.total = Number(data.total);
-    this.order_status = data.order_status;
+    this.orderStatus = data.order_status;
     this.notes = data.notes ?? null;
-    this.order_items = data.order_items?.map((i: any) => new OrderItemResponseDTO(i)) ?? [];
+    this.address = {
+      id: data.address.id_address,
+      address: data.address.address,
+      city: data.address.city,
+      region: data.address.region
+    };
+    this.items = data.order_items?.map((i: any) => new OrderItemResponseDTO(i)) ?? [];
   }
 
   static map(data: any): OrderResponseDTO {
