@@ -195,7 +195,7 @@ export const createOrderService = async (authenticatedUserId, { cartId, addressI
  * Si el usuario autenticado es el mismo cliente, ve todos sus pedidos.
  * Si es un SELLER, solo puede ver los pedidos de ese cliente que pertenecen a su tienda.
  *
- * GET /api/orders/user/:customerId
+ * GET /api/users/:customerId/orders
  * Params:
  *   customerId — id del cliente cuyos pedidos se quieren ver
  */
@@ -280,13 +280,15 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
   const resolvedStoreId = parsePositiveInteger(storeId, 'storeId');
 
   // validar que el comercio existe y pertenece al usuario autenticado
-  const store = prisma.stores.findFirst({
+  const store = await prisma.stores.findFirst({
     where: { id_store: storeId, fk_user: resolvedUserId, status: true }
   });
 
   if (!store) throw new NotFoundError("Comercio no encontrado.");
 
-  const { order_status, date_from, date_to, page = 1, limit = 10 } = filters;
+  const { order_status, date_from, date_to } = filters;
+  const page = parsePositiveInteger(filters.page ?? 1, "page");
+  const limit = parsePositiveInteger(filters.limit ?? 10, "limit");
 
   const where = {
     fk_store: resolvedStoreId,
@@ -344,7 +346,7 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
 /**
  * Actualizar el estado de un pedido según el rol del usuario autenticado.
  * Cada rol tiene transiciones permitidas específicas:
- *   - SELLER:   PENDING → PROCESSING (acepta) | PENDING → CANCELLED (rechaza)
+ *   - SELLER:   PENDING → PROCESSING (acepta) | PENDING → CANCELLED (rechaza) | PROCESSING → SHIPPED 
  *   - DELIVERY: SHIPPED → DELIVERED (entrega)
  *   - CUSTOMER: PENDING → CANCELLED (cancela antes de que el comercio acepte)
  *
@@ -397,7 +399,7 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
   //validar transiciones permitidas por rol de user autenticado
   const allowedTransitions = {
     SELLER: {
-      PENDING: ["PROCESSING", "CANCELLED"]
+      PENDING: ["PROCESSING", "CANCELLED", "SHIPPED"]
     },
     DELIVERY: {
       SHIPPED: ["DELIVERED"]
