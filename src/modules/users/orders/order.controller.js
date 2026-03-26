@@ -38,7 +38,7 @@ export const updateOrderStatus = async (req, res, next) => {
   try {
     const { orderId } = req.params;
     const { order_status } = req.body;
-    const order = await updateOrderStatusService(req.user.id_user, storeId, orderId, order_status);
+    const order = await updateOrderStatusService(req.user.id_user, orderId, order_status);
     return res.status(200).json(order);
   
   } catch (error) {
