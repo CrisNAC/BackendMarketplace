@@ -19,6 +19,7 @@ vi.mock("../../src/lib/prisma.js", () => ({
       findUnique: vi.fn(),
     },
     products: {
+      count: vi.fn(),
       findMany: vi.fn(),
       updateMany: vi.fn(),
     },
@@ -82,7 +83,7 @@ const mockProducts = [
 // ─── GET /api/commerces/:id ───────────────────────────────────────────────────
 
 describe("GET /api/commerces/:id", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 200 con datos del comercio cuando existe", async () => {
     prisma.stores.findUnique.mockResolvedValue(mockStore);
@@ -98,7 +99,7 @@ describe("GET /api/commerces/:id", () => {
     const res = await request(app).get("/api/commerces/abc");
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/numero/i);
+    expect(res.body.message).toMatch(/n.mero/i);
   });
 
   it("devuelve 404 cuando el comercio no existe", async () => {
@@ -114,7 +115,7 @@ describe("GET /api/commerces/:id", () => {
 // ─── GET /api/commerces/products/:id ─────────────────────────────────────────
 
 describe("GET /api/commerces/products/:id", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 200 con los productos del comercio", async () => {
     // Primera llamada: verificar que el store existe
@@ -150,10 +151,11 @@ describe("GET /api/commerces/products/:id", () => {
 // ─── GET /api/commerces/products/filter/:id ───────────────────────────────────
 
 describe("GET /api/commerces/products/filter/:id", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 200 con productos filtrados por precio", async () => {
     prisma.stores.findUnique.mockResolvedValue({ id_store: 1 });
+    prisma.products.count.mockResolvedValue(1);
     prisma.products.findMany.mockResolvedValue(mockProducts);
 
     const res = await request(app).get(
@@ -161,11 +163,13 @@ describe("GET /api/commerces/products/filter/:id", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveProperty("content");
+    expect(Array.isArray(res.body.content)).toBe(true);
   });
 
   it("devuelve 404 cuando no hay productos con los filtros aplicados", async () => {
     prisma.stores.findUnique.mockResolvedValue({ id_store: 1 });
+    prisma.products.count.mockResolvedValue(0);
     prisma.products.findMany.mockResolvedValue([]);
 
     const res = await request(app).get(
@@ -179,7 +183,7 @@ describe("GET /api/commerces/products/filter/:id", () => {
 // ─── POST /api/commerces ──────────────────────────────────────────────────────
 
 describe("POST /api/commerces", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 401 cuando no hay cookie de autenticación", async () => {
     const res = await request(app).post("/api/commerces").send({});
@@ -277,7 +281,7 @@ describe("POST /api/commerces", () => {
 // ─── PUT /api/commerces/:id ───────────────────────────────────────────────────
 
 describe("PUT /api/commerces/:id", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 401 cuando no hay cookie de autenticación", async () => {
     const res = await request(app)
@@ -342,7 +346,7 @@ describe("PUT /api/commerces/:id", () => {
 // ─── DELETE /api/commerces/:id ────────────────────────────────────────────────
 
 describe("DELETE /api/commerces/:id", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 401 cuando no hay cookie de sesión", async () => {
     const res = await request(app).delete("/api/commerces/1");

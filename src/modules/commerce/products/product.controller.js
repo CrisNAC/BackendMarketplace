@@ -137,6 +137,13 @@ export const compareProducts = async (request, response) => {
       name: p.name,
       description: p.description,
       price: Number(p.price),
+      originalPrice:
+        p.original_price === undefined ? Number(p.price) : Number(p.original_price),
+      offerPrice:
+        p.offer_price === undefined || p.offer_price === null
+          ? null
+          : Number(p.offer_price),
+      isOffer: Boolean(p.is_offer),
       store: p.store
         ? {
             id: p.store.id_store,
