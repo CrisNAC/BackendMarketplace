@@ -8,6 +8,8 @@ import {
   deleteProduct,
   compareProducts
 } from "./product.controller.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
+import { FilterProductDTO } from "../../global/dtos/products/product.request.dto.js";
 
 const router = Router();
 
@@ -170,6 +172,18 @@ router.delete("/:id", authenticate, deleteProduct);
  *           type: boolean
  *         description: Filtrar productos en oferta (`true`) o fuera de oferta (`false`)
  *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *           minimum: 0.01
+ *         description: Precio mínimo (inclusive)
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *           minimum: 0.01
+ *         description: Precio máximo (inclusive)
+ *       - in: query
  *         name: page
  *         schema:
  *           type: integer
@@ -195,7 +209,7 @@ router.delete("/:id", authenticate, deleteProduct);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/", getProductsSearch);
+router.get("/", validate(FilterProductDTO, "query"), getProductsSearch);
 
 /**
  * @swagger

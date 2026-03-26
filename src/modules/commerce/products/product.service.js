@@ -708,6 +708,29 @@ export const getProductsSearchService = async (filters) => {
   if (isOfferRaw !== undefined && isOfferRaw !== null && String(isOfferRaw).trim() !== "") {
     where.is_offer = parseBooleanField(isOfferRaw, "isOffer");
   }
+  // Después del bloque de isOffer, antes del bloque de search:
+
+if (filters.minPrice !== undefined && filters.minPrice !== null && String(filters.minPrice).trim() !== "") {
+  const minPrice = Number(filters.minPrice);
+  if (!Number.isFinite(minPrice) || minPrice <= 0) {
+    throw { status: 400, message: "minPrice debe ser un número mayor a 0" };
+  }
+  where.price = { ...where.price, gte: minPrice };
+}
+
+if (filters.maxPrice !== undefined && filters.maxPrice !== null && String(filters.maxPrice).trim() !== "") {
+  const maxPrice = Number(filters.maxPrice);
+  if (!Number.isFinite(maxPrice) || maxPrice <= 0) {
+    throw { status: 400, message: "maxPrice debe ser un número mayor a 0" };
+  }
+  where.price = { ...where.price, lte: maxPrice };
+}
+
+if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
+  if (where.price.gte > where.price.lte) {
+    throw { status: 400, message: "minPrice no puede ser mayor que maxPrice" };
+  }
+}
 
   //si se le pasa un search, se busca en name y description
   if (search) {

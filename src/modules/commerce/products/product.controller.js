@@ -56,7 +56,7 @@ export const updateProduct = async (req, res) => {
  * Obs.: Este endpoint se puede usar para traer todos los productos (con status=true y visible=true), basta con pasarle vacio los parametros*/
 export const getProductsSearch = async (request, response) => {
   try {
-    const filterProducts = await getProductsSearchService(request.query);
+    const filterProducts = await getProductsSearchService(request.validated ?? request.query);
     console.info("Obteniendo productos...")
     return response.status(200).json(filterProducts);
   }

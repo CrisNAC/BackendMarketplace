@@ -60,8 +60,6 @@ export const CreateProductDTO = z.object({
   visible: booleanish.optional()
 });
 
-export type CreateProductDTOType = z.infer<typeof CreateProductDTO>;
-
 export const UpdateProductDTO = z
   .object({
     name: z
@@ -123,8 +121,6 @@ export const UpdateProductDTO = z
     message: "Debe enviar al menos un campo para actualizar"
   });
 
-export type UpdateProductDTOType = z.infer<typeof UpdateProductDTO>;
-
 export const FilterProductDTO = z
   .object({
     name: z.string().optional(),
@@ -178,5 +174,3 @@ export const FilterProductDTO = z
       data.minPrice <= data.maxPrice,
     { message: "minPrice no puede ser mayor que maxPrice", path: ["minPrice"] }
   );
-
-export type FilterProductDTOType = z.infer<typeof FilterProductDTO>;
