@@ -322,7 +322,7 @@ model Orders {
   fk_address        Int
   fk_cart           Int           @unique  //El carrito se relaciona en un pedido al confirmarse la compra, y ese mismo carrito no puede concretarse en un pedido multiples veces
   total             Decimal       @db.Decimal(10, 2)
-  order_status      OrderStatus   @default(PROCESSING) //procesando porque la lista_deseo es el estado pendiente
+  order_status      OrderStatus   @default(PENDING) // por defecto se crea en estado pendiente
   notes             String?       @db.Text
   status            Boolean       @default(true)
   created_at        DateTime      @default(now()) @db.Timestamptz
