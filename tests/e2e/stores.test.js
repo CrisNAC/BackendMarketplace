@@ -167,6 +167,45 @@ describe("GET /api/commerces/products/filter/:id", () => {
     expect(Array.isArray(res.body.content)).toBe(true);
   });
 
+  it("aplica el rango sobre price u offer_price segun el precio efectivo", async () => {
+    prisma.stores.findUnique.mockResolvedValue({ id_store: 1 });
+    prisma.products.count.mockResolvedValue(1);
+    prisma.products.findMany.mockResolvedValue([
+      {
+        ...mockProducts[0],
+        price: 20,
+        offer_price: 12,
+        is_offer: true
+      }
+    ]);
+
+    const res = await request(app).get(
+      "/api/commerces/products/filter/1?price_min=10&price_max=15"
+    );
+
+    expect(res.status).toBe(200);
+    expect(prisma.products.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            {
+              AND: [
+                { is_offer: false },
+                { price: { gte: 10, lte: 15 } }
+              ]
+            },
+            {
+              AND: [
+                { is_offer: true },
+                { offer_price: { gte: 10, lte: 15 } }
+              ]
+            }
+          ]
+        })
+      })
+    );
+  });
+
   it("devuelve 404 cuando no hay productos con los filtros aplicados", async () => {
     prisma.stores.findUnique.mockResolvedValue({ id_store: 1 });
     prisma.products.count.mockResolvedValue(0);

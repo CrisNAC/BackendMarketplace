@@ -826,25 +826,52 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
     }
 
     const resolvedIsOffer = isOffer ?? is_offer;
+    let normalizedIsOfferFilter;
     if (resolvedIsOffer !== undefined && resolvedIsOffer !== null) {
-      whereConditions.is_offer =
+      normalizedIsOfferFilter =
         typeof resolvedIsOffer === "boolean"
           ? resolvedIsOffer
           : parseBooleanField(resolvedIsOffer, "isOffer");
+      whereConditions.is_offer = normalizedIsOfferFilter;
     }
 
     const resolvedMinPrice = minPrice ?? price_min;
     const resolvedMaxPrice = maxPrice ?? price_max;
 
+    const effectivePriceRange = {};
     if (resolvedMinPrice !== undefined && resolvedMinPrice !== null) {
-      whereConditions.price = { gte: Number(resolvedMinPrice) };
+      effectivePriceRange.gte = Number(resolvedMinPrice);
     }
 
     if (resolvedMaxPrice !== undefined && resolvedMaxPrice !== null) {
-      whereConditions.price = {
-        ...whereConditions.price,
-        lte: Number(resolvedMaxPrice)
-      };
+      effectivePriceRange.lte = Number(resolvedMaxPrice);
+    }
+
+    if (Object.keys(effectivePriceRange).length > 0) {
+      const effectivePriceBranches = [];
+
+      if (normalizedIsOfferFilter !== true) {
+        effectivePriceBranches.push({
+          AND: [
+            { is_offer: false },
+            { price: effectivePriceRange }
+          ]
+        });
+      }
+
+      if (normalizedIsOfferFilter !== false) {
+        effectivePriceBranches.push({
+          AND: [
+            { is_offer: true },
+            { offer_price: effectivePriceRange }
+          ]
+        });
+      }
+
+      whereConditions.OR = [
+        ...(Array.isArray(whereConditions.OR) ? whereConditions.OR : []),
+        ...effectivePriceBranches
+      ];
     }
 
     const [totalProducts, products] = await Promise.all([
