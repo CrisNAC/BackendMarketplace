@@ -20,6 +20,7 @@ export const UpdateWishlistDTO = z
             ? "name es requerido"
             : "name debe ser un texto"
     })
+        .trim()
         .min(1, "name no puede estar vacío")
         .max(50, "name no puede superar 50 caracteres")
         .optional()

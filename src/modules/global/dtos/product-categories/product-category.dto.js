@@ -4,28 +4,30 @@ import { BaseResponseDTO } from "../base/base.response.dto.js";
 export const CreateProductCategoryDTO = z.object({
     name: z
         .string({
-        error: (issue) => issue.input === undefined
-            ? "name es requerido"
-            : "name debe ser un texto"
-    })
+            error: (issue) => issue.input === undefined
+                ? "name es requerido"
+                : "name debe ser un texto"
+        })
+        .trim()
         .min(1, "name no puede estar vacío")
         .max(100, "name no puede superar 100 caracteres")
 });
 export const UpdateProductCategoryDTO = z
     .object({
-    name: z
-        .string({
-        error: (issue) => issue.input === undefined
-            ? "name es requerido"
-            : "name debe ser un texto"
+        name: z
+            .string({
+                error: (issue) => issue.input === undefined
+                    ? "name es requerido"
+                    : "name debe ser un texto"
+            })
+            .trim()
+            .min(1, "name no puede estar vacío")
+            .max(100, "name no puede superar 100 caracteres")
+            .optional()
     })
-        .min(1, "name no puede estar vacío")
-        .max(100, "name no puede superar 100 caracteres")
-        .optional()
-})
     .refine((data) => Object.values(data).some((v) => v !== undefined), {
-    message: "Debe enviar al menos un campo para actualizar"
-});
+        message: "Debe enviar al menos un campo para actualizar"
+    });
 export const FilterProductCategoryDTO = z.object({
     name: z.string().optional(),
     page: z

@@ -193,7 +193,7 @@ router.delete("/:id", authenticate, deleteProduct);
  *         name: limit
  *         schema:
  *           type: integer
- *           default: 20
+ *           default: 10
  *         description: Cantidad de productos por pagina (max. 100)
  *     responses:
  *       200:

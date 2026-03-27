@@ -8,6 +8,7 @@ export const CreateNotificationDTO = z.object({
         .positive("fk_user debe ser un ID válido"),
     title: z
         .string({ error: "title es requerido" })
+        .trim()
         .min(1, "title no puede estar vacío")
         .max(100, "title no puede superar 100 caracteres"),
     message: z

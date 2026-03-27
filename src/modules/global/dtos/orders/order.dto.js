@@ -12,10 +12,10 @@ const OrderItemRequestDTO = z.object({
         .min(1, "quantity debe ser al menos 1")
 });
 export const CreateOrderDTO = z.object({
-    fk_address: z
-        .number({ error: "fk_address es requerido" })
+    fk_cart: z
+        .number({ error: "fk_cart es requerido" })
         .int()
-        .positive("fk_address debe ser un ID válido"),
+        .positive("fk_cart debe ser un ID válido"),
     fk_wishlist: z
         .number({ error: "fk_wishlist es requerido" })
         .int()
@@ -91,7 +91,7 @@ export class OrderResponseDTO extends BaseResponseDTO {
     id_order;
     fk_user;
     fk_address;
-    fk_wishlist;
+    fk_cart;
     total;
     order_status;
     notes;
@@ -105,7 +105,7 @@ export class OrderResponseDTO extends BaseResponseDTO {
         this.id_order = data.id_order;
         this.fk_user = data.fk_user;
         this.fk_address = data.fk_address;
-        this.fk_wishlist = data.fk_wishlist;
+        this.fk_cart = data.fk_cart;
         this.total = Number(data.total);
         this.order_status = data.order_status;
         this.notes = data.notes ?? null;

@@ -112,6 +112,6 @@ export class ProductReviewsWithStatsResponseDTO {
     constructor(data) {
         this.stats = data.stats;
         this.pagination = data.pagination;
-        this.reviews = ProductReviewResponseDTO.mapList(data.reviews);
+        this.reviews = data.reviews;
     }
 }
