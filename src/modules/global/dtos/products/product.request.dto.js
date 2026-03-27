@@ -121,56 +121,91 @@ export const UpdateProductDTO = z
     message: "Debe enviar al menos un campo para actualizar"
   });
 
-export const FilterProductDTO = z
-  .object({
-    name: z.string().optional(),
+const emptyToUndefined = (val) =>
+  val === "" || val === null ? undefined : val;
 
-    categoryId: z
+export const FilterProductDTO = z.object({
+  search: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().optional()
+  ),
+
+  categoryId: z.preprocess(
+    emptyToUndefined,
+    z
       .string()
       .transform(Number)
       .pipe(z.number().int().positive("categoryId debe ser un ID valido"))
-      .optional(),
+      .optional()
+  ),
 
-    visible: z
-      .enum(["true", "false"])
-      .transform((v) => v === "true")
-      .optional(),
+  isOffer: z.preprocess(
+    emptyToUndefined,
+    z
+      .enum(["true", "false", "1", "0"])
+      .transform((v) => v === "true" || v === "1")
+      .optional()
+  ),
 
-    isOffer: z
-      .enum(["true", "false"])
-      .transform((v) => v === "true")
-      .optional(),
-
-    minPrice: z
+  minPrice: z.preprocess(
+    emptyToUndefined,
+    z
       .string()
       .transform(Number)
-      .pipe(z.number().positive("minPrice debe ser mayor a 0"))
-      .optional(),
+      .pipe(z.number().min(0, "minPrice debe ser mayor o igual a 0"))
+      .optional()
+  ),
 
-    maxPrice: z
+  maxPrice: z.preprocess(
+    emptyToUndefined,
+    z
       .string()
       .transform(Number)
-      .pipe(z.number().positive("maxPrice debe ser mayor a 0"))
-      .optional(),
+      .pipe(z.number().min(0, "maxPrice debe ser mayor o igual a 0"))
+      .optional()
+  ),
 
-    page: z
+  sortBy: z.preprocess(
+    emptyToUndefined,
+    z
+      .enum(["created_at", "price", "name"], {
+        error: "sortBy debe ser created_at, price o name"
+      })
+      .optional()
+      .default("created_at")
+  ),
+
+  sortOrder: z.preprocess(
+    emptyToUndefined,
+    z
+      .enum(["asc", "desc"], {
+        error: "sortOrder debe ser asc o desc"
+      })
+      .optional()
+      .default("desc")
+  ),
+
+  page: z.preprocess(
+    emptyToUndefined,
+    z
       .string()
       .transform(Number)
       .pipe(z.number().int().positive("page debe ser mayor a 0"))
       .optional()
-      .default(1),
+  ),
 
-    limit: z
+  limit: z.preprocess(
+    emptyToUndefined,
+    z
       .string()
       .transform(Number)
       .pipe(z.number().int().min(1).max(100, "limit no puede superar 100"))
       .optional()
-      .default(10)
-  })
-  .refine(
-    (data) =>
-      data.minPrice === undefined ||
-      data.maxPrice === undefined ||
-      data.minPrice <= data.maxPrice,
-    { message: "minPrice no puede ser mayor que maxPrice", path: ["minPrice"] }
-  );
+  )
+}).refine(
+  (data) =>
+    data.minPrice === undefined ||
+    data.maxPrice === undefined ||
+    data.minPrice <= data.maxPrice,
+  { message: "minPrice no puede ser mayor que maxPrice", path: ["minPrice"] }
+);

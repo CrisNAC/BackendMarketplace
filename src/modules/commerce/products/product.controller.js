@@ -1,10 +1,12 @@
 import {
   createProductService,
+  filterProductsService,
   getProductsSearchService,
   getProductByIdService,
   updateProductService,
   deleteProductService
 } from "./product.service.js";
+import { PaginatedResponseDTO } from "../../global/dtos/base/base.response.dto.js";
 
 export const createProduct = async (req, res) => {
   try {
@@ -165,3 +167,26 @@ export const compareProducts = async (request, response) => {
   }
 };
 
+export const filterProducts = async (req, res) => {
+  try {
+    const filters = req.validated ?? req.query;
+    const pagination = req.pagination ?? { page: 1, limit: 20, skip: 0 };
+
+    const { products, totalProducts } = await filterProductsService(
+      filters,
+      pagination
+    );
+
+    return res.status(200).json(
+      PaginatedResponseDTO.from(products, totalProducts, pagination.page, pagination.limit)
+    );
+  } catch (error) {
+    const status =
+      Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599
+        ? error.status
+        : 500;
+    return res.status(status).json({
+      message: status < 500 ? error.message : "Error interno del servidor"
+    });
+  }
+};

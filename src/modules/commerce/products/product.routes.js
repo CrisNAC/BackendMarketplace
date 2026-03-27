@@ -2,6 +2,7 @@ import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import {
   createProduct,
+  filterProducts,
   getProductsSearch,
   getProductById,
   updateProduct,
@@ -10,6 +11,7 @@ import {
 } from "./product.controller.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
 import { FilterProductDTO } from "../../global/dtos/products/product.request.dto.js";
+import { parsePagination } from "../../../middlewares/pagination.middleware.js";
 
 const router = Router();
 
@@ -151,9 +153,9 @@ router.delete("/:id", authenticate, deleteProduct);
 
 /**
  * @swagger
- * /products:
+ * /products/filter:
  *   get:
- *     summary: Buscar y listar productos activos
+ *     summary: Filtrar productos activos (cliente)
  *     tags: [Products]
  *     parameters:
  *       - in: query
@@ -170,19 +172,33 @@ router.delete("/:id", authenticate, deleteProduct);
  *         name: isOffer
  *         schema:
  *           type: boolean
- *         description: Filtrar productos en oferta (`true`) o fuera de oferta (`false`)
+ *         description: Filtrar productos en oferta
  *       - in: query
  *         name: minPrice
  *         schema:
  *           type: number
- *           minimum: 0.01
- *         description: Precio mínimo (inclusive)
+ *           minimum: 0
+ *         description: Precio minimo (inclusive)
  *       - in: query
  *         name: maxPrice
  *         schema:
  *           type: number
- *           minimum: 0.01
- *         description: Precio máximo (inclusive)
+ *           minimum: 0
+ *         description: Precio maximo (inclusive)
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [created_at, price, name]
+ *           default: created_at
+ *         description: Campo por el que ordenar
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Direccion del ordenamiento
  *       - in: query
  *         name: page
  *         schema:
@@ -193,7 +209,7 @@ router.delete("/:id", authenticate, deleteProduct);
  *         name: limit
  *         schema:
  *           type: integer
- *           default: 10
+ *           default: 20
  *         description: Cantidad de productos por pagina (max. 100)
  *     responses:
  *       200:
@@ -209,7 +225,12 @@ router.delete("/:id", authenticate, deleteProduct);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/", validate(FilterProductDTO, "query"), getProductsSearch);
+router.get(
+  "/filter",
+  parsePagination,
+  validate(FilterProductDTO, "query"),
+  filterProducts
+);
 
 /**
  * @swagger
