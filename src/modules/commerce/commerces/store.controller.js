@@ -8,7 +8,7 @@ import {
   deleteStoreService
 } from "./store.service.js";
 import jwt from "jsonwebtoken";
-import { StoreProductsPageDTO } from "../../global/dtos/commerce/filter-store-products.response.js";
+import { StoreProductsPageDTO } from "../../global/dtos/commerce/filter-store-products.response.ts";
 
 export const createStore = async (req, res) => {
   try {
