@@ -677,7 +677,6 @@ export const updateProductService = async (
   return mapProductResponse(updatedProduct);
 };
 
-/** esta funcion recibe un filtro (search) y retorna los productos con status=true y visible=true*/
 export const getProductsSearchService = async (filters) => {
   const search = filters.search?.toString().trim();
   const categoryIdRaw = filters.categoryId ?? filters.category_id ?? filters.fk_product_category;
@@ -708,6 +707,29 @@ export const getProductsSearchService = async (filters) => {
   if (isOfferRaw !== undefined && isOfferRaw !== null && String(isOfferRaw).trim() !== "") {
     where.is_offer = parseBooleanField(isOfferRaw, "isOffer");
   }
+  // Después del bloque de isOffer, antes del bloque de search:
+
+if (filters.minPrice !== undefined && filters.minPrice !== null && String(filters.minPrice).trim() !== "") {
+  const minPrice = Number(filters.minPrice);
+  if (!Number.isFinite(minPrice) || minPrice <= 0) {
+    throw { status: 400, message: "minPrice debe ser un número mayor a 0" };
+  }
+  where.price = { ...where.price, gte: minPrice };
+}
+
+if (filters.maxPrice !== undefined && filters.maxPrice !== null && String(filters.maxPrice).trim() !== "") {
+  const maxPrice = Number(filters.maxPrice);
+  if (!Number.isFinite(maxPrice) || maxPrice <= 0) {
+    throw { status: 400, message: "maxPrice debe ser un número mayor a 0" };
+  }
+  where.price = { ...where.price, lte: maxPrice };
+}
+
+if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
+  if (where.price.gte > where.price.lte) {
+    throw { status: 400, message: "minPrice no puede ser mayor que maxPrice" };
+  }
+}
 
   //si se le pasa un search, se busca en name y description
   if (search) {
@@ -818,4 +840,106 @@ export const getProductByIdService = async (id) => {
   }
 
   return mapProductResponse(product);
+};
+
+export const filterProductsService = async (filters, pagination) => {
+  const {
+    search,
+    categoryId,
+    isOffer,
+    minPrice,
+    maxPrice,
+    sortBy,
+    sortOrder
+  } = filters;
+
+  const whereConditions = {
+    status: true,
+    visible: true
+  };
+
+  if (search) {
+    whereConditions.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } }
+    ];
+  }
+
+  if (categoryId !== undefined && categoryId !== null) {
+    whereConditions.fk_product_category = Number(categoryId);
+  }
+
+  if (isOffer !== undefined && isOffer !== null) {
+    whereConditions.is_offer = isOffer;
+  }
+
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    const priceRange = {};
+    if (minPrice !== undefined) priceRange.gte = Number(minPrice);
+    if (maxPrice !== undefined) priceRange.lte = Number(maxPrice);
+
+    const priceBranches = [];
+
+    if (isOffer !== true) {
+      priceBranches.push({
+        AND: [{ is_offer: false }, { price: priceRange }]
+      });
+    }
+
+    if (isOffer !== false) {
+      priceBranches.push({
+        AND: [{ is_offer: true }, { offer_price: priceRange }]
+      });
+    }
+
+    whereConditions.OR = [
+      ...(Array.isArray(whereConditions.OR) ? whereConditions.OR : []),
+      ...priceBranches
+    ];
+  }
+
+  const orderBy = { [sortBy || "created_at"]: sortOrder === "asc" ? "asc" : "desc" };
+
+  const [totalProducts, products] = await Promise.all([
+    prisma.products.count({ where: whereConditions }),
+    prisma.products.findMany({
+      where: whereConditions,
+      skip: pagination?.skip ?? 0,
+      take: pagination?.limit ?? 20,
+      orderBy,
+      select: {
+        id_product: true,
+        name: true,
+        description: true,
+        price: true,
+        offer_price: true,
+        is_offer: true,
+        quantity: true,
+        product_category: {
+          select: { id_product_category: true, name: true }
+        },
+        store: {
+          select: { id_store: true, name: true }
+        }
+      }
+    })
+  ]);
+
+  return {
+    products: products.map((product) => ({
+      id_product: product.id_product,
+      name: product.name,
+      description: product.description,
+      price: getEffectiveProductPrice(product),
+      original_price: getOriginalProductPrice(product),
+      offer_price: getOfferProductPrice(product),
+      is_offer: Boolean(product.is_offer),
+      quantity: product.quantity,
+      category: product.product_category ?? null,
+      store: product.store
+        ? { id_store: product.store.id_store, name: product.store.name }
+        : null
+    })),
+    totalProducts
+  };
 };

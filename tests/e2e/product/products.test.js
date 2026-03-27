@@ -1,10 +1,10 @@
 import { vi, describe, it, expect, beforeEach, beforeAll } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
-import app from "../../src/app.js";
-import { prisma } from "../../src/lib/prisma.js";
+import app from "../../../src/app.js";
+import { prisma } from "../../../src/lib/prisma.js";
 
-vi.mock("../../src/lib/prisma.js", () => ({
+vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
     products: {
       count: vi.fn(),
