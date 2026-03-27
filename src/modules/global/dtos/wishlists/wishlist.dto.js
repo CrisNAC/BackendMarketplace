@@ -95,6 +95,6 @@ export class WishlistResponseDTO extends BaseResponseDTO {
         return new WishlistResponseDTO(data);
     }
     static mapList(data) {
-        return data.map(WishlistResponseDTO.map);
+        return Array.isArray(data) ? data.map(WishlistResponseDTO.map) : [];
     }
 }
