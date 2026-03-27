@@ -3,6 +3,7 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
+import { filterStoreProductsService } from "../../src/modules/commerce/commerces/store.service.js";
 
 vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
@@ -216,6 +217,53 @@ describe("GET /api/commerces/products/filter/:id", () => {
     );
 
     expect(res.status).toBe(404);
+  });
+
+});
+
+describe("filterStoreProductsService", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("rechaza price_min vacio con 400", async () => {
+    prisma.stores.findUnique.mockResolvedValue({ id_store: 1 });
+
+    await expect(
+      filterStoreProductsService(1, { price_min: "" }, {})
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/price_min.*numero valido/i)
+    });
+
+    expect(prisma.products.count).not.toHaveBeenCalled();
+    expect(prisma.products.findMany).not.toHaveBeenCalled();
+  });
+
+  it("rechaza price_max no numerico con 400", async () => {
+    prisma.stores.findUnique.mockResolvedValue({ id_store: 1 });
+
+    await expect(
+      filterStoreProductsService(1, { price_max: "abc" }, {})
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/price_max.*numero valido/i)
+    });
+
+    expect(prisma.products.count).not.toHaveBeenCalled();
+    expect(prisma.products.findMany).not.toHaveBeenCalled();
+  });
+
+  it("rechaza cuando price_min es mayor que price_max con 400", async () => {
+    prisma.stores.findUnique.mockResolvedValue({ id_store: 1 });
+
+    await expect(
+      filterStoreProductsService(1, { price_min: "20", price_max: "10" }, {})
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/price_min.*mayor que price_max/i)
+    });
+
+    expect(prisma.products.count).not.toHaveBeenCalled();
+    expect(prisma.products.findMany).not.toHaveBeenCalled();
   });
 });
 

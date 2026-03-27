@@ -173,6 +173,33 @@ const parseBooleanField = (value, fieldName) => {
   };
 };
 
+const parseOptionalFiniteNumberField = (value, fieldName) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const normalizedValue =
+    typeof value === "string" ? value.trim() : String(value).trim();
+
+  if (!normalizedValue) {
+    throw {
+      status: 400,
+      message: `${fieldName} debe ser un numero valido`
+    };
+  }
+
+  const parsedValue = Number(normalizedValue);
+
+  if (!Number.isFinite(parsedValue)) {
+    throw {
+      status: 400,
+      message: `${fieldName} debe ser un numero valido`
+    };
+  }
+
+  return parsedValue;
+};
+
 const mapStoreProductPricing = (product) => {
   const pricing = getProductPricing(product);
 
@@ -838,13 +865,33 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
     const resolvedMinPrice = minPrice ?? price_min;
     const resolvedMaxPrice = maxPrice ?? price_max;
 
-    const effectivePriceRange = {};
-    if (resolvedMinPrice !== undefined && resolvedMinPrice !== null) {
-      effectivePriceRange.gte = Number(resolvedMinPrice);
+    const normalizedMinPrice = parseOptionalFiniteNumberField(
+      resolvedMinPrice,
+      "price_min"
+    );
+    const normalizedMaxPrice = parseOptionalFiniteNumberField(
+      resolvedMaxPrice,
+      "price_max"
+    );
+
+    if (
+      normalizedMinPrice !== undefined &&
+      normalizedMaxPrice !== undefined &&
+      normalizedMinPrice > normalizedMaxPrice
+    ) {
+      throw {
+        status: 400,
+        message: "price_min no puede ser mayor que price_max"
+      };
     }
 
-    if (resolvedMaxPrice !== undefined && resolvedMaxPrice !== null) {
-      effectivePriceRange.lte = Number(resolvedMaxPrice);
+    const effectivePriceRange = {};
+    if (normalizedMinPrice !== undefined) {
+      effectivePriceRange.gte = normalizedMinPrice;
+    }
+
+    if (normalizedMaxPrice !== undefined) {
+      effectivePriceRange.lte = normalizedMaxPrice;
     }
 
     if (Object.keys(effectivePriceRange).length > 0) {
