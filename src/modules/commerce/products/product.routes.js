@@ -232,6 +232,12 @@ router.get(
   filterProducts
 );
 
+router.get("/",
+  parsePagination,
+  validate(FilterProductDTO, "query"), 
+  getProductsSearch
+);
+
 /**
  * @swagger
  * /products/compare/search:
