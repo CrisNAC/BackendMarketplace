@@ -261,7 +261,7 @@ const buildUpdateAddressData = async (payload) => {
 
 // busca una direccion personal activa y confirma que pertenezca al usuario autenticado
 const getOwnedPersonalAddressOrThrow = async (userId, requestedAddressId) => {
-    const addressId = parsePositiveInteger(requestedAddressId, "ID de direccion");
+    const addressId = parsePositiveInteger(requestedAddressId, "ID de dirección");
 
     const address = await prisma.addresses.findFirst({
         where: {
@@ -389,7 +389,7 @@ export const updateAddressService = async (
         authenticatedUserId,
         requestedUserId
     );
-    const addressId = parsePositiveInteger(requestedAddressId, "ID de direccion");
+    const addressId = parsePositiveInteger(requestedAddressId, "ID de dirección");
     const dataToUpdate = await buildUpdateAddressData(payload);
 
     const updatedAddresses = await prisma.addresses.updateMany({
