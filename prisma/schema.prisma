@@ -118,6 +118,8 @@ model Addresses {
   city            String   @db.VarChar(100)
   region          String   @db.VarChar(100)
   postal_code     String?   @db.VarChar(20)
+  latitude        Decimal? @db.Decimal(10, 8)
+  longitude       Decimal? @db.Decimal(10, 8)
   status          Boolean   @default(true)
   created_at      DateTime  @default(now()) @db.Timestamptz
   updated_at      DateTime  @updatedAt @db.Timestamptz
