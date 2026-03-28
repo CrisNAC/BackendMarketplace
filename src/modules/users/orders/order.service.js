@@ -281,7 +281,7 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
 
   // validar que el comercio existe y pertenece al usuario autenticado
   const store = await prisma.stores.findFirst({
-    where: { id_store: storeId, fk_user: resolvedUserId, status: true }
+    where: { id_store: resolvedStoreId, fk_user: resolvedUserId, status: true }
   });
 
   if (!store) throw new NotFoundError("Comercio no encontrado.");
@@ -290,10 +290,18 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
   const page = parsePositiveInteger(filters.page ?? 1, "page");
   const limit = parsePositiveInteger(filters.limit ?? 10, "limit");
 
+  let statusFilter = undefined;
+  if (order_status) {
+    const estados = order_status.split(",").map(s => s.trim());
+    statusFilter = estados.length === 1
+      ? estados[0]
+      : { in: estados };
+  }
+
   const where = {
     fk_store: resolvedStoreId,
     status: true,
-    ...(order_status && { order_status }),
+    ...(statusFilter && { order_status: statusFilter }),
     ...(date_from || date_to ? {
       created_at: {
         ...(date_from && { gte: new Date(date_from) }),
@@ -399,7 +407,8 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
   //validar transiciones permitidas por rol de user autenticado
   const allowedTransitions = {
     SELLER: {
-      PENDING: ["PROCESSING", "CANCELLED", "SHIPPED"]
+      PENDING: ["PROCESSING", "CANCELLED"],
+      PROCESSING: ["SHIPPED"],
     },
     DELIVERY: {
       SHIPPED: ["DELIVERED"]
