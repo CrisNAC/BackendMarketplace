@@ -16,6 +16,7 @@ import sessionRoutes from "./modules/session/routes/session.routes.js";
 import userProductReviewRoutes from "./modules/users/product-review/product-review.routes.js";
 
 import wishlistRoutes from "./modules/users/wishlist/wishlist.routes.js";
+import cartRoutes from "./modules/users/cart/cart.routes.js";
 
 import { orderRouter, userOrderRouter } from "./modules/users/orders/order.routes.js";
 
@@ -59,6 +60,7 @@ app.use("/products/:id/reviews", userProductReviewRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/users", addressRoutes);
 app.use("/api/users", wishlistRoutes);
+app.use("/api/users", cartRoutes);
 app.use("/api/users", userOrderRouter);
 app.use('/api/session', sessionRoutes);
 
