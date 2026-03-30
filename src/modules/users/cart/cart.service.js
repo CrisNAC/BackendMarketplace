@@ -11,19 +11,16 @@ import { parsePositiveInteger } from "../../../lib/validators.js";
  * Un usuario tiene a lo sumo un carrito ACTIVE por comercio (@@unique en schema).
  */
 const getOrCreateActiveCart = async (tx, userId, storeId) => {
-  const existing = await tx.carts.findFirst({
+  return tx.carts.upsert({
     where: {
-      fk_user: userId,
-      fk_store: storeId,
-      cart_status: "ACTIVE",
-      status: true
-    }
-  });
-
-  if (existing) return existing;
-
-  return tx.carts.create({
-    data: {
+      fk_user_fk_store_cart_status: {
+        fk_user: userId,
+        fk_store: storeId,
+        cart_status: "ACTIVE"
+      }
+    },
+    update: {}, // no actualiza nada si ya existe
+    create: {
       fk_user: userId,
       fk_store: storeId,
       cart_status: "ACTIVE",
