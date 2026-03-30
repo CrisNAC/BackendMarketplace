@@ -145,41 +145,49 @@ export const addCartItemService = async (
     throw new ValidationError("quantity debe ser un entero mayor a 0");
   }
 
-  const product = await prisma.products.findFirst({
-    where: { id_product: resolvedProductId, status: true, visible: true },
-    select: {
-      id_product: true,
-      fk_store: true,
-      quantity: true,
-      store: {
-        select: {
-          id_store: true,
-          store_status: true,
-          status: true
+  const result = await prisma.$transaction(async (tx) => {
+    const product = await tx.products.findFirst({
+      where: {
+        id_product: resolvedProductId,
+        status: true,
+        visible: true
+      },
+      select: {
+        id_product: true,
+        fk_store: true,
+        quantity: true,
+        store: {
+          select: {
+            id_store: true,
+            store_status: true,
+            status: true
+          }
         }
       }
+    });
+
+    if (!product) {
+      throw new NotFoundError("Producto no encontrado o no disponible");
     }
-  });
 
-  if (!product) {
-    throw new NotFoundError("Producto no encontrado o no disponible");
-  }
+    if (!product.store?.status || product.store.store_status !== "ACTIVE") {
+      throw new ValidationError("El comercio de este producto no está disponible");
+    }
 
-  if (!product.store?.status || product.store.store_status !== "ACTIVE") {
-    throw new ValidationError("El comercio de este producto no está disponible");
-  }
+    const storeId = product.fk_store;
 
-  const storeId = product.fk_store;
-
-  await prisma.$transaction(async (tx) => {
     const cart = await getOrCreateActiveCart(tx, resolvedCustomerId, storeId);
 
     const existingItem = await tx.cartItems.findFirst({
-      where: { fk_cart: cart.id_cart, fk_product: resolvedProductId }
+      where: {
+        fk_cart: cart.id_cart,
+        fk_product: resolvedProductId
+      }
     });
 
     const currentQtyInCart =
       existingItem?.status ? existingItem.quantity : 0;
+
     const newTotalQty = currentQtyInCart + resolvedQuantity;
 
     if (
@@ -193,12 +201,17 @@ export const addCartItemService = async (
     if (existingItem && existingItem.status) {
       await tx.cartItems.update({
         where: { id_cart_item: existingItem.id_cart_item },
-        data: { quantity: { increment: resolvedQuantity } }
+        data: {
+          quantity: { increment: resolvedQuantity }
+        }
       });
     } else if (existingItem && !existingItem.status) {
       await tx.cartItems.update({
         where: { id_cart_item: existingItem.id_cart_item },
-        data: { quantity: newTotalQty, status: true }
+        data: {
+          quantity: newTotalQty,
+          status: true
+        }
       });
     } else {
       await tx.cartItems.create({
@@ -210,22 +223,18 @@ export const addCartItemService = async (
         }
       });
     }
+
+    return {
+      cartId: cart.id_cart,
+      storeId
+    };
   });
 
-  const cartRow = await prisma.carts.findFirst({
-    where: {
-      fk_user: resolvedCustomerId,
-      fk_store: storeId,
-      cart_status: "ACTIVE",
-      status: true
-    },
-    select: { id_cart: true }
-  });
+  const updated = await getCartWithItems(result.cartId);
 
-  if (!cartRow) {
+  if (!updated) {
     throw new NotFoundError("No se pudo recuperar el carrito");
   }
 
-  const updated = await getCartWithItems(cartRow.id_cart);
   return mapCartResponse(updated);
 };
