@@ -55,6 +55,11 @@ export const addCartItem = async (req, res, next) => {
  */
 export const getCartItemsById = async (req, res, next) => {
   try {
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        message: "Usuario autenticado requerido"
+      });
+    }
     const { cartId } = req.params;
     const cartItems = await getCartItemsByIdService(req.user.id_user,cartId);
     return res.status(200).json(cartItems);
