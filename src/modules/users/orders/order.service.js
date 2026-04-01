@@ -12,12 +12,12 @@ const mapOrderResponse = (order) => ({
   status: order.order_status,
   total: Number(order.total),
   notes: order.notes ?? null,
-  address: {
+  address: order.address ? {
     id: order.address.id_address,
     address: order.address.address,
     city: order.address.city,
     region: order.address.region
-  },
+  } : null,
   items: order.order_items.map((item) => ({
     id: item.id_order_item,
     quantity: item.quantity,
