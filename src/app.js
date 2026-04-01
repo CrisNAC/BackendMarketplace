@@ -27,6 +27,10 @@ import { setupSwagger } from "./config/swagger.config.js";
 
 import distanceRoutes from "./modules/global/distances/routes/distance.routes.js";
 
+import productImageRoutes from './modules/images/routes/product-image.routes.js';
+import userImageRoutes from './modules/images/routes/user-image.routes.js';
+import storeImageRoutes from './modules/images/routes/store-image.routes.js';
+
 const app = express();
 
 //Para debug en consola de las peticiones
@@ -74,6 +78,10 @@ app.use("/api/distances", distanceRoutes);
 app.use((req, _res, next) => {
   next(new NotFoundError(`Ruta ${req.method} ${req.path} no encontrada`));
 });
+
+app.use('/products', productImageRoutes)
+app.use('/users', userImageRoutes)
+app.use('/stores', storeImageRoutes)
 
 // captura todos los errores de las rutas anteriores
 app.use(errorHandler);

@@ -1,5 +1,4 @@
-import paginationConstants from "../utils/contants/pagination.contant.js";
-const { DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT } = paginationConstants;
+import { PAGINATION } from "../utils/contants/pagination.contant.js";
 
 export const parsePagination = (req, res, next) => {
     const rawPage = req.query.page;
@@ -7,12 +6,12 @@ export const parsePagination = (req, res, next) => {
 
     const page =
         rawPage === undefined
-            ? DEFAULT_PAGE
+            ? PAGINATION.DEFAULT_PAGE
             : Number(rawPage);
 
     const limit =
         rawLimit === undefined
-            ? DEFAULT_LIMIT
+            ? PAGINATION.DEFAULT_LIMIT
             : Number(rawLimit);
 
     const errors = [];
@@ -29,10 +28,10 @@ export const parsePagination = (req, res, next) => {
             field: "limit",
             message: "limit debe ser un entero positivo"
         });
-    } else if (limit > MAX_LIMIT) {
+    } else if (limit > PAGINATION.MAX_LIMIT) {
         errors.push({
             field: "limit",
-            message: `limit no puede ser mayor a ${MAX_LIMIT}`
+            message: `limit no puede ser mayor a ${PAGINATION.MAX_LIMIT}`
         });
     }
 
