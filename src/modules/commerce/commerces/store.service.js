@@ -174,16 +174,25 @@ const getReverseGeocodedAddress = async (latitude, longitude) => {
     lon: longitude.toString()
   });
 
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/reverse?${params.toString()}`,
-    {
-      headers: {
-        "User-Agent": "BackendMarketplace/1.0",
-        Accept: "application/json",
-        "Accept-Language": "es"
+  let response;
+  try {
+    response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?${params.toString()}`,
+      {
+        headers: {
+          "User-Agent": "BackendMarketplace/1.0",
+          Accept: "application/json",
+          "Accept-Language": "es"
+        },
+        signal: AbortSignal.timeout(10000)
       }
-    }
-  );
+    );
+  } catch (error) {
+    throw {
+      status: 502,
+      message: "No se pudo conectar con el servicio de Nominatim"
+    };
+  }
 
   if (!response.ok) {
     throw {
