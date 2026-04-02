@@ -155,12 +155,23 @@ const validateEmailField = (value) => {
 };
 
 const validateCoordinateField = (value, fieldName, min, max) => {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    throw {
+      status: 400,
+      message: `${fieldName} inválida`
+    };
+  }
+
   const parsedValue = Number(value);
 
   if (!Number.isFinite(parsedValue) || parsedValue < min || parsedValue > max) {
     throw {
       status: 400,
-      message: `${fieldName} invalida`
+      message: `${fieldName} inválida`
     };
   }
 
@@ -694,12 +705,19 @@ export const updateStoreService = async (
               "Para crear la dirección inicial del comercio debes enviar latitude y longitude"
           };
         }
+        if (!addressDataToUpdate.address) {
+          throw {
+            status: 400,
+            message:
+              "Para crear la dirección inicial del comercio debes enviar address, latitude y longitude"
+          };
+        }
 
         await tx.addresses.create({
           data: {
             fk_user: store.fk_user,
             fk_store: store.id_store,
-            address: addressDataToUpdate.address ?? "",
+            address: addressDataToUpdate.address,
             city: addressDataToUpdate.city ?? "",
             region: addressDataToUpdate.region ?? "",
             postal_code: addressDataToUpdate.postal_code ?? null,
