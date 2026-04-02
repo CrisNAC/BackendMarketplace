@@ -235,3 +235,61 @@ export const addCartItemService = async (
 
   return mapCartResponse(updated);
 };
+
+/**
+ * 
+ * Obtiene los items de un carrito especifico, validando que el carrito exista, sea del user autenticado y este activo
+ * GET /api/users/cart/:cartId/items
+ */
+export const getCartItemsByIdService = async (authenticatedUserId, cartId) => {
+  const resolvedCartId = parsePositiveInteger(cartId, "cartId");
+
+  const cart = await prisma.carts.findFirst({
+    where: {
+      id_cart: resolvedCartId,
+      fk_user: authenticatedUserId,
+      status: true,
+      cart_status: "ACTIVE"
+    }
+  });
+ 
+  //se valida que el carrito exista, sea del user autenticado y este activo
+  if (!cart) throw new NotFoundError("Carrito no encontrado.");
+
+  const cartItems = await prisma.cartItems.findMany({
+    where: { fk_cart: resolvedCartId, status: true },
+    select: {
+      id_cart_item: true,
+      quantity: true,
+      product: {
+        select: {
+          id_product: true,
+          name: true,
+          price: true,
+          offer_price: true,
+          is_offer: true,
+          store: {
+            select: { name: true}
+          }
+        }
+      }
+    }
+  });
+
+  return cartItems.map((item) => {
+    const pricing = getProductPricing(item.product);
+    return {
+      id: item.id_cart_item,
+      quantity: item.quantity,
+      product: {
+        id: item.product.id_product,
+        name: item.product.name,
+        price: pricing.price,
+        originalPrice: pricing.originalPrice,
+        offerPrice: pricing.offerPrice,
+        isOffer: pricing.isOffer,
+        storeName: item.product.store?.name ?? null
+      }
+    };
+  });
+};
