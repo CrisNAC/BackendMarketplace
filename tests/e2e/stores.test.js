@@ -220,9 +220,15 @@ describe("GET /api/commerces/products/filter/:id", () => {
 });
 
 // ─── POST /api/commerces ──────────────────────────────────────────────────────
-
 describe("POST /api/commerces", () => {
-  beforeEach(() => vi.resetAllMocks());
+  
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ address: {} }),
+    }));
+  });
 
   it("devuelve 401 cuando no hay cookie de autenticación", async () => {
     const res = await request(app).post("/api/commerces").send({});
@@ -255,6 +261,8 @@ describe("POST /api/commerces", () => {
         address: "Calle 1",
         city: "Asunción",
         region: "Central",
+        latitude: -25.28,
+        longitude: -57.63,
       });
 
     expect(res.status).toBe(400);
@@ -276,6 +284,8 @@ describe("POST /api/commerces", () => {
         address: "Calle 1",
         city: "Asunción",
         region: "Central",
+        latitude: -25.28,
+        longitude: -57.63,
       });
 
     expect(res.status).toBe(409);
@@ -311,6 +321,8 @@ describe("POST /api/commerces", () => {
         address: "Calle 1",
         city: "Asunción",
         region: "Central",
+        latitude: -25.28,
+        longitude: -57.63,
       });
 
     expect(res.status).toBe(201);
