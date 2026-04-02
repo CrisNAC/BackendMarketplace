@@ -25,7 +25,9 @@ jobs:
           --health-retries=5
 
     env:
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        DIRECT_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        NODE_ENV: test
 
     steps:
       - uses: actions/checkout@v4
