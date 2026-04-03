@@ -1,4 +1,4 @@
-import { supabase } from '../../../config/supabase.config.js'
+import { getSupabase } from '../../../config/supabase.config.js'
 
 /**
  * Sube un archivo a Supabase Storage y devuelve la URL pública.
@@ -8,6 +8,7 @@ import { supabase } from '../../../config/supabase.config.js'
  * @param {string} mimeType - MIME type del archivo
  */
 export async function uploadImage(buffer, bucket, filePath, mimeType) {
+  const supabase = getSupabase()
   const { error } = await supabase.storage
     .from(bucket)
     .upload(filePath, buffer, {
@@ -27,6 +28,7 @@ export async function uploadImage(buffer, bucket, filePath, mimeType) {
  * @param {string} filePath
  */
 export async function deleteImage(bucket, filePath) {
+  const supabase = getSupabase()
   const { error } = await supabase.storage.from(bucket).remove([filePath])
   if (error) throw new Error(`Error al eliminar imagen: ${error.message}`)
 }

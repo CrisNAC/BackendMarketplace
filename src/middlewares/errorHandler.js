@@ -54,9 +54,9 @@ export const errorHandler = (err, req, res, next) => {
 
   // Mapear errores de multer
   if (err?.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).json({
+    return res.status(413).json({
       error: {
-        code: 400,
+        code: 413,
         message: `Archivo muy grande. Tamaño máximo: ${IMAGE.MAX_SIZE} MB.`
       }
     });

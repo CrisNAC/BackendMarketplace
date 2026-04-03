@@ -1,17 +1,13 @@
-import "dotenv/config";
-import { defineConfig } from "prisma/config";
+import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+import pg from 'pg'
 
-const directUrl = process.env["DIRECT_URL"];
-if (!directUrl) {
-  throw new Error("La variable de entorno DIRECT_URL es requerida y no está definida");
-}
+const { Pool } = pg
 
-export default defineConfig({
-  schema: "prisma/schema.prisma",
-  migrations: {
-    path: "prisma/migrations",
-  },
-  datasource: {
-    url: directUrl,
-  },
-});
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+})
+
+const adapter = new PrismaPg(pool)
+
+export const prisma = new PrismaClient({ adapter })

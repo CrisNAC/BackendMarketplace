@@ -1,5 +1,5 @@
 import { prisma } from '../../../lib/prisma.js'
-import { uploadImage, deleteImage, extractFilePath } from '../../../lib/image.service.js'
+import { uploadImage, deleteImage, extractFilePath } from './image.service.js'
 import { NotFoundError, ForbiddenError, ValidationError } from '../../../lib/errors.js'
 import { ROLES } from '../../../utils/contants/roles.constant.js'
 
