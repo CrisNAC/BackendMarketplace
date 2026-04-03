@@ -23,7 +23,7 @@ export async function updateProductImage(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ message: 'No se recibió ningún archivo' })
     const image_url = await productImageService.upsertProductImage(req.params.id, req.file, req.user)
-    return res.status(204).json({ image_url })
+    return res.status(200).json({ image_url })
   } catch (error) {
     next(error)
   }

@@ -1,7 +1,7 @@
 import { prisma } from '../../../lib/prisma.js'
 import { uploadImage, deleteImage, extractFilePath } from '../../../lib/image.service.js'
 import { NotFoundError, ForbiddenError, ValidationError } from '../../../lib/errors.js'
-import { ROLES } from '../../../utils/contants/roles.js'
+import { ROLES } from '../../../utils/contants/roles.constant.js'
 
 const BUCKET = process.env.SUPABASE_BUCKET_USERS
 
@@ -58,10 +58,11 @@ export async function removeUserImage(id, authUser) {
   if (!user.avatar_url) throw new ValidationError('El usuario no tiene avatar')
 
   const filePath = extractFilePath(user.avatar_url, BUCKET)
-  if (filePath) await deleteImage(BUCKET, filePath)
 
   await prisma.users.update({
     where: { id_user: Number(id) },
     data: { avatar_url: null }
   })
+
+  if (filePath) await deleteImage(BUCKET, filePath)
 }

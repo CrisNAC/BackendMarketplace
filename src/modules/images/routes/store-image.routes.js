@@ -8,7 +8,7 @@ import {
   updateStoreImage,
   deleteStoreImage
 } from '../controllers/store-image.controller.js'
-import { ROLES } from '../../../utils/contants/roles.js'
+import { ROLES } from '../../../utils/contants/roles.constant.js'
 
 const router = Router()
 

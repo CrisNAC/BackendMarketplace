@@ -1,7 +1,7 @@
 import { prisma } from '../../../lib/prisma.js'
 import { uploadImage, deleteImage, extractFilePath } from '../../../lib/image.service.js'
 import { NotFoundError, ForbiddenError, ValidationError } from '../../../lib/errors.js'
-import { ROLES } from '../../../utils/contants/roles.js'
+import { ROLES } from '../../../utils/contants/roles.constant.js'
 
 const BUCKET = process.env.SUPABASE_BUCKET_PRODUCTS
 
@@ -62,10 +62,11 @@ export async function removeProductImage(id, user) {
   if (!product.image_url) throw new ValidationError('El producto no tiene imagen')
 
   const filePath = extractFilePath(product.image_url, BUCKET)
-  if (filePath) await deleteImage(BUCKET, filePath)
 
   await prisma.products.update({
     where: { id_product: Number(id) },
     data: { image_url: null }
   })
+
+  if (filePath) await deleteImage(BUCKET, filePath)
 }

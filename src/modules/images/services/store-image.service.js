@@ -1,7 +1,7 @@
 import { prisma } from '../../../lib/prisma.js'
 import { uploadImage, deleteImage, extractFilePath } from '../../../lib/image.service.js'
 import { NotFoundError, ForbiddenError, ValidationError } from '../../../lib/errors.js'
-import { ROLES } from '../../../utils/contants/roles.js'
+import { ROLES } from '../../../utils/contants/roles.constant.js'
 
 const BUCKET = process.env.SUPABASE_BUCKET_STORES
 
@@ -58,10 +58,11 @@ export async function removeStoreImage(id, user) {
   if (!store.logo) throw new ValidationError('El comercio no tiene logo')
 
   const filePath = extractFilePath(store.logo, BUCKET)
-  if (filePath) await deleteImage(BUCKET, filePath)
 
   await prisma.stores.update({
     where: { id_store: Number(id) },
     data: { logo: null }
   })
+
+  if (filePath) await deleteImage(BUCKET, filePath)
 }

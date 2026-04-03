@@ -6,6 +6,9 @@ import { ForbiddenError } from '../lib/errors.js'
  * @param {...string} roles - Roles permitidos (ej: 'ADMIN', 'SELLER')
  */
 export const requireRole = (...roles) => (req, res, next) => {
+  if (!req.user) {
+    return next(new ForbiddenError('Usuario no autenticado'))
+  }
   if (!roles.includes(req.user.role)) {
     return next(new ForbiddenError('No tenés permisos para realizar esta acción'))
   }

@@ -1,4 +1,4 @@
-import { PAGINATION } from "../utils/contants/pagination.contant.js";
+import { PAGINATION } from "../utils/contants/pagination.constant.js";
 
 export const parsePagination = (req, res, next) => {
     const rawPage = req.query.page;

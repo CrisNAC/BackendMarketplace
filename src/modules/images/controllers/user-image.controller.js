@@ -23,7 +23,7 @@ export async function updateUserImage(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ message: 'No se recibió ningún archivo' })
     const avatar_url = await userImageService.upsertUserImage(req.params.id, req.file, req.user)
-    return res.status(204).json({ avatar_url })
+    return res.status(200).json({ avatar_url })
   } catch (error) {
     next(error)
   }

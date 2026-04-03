@@ -23,7 +23,7 @@ export async function updateStoreImage(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ message: 'No se recibió ningún archivo' })
     const logo = await storeImageService.upsertStoreImage(req.params.id, req.file, req.user)
-    return res.status(204).json({ logo })
+    return res.status(200).json({ logo })
   } catch (error) {
     next(error)
   }
