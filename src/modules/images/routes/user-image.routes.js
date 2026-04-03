@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { upload } from '../../../middlewares/upload.middleware.js'
-import authenticate from '../../../middlewares/authenticate.js'
+import authenticate from '../../../config/jwt.config.js'
 import { requireRole } from '../../../middlewares/auth.middleware.js'
 import {
   getUserImage,
