@@ -77,5 +77,9 @@ export async function removeStoreImage(id, user) {
     data: { logo: null }
   })
 
-  if (filePath) await deleteImage(BUCKET, filePath)
+  if (filePath) {
+    await deleteImage(BUCKET, filePath).catch((cleanupError) => {
+      console.warn(`[WARN] No se pudo eliminar logo en storage: ${filePath}`, cleanupError)
+    })
+  }
 }

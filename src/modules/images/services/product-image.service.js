@@ -36,21 +36,6 @@ export async function upsertProductImage(id, file, user) {
   const filePath = `${id}/image-${Date.now()}.${ext}`
   const publicUrl = await uploadImage(file.buffer, BUCKET, filePath, file.mimetype)
 
-  try {
-    const updated = await prisma.products.update({
-      where: { id_product: Number(id) },
-      data: { image_url: publicUrl }
-    })
-
-    if (oldPath && oldPath !== filePath) await deleteImage(BUCKET, oldPath)
-
-    return updated.image_url
-  } catch (error) {
-    // Si el update de BD falla, borramos la imagen recién subida para evitar archivos huérfanos
-    await deleteImage(BUCKET, filePath)
-    throw error
-  }
-
   let updated
   try {
     updated = await prisma.products.update({
@@ -59,7 +44,7 @@ export async function upsertProductImage(id, file, user) {
     })
   } catch (error) {
     // Solo borramos la nueva imagen si la BD NO se actualizó
-    await deleteImage(BUCKET, filePath).catch(() => { })
+    await deleteImage(BUCKET, filePath).catch(() => {})
     throw error
   }
 
