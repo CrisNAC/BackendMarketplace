@@ -1,3 +1,5 @@
+import { validateEnv } from './config/env.config.js'
+validateEnv() // Si falta algo, el servidor no arranca
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
@@ -74,14 +76,14 @@ app.use("/api/orders", orderRouter);
 // Rutas de distancias
 app.use("/api/distances", distanceRoutes);
 
+app.use('/products', productImageRoutes)
+app.use('/users', userImageRoutes)
+app.use('/stores', storeImageRoutes)
+
 // Ruta no encontrada — va ANTES del errorHandler
 app.use((req, _res, next) => {
   next(new NotFoundError(`Ruta ${req.method} ${req.path} no encontrada`));
 });
-
-app.use('/products', productImageRoutes)
-app.use('/users', userImageRoutes)
-app.use('/stores', storeImageRoutes)
 
 // captura todos los errores de las rutas anteriores
 app.use(errorHandler);

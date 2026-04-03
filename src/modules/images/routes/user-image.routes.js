@@ -1,5 +1,7 @@
 import { Router } from 'express'
 import { upload } from '../../../middlewares/upload.middleware.js'
+import authenticate from '../../../middlewares/authenticate.js'
+import { requireRole } from '../../../middlewares/auth.middleware.js'
 import {
   getUserImage,
   uploadUserImage,
@@ -10,8 +12,11 @@ import {
 const router = Router()
 
 router.get('/:id/image', getUserImage)
-router.post('/:id/image', upload.single('image'), uploadUserImage)
-router.put('/:id/image', upload.single('image'), updateUserImage)
-router.delete('/:id/image', deleteUserImage)
+
+// Cualquier usuario autenticado puede modificar su propio avatar (ownership en service)
+// ADMIN puede modificar cualquiera
+router.post('/:id/image', authenticate, upload.single('image'), uploadUserImage)
+router.put('/:id/image', authenticate, upload.single('image'), updateUserImage)
+router.delete('/:id/image', authenticate, deleteUserImage)
 
 export default router

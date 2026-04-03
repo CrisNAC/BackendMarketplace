@@ -1,4 +1,5 @@
 import multer from 'multer'
+import { ValidationError } from '../lib/errors.js'
 import { IMAGE } from '../utils/contants/image.constant.js'
 
 export const upload = multer({
@@ -8,7 +9,7 @@ export const upload = multer({
     if (IMAGE.ALLOWED_TYPES.includes(file.mimetype)) {
       cb(null, true)
     } else {
-      cb(new Error('Formato no permitido. Usá JPG, PNG o WEBP.'))
+      cb(new ValidationError('Formato no permitido. Usá JPG, PNG o WEBP.'))
     }
   }
 })

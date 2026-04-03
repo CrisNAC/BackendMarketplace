@@ -51,6 +51,17 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
+  // Mapear errores de multer
+  if (err?.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      error: {
+        code: 400,
+        message: 'Archivo muy grande. Tamaño máximo: 5 MB.'
+      }
+    });
+  }
+
+
   // Error inesperado — loguear internamente pero no exponer detalles al cliente
   console.error(`[ERROR INESPERADO] ${req.method} ${req.path}`, err);
 

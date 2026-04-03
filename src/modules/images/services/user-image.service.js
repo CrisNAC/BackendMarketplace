@@ -1,6 +1,7 @@
 import { prisma } from '../../../lib/prisma.js'
-import { uploadImage, deleteImage, extractFilePath } from './image.service.js'
-import { NotFoundError, ValidationError } from '../../../lib/errors.js'
+import { uploadImage, deleteImage, extractFilePath } from '../../../lib/image.service.js'
+import { NotFoundError, ForbiddenError, ValidationError } from '../../../lib/errors.js'
+import { ROLES } from '../../../utils/contants/roles.js'
 
 const BUCKET = process.env.SUPABASE_BUCKET_USERS
 
@@ -13,35 +14,48 @@ export async function getUserImage(id) {
   return user.avatar_url ?? null
 }
 
-export async function upsertUserImage(id, file) {
+export async function upsertUserImage(id, file, authUser) {
   const user = await prisma.users.findUnique({
     where: { id_user: Number(id) }
   })
   if (!user) throw new NotFoundError('Usuario no encontrado')
 
-  if (user.avatar_url) {
-    const oldPath = extractFilePath(user.avatar_url, BUCKET)
-    if (oldPath) await deleteImage(BUCKET, oldPath)
+  if (authUser.role !== ROLES.ADMIN && Number(id) !== authUser.id_user) {
+    throw new ForbiddenError('No tenés permisos para modificar este avatar')
   }
 
+  const oldPath = user.avatar_url ? extractFilePath(user.avatar_url, BUCKET) : null
+
   const ext = file.mimetype.split('/')[1]
-  const filePath = `${id}/avatar.${ext}`
+  const filePath = `${id}/avatar-${Date.now()}.${ext}`
   const publicUrl = await uploadImage(file.buffer, BUCKET, filePath, file.mimetype)
 
-  const updated = await prisma.users.update({
-    where: { id_user: Number(id) },
-    data: { avatar_url: publicUrl }
-  })
+  try {
+    const updated = await prisma.users.update({
+      where: { id_user: Number(id) },
+      data: { avatar_url: publicUrl }
+    })
 
-  return updated.avatar_url
+    if (oldPath && oldPath !== filePath) await deleteImage(BUCKET, oldPath)
+
+    return updated.avatar_url
+  } catch (error) {
+    await deleteImage(BUCKET, filePath)
+    throw error
+  }
 }
 
-export async function removeUserImage(id) {
+export async function removeUserImage(id, authUser) {
   const user = await prisma.users.findUnique({
     where: { id_user: Number(id) }
   })
   if (!user) throw new NotFoundError('Usuario no encontrado')
-  if (!user.avatar_url) throw new ValidationError('Usuario sin avatar')
+
+  if (authUser.role !== ROLES.ADMIN && Number(id) !== authUser.id_user) {
+    throw new ForbiddenError('No tenés permisos para modificar este avatar')
+  }
+
+  if (!user.avatar_url) throw new ValidationError('El usuario no tiene avatar')
 
   const filePath = extractFilePath(user.avatar_url, BUCKET)
   if (filePath) await deleteImage(BUCKET, filePath)

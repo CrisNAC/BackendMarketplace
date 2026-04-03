@@ -12,18 +12,26 @@ export async function getProductImage(req, res, next) {
 export async function uploadProductImage(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ message: 'No se recibió ningún archivo' })
-    const image_url = await productImageService.upsertProductImage(req.params.id, req.file)
+    const image_url = await productImageService.upsertProductImage(req.params.id, req.file, req.user)
     return res.status(201).json({ image_url })
   } catch (error) {
     next(error)
   }
 }
 
-export const updateProductImage = uploadProductImage
+export async function updateProductImage(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No se recibió ningún archivo' })
+    const image_url = await productImageService.upsertProductImage(req.params.id, req.file, req.user)
+    return res.status(204).json({ image_url })
+  } catch (error) {
+    next(error)
+  }
+}
 
 export async function deleteProductImage(req, res, next) {
   try {
-    await productImageService.removeProductImage(req.params.id)
+    await productImageService.removeProductImage(req.params.id, req.user)
     return res.status(200).json({ message: 'Imagen eliminada correctamente' })
   } catch (error) {
     next(error)
