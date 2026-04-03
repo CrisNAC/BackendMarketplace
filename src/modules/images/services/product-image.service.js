@@ -15,6 +15,10 @@ export async function getProductImage(id) {
 }
 
 export async function upsertProductImage(id, file, user) {
+  if (!file?.buffer || !file?.mimetype?.startsWith('image/')) {
+    throw new ValidationError('Debés enviar una imagen válida')
+  }
+
   const product = await prisma.products.findUnique({
     where: { id_product: Number(id) },
     include: { store: true }
@@ -46,6 +50,29 @@ export async function upsertProductImage(id, file, user) {
     await deleteImage(BUCKET, filePath)
     throw error
   }
+
+  let updated
+  try {
+    updated = await prisma.products.update({
+      where: { id_product: Number(id) },
+      data: { image_url: publicUrl }
+    })
+  } catch (error) {
+    // Solo borramos la nueva imagen si la BD NO se actualizó
+    await deleteImage(BUCKET, filePath).catch(() => { })
+    throw error
+  }
+
+  if (oldPath && oldPath !== filePath) {
+    try {
+      await deleteImage(BUCKET, oldPath)
+    } catch (cleanupError) {
+      // El nuevo producto ya está guardado en BD, solo logueamos el fallo de limpieza
+      console.warn(`[WARN] No se pudo eliminar imagen antigua: ${oldPath}`, cleanupError)
+    }
+  }
+
+  return updated.image_url
 }
 
 export async function removeProductImage(id, user) {

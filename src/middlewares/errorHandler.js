@@ -1,4 +1,5 @@
 import { AppError } from "../lib/errors.js";
+import { IMAGE } from "../utils/contants/image.constant.js";
 
 /**
  * Middleware global de manejo de errores.
@@ -56,7 +57,7 @@ export const errorHandler = (err, req, res, next) => {
     return res.status(400).json({
       error: {
         code: 400,
-        message: 'Archivo muy grande. Tamaño máximo: 5 MB.'
+        message: `Archivo muy grande. Tamaño máximo: ${IMAGE.MAX_SIZE} MB.`
       }
     });
   }

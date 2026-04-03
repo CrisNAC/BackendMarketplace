@@ -15,6 +15,10 @@ export async function getUserImage(id) {
 }
 
 export async function upsertUserImage(id, file, authUser) {
+  if (!file?.buffer || !file?.mimetype?.startsWith('image/')) {
+    throw new ValidationError('Debés enviar una imagen válida')
+  }
+
   const user = await prisma.users.findUnique({
     where: { id_user: Number(id) }
   })
@@ -30,19 +34,28 @@ export async function upsertUserImage(id, file, authUser) {
   const filePath = `${id}/avatar-${Date.now()}.${ext}`
   const publicUrl = await uploadImage(file.buffer, BUCKET, filePath, file.mimetype)
 
+  let updated
   try {
-    const updated = await prisma.users.update({
+    updated = await prisma.users.update({
       where: { id_user: Number(id) },
       data: { avatar_url: publicUrl }
     })
-
-    if (oldPath && oldPath !== filePath) await deleteImage(BUCKET, oldPath)
-
-    return updated.avatar_url
   } catch (error) {
-    await deleteImage(BUCKET, filePath)
+    // Solo borramos la nueva imagen si la BD NO se actualizó
+    await deleteImage(BUCKET, filePath).catch(() => { })
     throw error
   }
+
+  if (oldPath && oldPath !== filePath) {
+    try {
+      await deleteImage(BUCKET, oldPath)
+    } catch (cleanupError) {
+      // El nuevo avatar ya está guardado en BD, solo logueamos el fallo de limpieza
+      console.warn(`[WARN] No se pudo eliminar imagen antigua: ${oldPath}`, cleanupError)
+    }
+  }
+
+  return updated.avatar_url
 }
 
 export async function removeUserImage(id, authUser) {

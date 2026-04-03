@@ -15,6 +15,10 @@ export async function getStoreImage(id) {
 }
 
 export async function upsertStoreImage(id, file, user) {
+  if (!file?.buffer || !file?.mimetype?.startsWith('image/')) {
+    throw new ValidationError('Debés enviar una imagen válida')
+  }
+
   const store = await prisma.stores.findUnique({
     where: { id_store: Number(id) }
   })
@@ -30,19 +34,28 @@ export async function upsertStoreImage(id, file, user) {
   const filePath = `${id}/logo-${Date.now()}.${ext}`
   const publicUrl = await uploadImage(file.buffer, BUCKET, filePath, file.mimetype)
 
+  let updated
   try {
-    const updated = await prisma.stores.update({
-      where: { id_store: Number(id) },
-      data: { logo: publicUrl }
+    updated = await prisma.stores.update({  
+      where: { id_store: Number(id) },      
+      data: { logo: publicUrl }             
     })
-
-    if (oldPath && oldPath !== filePath) await deleteImage(BUCKET, oldPath)
-
-    return updated.logo
   } catch (error) {
-    await deleteImage(BUCKET, filePath)
+    // Solo borramos la nueva imagen si la BD NO se actualizó
+    await deleteImage(BUCKET, filePath).catch(() => { })
     throw error
   }
+
+  if (oldPath && oldPath !== filePath) {
+    try {
+      await deleteImage(BUCKET, oldPath)
+    } catch (cleanupError) {
+      // El nuevo logo ya está guardado en BD, solo logueamos el fallo de limpieza
+      console.warn(`[WARN] No se pudo eliminar imagen antigua: ${oldPath}`, cleanupError)
+    }
+  }
+
+  return updated.logo 
 }
 
 export async function removeStoreImage(id, user) {
