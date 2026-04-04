@@ -327,7 +327,7 @@ model Orders {
   id_order          Int           @id @default(autoincrement())
   fk_user           Int
   fk_store          Int
-  fk_address        Int
+  fk_address        Int?
   fk_cart           Int           @unique  //El carrito se relaciona en un pedido al confirmarse la compra, y ese mismo carrito no puede concretarse en un pedido multiples veces
   total             Decimal       @db.Decimal(10, 2)
   order_status      OrderStatus   @default(PENDING) // por defecto se crea en estado pendiente
@@ -339,7 +339,7 @@ model Orders {
   cart                 Carts          @relation(fields: [fk_cart], references: [id_cart])
   user                 Users              @relation(fields: [fk_user], references: [id_user])
   store                Stores              @relation(fields: [fk_store], references: [id_store])
-  address              Addresses           @relation(fields: [fk_address], references: [id_address])
+  address              Addresses?           @relation(fields: [fk_address], references: [id_address])
   order_items          OrderItems[]
   delivery_assignment  DeliveryAssignments?
 }
