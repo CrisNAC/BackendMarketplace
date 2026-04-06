@@ -755,7 +755,7 @@ export const updateStoreService = async (
   }
 };
 
-export const getStoreByIdService = async (id) => {
+export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}) => {
   try {
     // validaciones básicas
     if (!id) {
@@ -827,8 +827,8 @@ export const getStoreByIdService = async (id) => {
       throw { status: 404, message: "Comercio no encontrado" };
     }
 
-    // Si el comercio no está activo, lanzar error 404 para no revelar su existencia
-    if (store.store_status !== "ACTIVE") {
+    // Solo bloquear a clientes — el SELLER puede ver su comercio aunque esté INACTIVE
+    if (!ignoreStoreStatus && store.store_status !== "ACTIVE") {
       throw { status: 404, message: "Comercio no disponible" };
     }
 

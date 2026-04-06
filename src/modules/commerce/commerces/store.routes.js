@@ -4,6 +4,7 @@ import {
     createStore,
     updateStore,
     getStoreById,
+    getMyStore,
     getStores,
     getAllProductsByStore,
     filterStoreProducts,
@@ -156,6 +157,9 @@ router.put("/:id", authenticate, updateStore);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get("/", getStores);
+
+// Ruta autenticada para el SELLER — va ANTES de /:id para no colisionar
+router.get("/my/:id", authenticate, getMyStore);  // ← agregar
 
 /**
  * @swagger

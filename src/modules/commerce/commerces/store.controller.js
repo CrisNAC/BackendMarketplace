@@ -61,13 +61,34 @@ export const updateStore = async (req, res) => {
   }
 };
 
+// Ruta pública — clientes ven solo comercios ACTIVE
 export const getStoreById = async (req, res) => {
   try {
     const { id } = req.params;
     const store = await getStoreByIdService(id);
-    if (!store || !store.status) {
-      throw { status: 404, message: "Comercio no encontrado" };
+    //if (!store || !store.status) {
+      //throw { status: 404, message: "Comercio no encontrado" };
+    //}
+    return res.status(200).json(store);
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      message: error.message || "Error interno"
+    });
+  }
+};
+
+// Ruta autenticada — SELLER puede ver su comercio aunque esté INACTIVE
+export const getMyStore = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar que el comercio pertenece al usuario autenticado
+    const store = await getStoreByIdService(id, { ignoreStoreStatus: true });
+
+    if (store.user?.id_user !== req.user?.id_user) {
+      return res.status(403).json({ message: "No tenés permisos para ver este comercio" });
     }
+
     return res.status(200).json(store);
   } catch (error) {
     return res.status(error.status || 500).json({
