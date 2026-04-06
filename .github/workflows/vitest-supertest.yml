@@ -57,6 +57,3 @@ jobs:
 
       # Ejecutar tests con db real
       - run: npm run test:run
-
-      # Ejecutar tests sin db real
-      #- run: npm run test:ci
