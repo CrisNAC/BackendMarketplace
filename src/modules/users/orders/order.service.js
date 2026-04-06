@@ -20,6 +20,7 @@ const mapOrderResponse = (order) => ({
   } : null,
   items: order.order_items.map((item) => ({
     id: item.id_order_item,
+    name: item.product?.name ?? "Producto",
     quantity: item.quantity,
     price: Number(item.price),
     originalPrice: Number(item.original_price),
@@ -137,10 +138,22 @@ export const createOrderService = async (authenticatedUserId, { cartId, addressI
   const createdOrder = await prisma.$transaction(async (tx) => {
     const order = await tx.orders.create({
       data: {
-        fk_user: resolvedUserId,
-        fk_store: cart.fk_store,
-        fk_address: resolvedAddressId, //pueder ser null si es retiro en tienda
-        fk_cart: resolvedCartId,
+        user: {
+          connect: { id_user: resolvedUserId }
+        },
+        store: {
+          connect: { id_store: cart.fk_store }
+        },
+        cart: {
+          connect: { id_cart: resolvedCartId }
+        },
+        ...(resolvedAddressId
+          ? {
+              address: {
+                connect: { id_address: resolvedAddressId }
+              }
+            }
+          : {}),
         total,
         notes: notes ?? null,
         status: true
@@ -181,7 +194,12 @@ export const createOrderService = async (authenticatedUserId, { cartId, addressI
             price: true,
             original_price: true,
             is_offer_applied: true,
-            subtotal: true
+            subtotal: true,
+            product: {
+              select: {
+                name: true
+              }
+            }
           }
         }
       }
