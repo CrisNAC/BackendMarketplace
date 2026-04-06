@@ -7,6 +7,7 @@ import {
     getStores,
     getAllProductsByStore,
     filterStoreProducts,
+    updateStoreStatus,
     deleteStore
 } from "./store.controller.js";
 import { parsePagination } from "../../../middlewares/pagination.middleware.js";
@@ -306,6 +307,9 @@ router.get(
     validate(FilterStoreProductsDTO, "query"),
     filterStoreProducts
 );
+
+// PATCH /api/commerces/:id/status — habilitar/deshabilitar comercio
+router.patch("/:id/status", authenticate, updateStoreStatus);
 
 /**
  * @swagger

@@ -5,6 +5,7 @@ import {
   getStoresService,
   getAllProductsByStoreService,
   filterStoreProductsService,
+  updateStoreStatusService,
   deleteStoreService
 } from "./store.service.js";
 import jwt from "jsonwebtoken";
@@ -121,6 +122,33 @@ export const filterStoreProducts = async (req, res) => {
       message: status < 500 ? error.message : "Error interno del servidor"
     });
   }
+};
+
+export const updateStoreStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { store_status } = req.body;
+
+        if (!store_status) {
+            return res.status(400).json({ message: "store_status es requerido" });
+        }
+
+        const store = await updateStoreStatusService(
+            req.user?.id_user,
+            id,
+            store_status
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: `Comercio ${store_status === "ACTIVE" ? "habilitado" : "deshabilitado"} exitosamente`,
+            data: store
+        });
+    } catch (error) {
+        return res.status(error.status || 500).json({
+            message: error.message || "Error interno del servidor"
+        });
+    }
 };
 
 /**
