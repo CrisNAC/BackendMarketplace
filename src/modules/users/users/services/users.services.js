@@ -338,7 +338,7 @@ export const updateUserPasswordService = async (
     if (!passwordMatch) {
         throw {
             status: 400,
-            message: "La contrasena actual es incorrecta",
+            message: "La contraseña actual es incorrecta",
         };
     }
 
