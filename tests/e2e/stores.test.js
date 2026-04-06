@@ -327,6 +327,10 @@ describe("POST /api/commerces", () => {
 
     expect(res.status).toBe(201);
   });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 });
 
 // ─── PUT /api/commerces/:id ───────────────────────────────────────────────────

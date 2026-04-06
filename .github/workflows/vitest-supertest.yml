@@ -46,13 +46,16 @@ jobs:
 
       - run: npm install
 
+      # Generar cliente de Prisma
+      - run: npx prisma generate
+
       # Esperar a que Postgres esté listo
       - run: npx wait-on tcp:5432
 
       # Crear schema
       - run: npx prisma db push
 
-      # Ejecutar tests con db real (Falla 1 archivo)
+      # Ejecutar tests con db real
       - run: npm run test:run
 
       # Ejecutar tests sin db real
