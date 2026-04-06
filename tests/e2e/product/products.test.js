@@ -150,14 +150,14 @@ describe("GET /products", () => {
     });
   });
 
-  it("usa page=1 y limit=20 cuando los parametros son invalidos", async () => {
+  it("Error 400 cuando los parametros son invalidos", async () => {
     prisma.products.count.mockResolvedValue(0);
     prisma.products.findMany.mockResolvedValue([]);
 
     const res = await request(app).get("/products?page=-1&limit=0");
 
-    expect(res.status).toBe(200);
-    expect(res.body.pagination).toMatchObject({ page: 1, limit: 20 });
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty("errors");
   });
 });
 

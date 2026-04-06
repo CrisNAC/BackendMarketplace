@@ -8,6 +8,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:e2e": "vitest run tests/e2e",
+    "test:unit": "vitest run tests/unit",
+    "test:ci": "vitest run --exclude tests/e2e/product/filter-product.test.js",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "build": "tsc"
