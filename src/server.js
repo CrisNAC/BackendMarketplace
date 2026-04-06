@@ -1,9 +1,7 @@
-//import dotenv from "dotenv";
-import "dotenv/config.js";
-console.log("DATABASE_URL:", process.env.DATABASE_URL);
+import dotenv from "dotenv";
 import app from "./app.js";
 
-//dotenv.config();
+dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 
