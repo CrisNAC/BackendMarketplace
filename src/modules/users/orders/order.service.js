@@ -12,12 +12,12 @@ const mapOrderResponse = (order) => ({
   status: order.order_status,
   total: Number(order.total),
   notes: order.notes ?? null,
-  address: {
+  address: order.address ? {
     id: order.address.id_address,
     address: order.address.address,
     city: order.address.city,
     region: order.address.region
-  },
+  } : null,
   items: order.order_items.map((item) => ({
     id: item.id_order_item,
     quantity: item.quantity,
@@ -49,7 +49,7 @@ const mapOrderResponse = (order) => ({
 export const createOrderService = async (authenticatedUserId, { cartId, addressId, notes, total }) => {
   const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
   const resolvedCartId = parsePositiveInteger(cartId, "cartId");
-  const resolvedAddressId = parsePositiveInteger(addressId, "addressId");
+  const resolvedAddressId = addressId ? parsePositiveInteger(addressId, "addressId") : null;
 
   // Validar que el carrito existe, está activa y pertenece al usuario
   const cart = await prisma.carts.findFirst({
@@ -105,15 +105,16 @@ export const createOrderService = async (authenticatedUserId, { cartId, addressI
     throw new ValidationError("Uno o más productos del carrito ya no están disponibles");
   }
 
-  // Validar que la dirección existe y pertenece al usuario
-  const address = await prisma.addresses.findFirst({
-    where: { id_address: resolvedAddressId, fk_user: resolvedUserId, status: true }
-  });
+  // Validar la direccion solo si se envia
+  if (resolvedAddressId) {
+    const address = await prisma.addresses.findFirst({
+      where: { id_address: resolvedAddressId, fk_user: resolvedUserId, status: true }
+    });
 
-  if (!address) {
-    throw new NotFoundError("Dirección no encontrada");
+    if (!address) {
+      throw new NotFoundError("Dirección no encontrada");
+    }
   }
-
   // Calcular precios historicos por item
   const itemsData = cart.items.map((item) => {
     const isOfferApplied = item.product.is_offer && item.product.offer_price != null;
@@ -138,7 +139,7 @@ export const createOrderService = async (authenticatedUserId, { cartId, addressI
       data: {
         fk_user: resolvedUserId,
         fk_store: cart.fk_store,
-        fk_address: resolvedAddressId,
+        fk_address: resolvedAddressId, //pueder ser null si es retiro en tienda
         fk_cart: resolvedCartId,
         total,
         notes: notes ?? null,
