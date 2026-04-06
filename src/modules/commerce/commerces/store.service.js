@@ -827,11 +827,11 @@ export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}
       throw { status: 404, message: "Comercio no encontrado" };
     }
 
-    // Solo bloquear a clientes — el SELLER puede ver su comercio aunque esté INACTIVE
-    if (!ignoreStoreStatus && store.store_status !== "ACTIVE") {
+    // DESPUÉS — null se trata como ACTIVE (comportamiento por defecto del schema)
+    if (!ignoreStoreStatus && store.store_status && store.store_status !== "ACTIVE") {
       throw { status: 404, message: "Comercio no disponible" };
     }
-
+    
     return mapStoreWithPricedProducts(store);
 
   } catch (error) {
