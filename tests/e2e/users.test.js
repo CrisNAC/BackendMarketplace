@@ -13,6 +13,8 @@ vi.mock("../../src/lib/prisma.js", () => ({
     },
     addresses: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      updateMany: vi.fn(),
       update: vi.fn(),
     },
   },
@@ -68,7 +70,7 @@ const mockUpdatedUser = {
 // ─── POST /api/users/register ─────────────────────────────────────────────────
 
 describe("POST /api/users/register", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 400 cuando faltan campos obligatorios", async () => {
     const res = await request(app).post("/api/users/register").send({});
@@ -133,7 +135,7 @@ describe("POST /api/users/register", () => {
 // ─── PUT /api/users/:id_user ──────────────────────────────────────────────────
 
 describe("PUT /api/users/:id_user", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 401 cuando no hay cookie de autenticación", async () => {
     const res = await request(app)
@@ -170,8 +172,8 @@ describe("PUT /api/users/:id_user", () => {
 
   it("devuelve 200 con el usuario actualizado", async () => {
     prisma.users.findUnique
-      .mockResolvedValueOnce(mockUserForAuth) // getAuthorizedCustomerService
-      .mockResolvedValueOnce(null); // verificar email único
+      .mockResolvedValue(mockUserForAuth) // getAuthorizedCustomerService
+      //.mockResolvedValue(null); // verificar email único
     prisma.users.update.mockResolvedValue(mockUpdatedUser);
 
     const res = await request(app)
@@ -188,7 +190,7 @@ describe("PUT /api/users/:id_user", () => {
 // ─── PUT /api/users/:id_user/password ────────────────────────────────────────
 
 describe("PUT /api/users/:id_user/password", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 401 cuando no hay cookie de autenticación", async () => {
     const res = await request(app)
@@ -211,9 +213,11 @@ describe("PUT /api/users/:id_user/password", () => {
   });
 
   it("devuelve 400 cuando la contraseña actual no coincide", async () => {
-    prisma.users.findUnique
-      .mockResolvedValueOnce(mockUserForAuth) // getAuthorizedCustomerService
-      .mockResolvedValueOnce({ password_hash: "$2b$10$hash" }); // userWithPassword
+    prisma.users.findUnique.mockImplementation(async ({ select }) => {
+      if (select?.id_user && select?.status) return mockUserForAuth;
+      if (select?.password_hash) return { password_hash: "$2b$10$hash" };
+      return null;
+    });
     bcrypt.compare.mockResolvedValue(false);
 
     const res = await request(app)
@@ -226,9 +230,11 @@ describe("PUT /api/users/:id_user/password", () => {
   });
 
   it("devuelve 200 cuando la contraseña se actualiza correctamente", async () => {
-    prisma.users.findUnique
-      .mockResolvedValueOnce(mockUserForAuth) // getAuthorizedCustomerService
-      .mockResolvedValueOnce({ password_hash: "$2b$10$hash" }); // userWithPassword
+    prisma.users.findUnique.mockImplementation(async ({ select }) => {
+      if (select?.id_user && select?.status) return mockUserForAuth;
+      if (select?.password_hash) return { password_hash: "$2b$10$hash" };
+      return null;
+    });
     bcrypt.compare.mockResolvedValue(true);
     bcrypt.hash.mockResolvedValue("$2b$10$newhash");
     prisma.users.update.mockResolvedValue(mockUpdatedUser);
@@ -247,7 +253,7 @@ describe("PUT /api/users/:id_user/password", () => {
 // ─── PUT /api/users/:id_user/addresses/:id_address ───────────────────────────
 
 describe("PUT /api/users/:id_user/addresses/:id_address", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 401 cuando no hay cookie de autenticación", async () => {
     const res = await request(app)
@@ -259,12 +265,12 @@ describe("PUT /api/users/:id_user/addresses/:id_address", () => {
 
   it("devuelve 404 cuando la dirección no existe o no pertenece al usuario", async () => {
     prisma.users.findUnique.mockResolvedValue(mockUserForAuth);
-    prisma.addresses.findFirst.mockResolvedValue(null);
+    prisma.addresses.updateMany.mockResolvedValue({ count: 0 });
 
     const res = await request(app)
       .put("/api/users/1/addresses/999")
       .set("Cookie", `userToken=${makeCustomerToken(1)}`)
-      .send({ city: "Luque" });
+      .send({ address: "Nueva calle 123" });
 
     expect(res.status).toBe(404);
     expect(res.body.message).toMatch(/no encontrada/i);
@@ -285,8 +291,8 @@ describe("PUT /api/users/:id_user/addresses/:id_address", () => {
 
   it("devuelve 200 con la dirección actualizada", async () => {
     prisma.users.findUnique.mockResolvedValue(mockUserForAuth);
-    prisma.addresses.findFirst.mockResolvedValue({ id_address: 1 });
-    prisma.addresses.update.mockResolvedValue({
+    prisma.addresses.updateMany.mockResolvedValue({ count: 1 });
+    prisma.addresses.findUnique.mockResolvedValue({
       id_address: 1,
       fk_user: 1,
       fk_store: null,
@@ -294,6 +300,8 @@ describe("PUT /api/users/:id_user/addresses/:id_address", () => {
       city: "Luque",
       region: "Central",
       postal_code: null,
+      latitude: null,
+      longitude: null,
       status: true,
       created_at: "2026-01-01T00:00:00.000Z",
       updated_at: "2026-01-01T00:00:00.000Z",
@@ -302,7 +310,7 @@ describe("PUT /api/users/:id_user/addresses/:id_address", () => {
     const res = await request(app)
       .put("/api/users/1/addresses/1")
       .set("Cookie", `userToken=${makeCustomerToken(1)}`)
-      .send({ city: "Luque" });
+      .send({ address: "Nueva calle 123" });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);

@@ -25,7 +25,17 @@ jobs:
           --health-retries=5
 
     env:
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/test_db
+        DIRECT_URL_TEST: postgresql://postgres:postgres@localhost:5432/test_db
+        NODE_ENV: test
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        SUPABASE_BUCKET_PRODUCTS: ${{ secrets.SUPABASE_BUCKET_PRODUCTS }}
+        SUPABASE_BUCKET_USERS: ${{ secrets.SUPABASE_BUCKET_USERS }}
+        SUPABASE_BUCKET_STORES: ${{ secrets.SUPABASE_BUCKET_STORES }}
 
     steps:
       - uses: actions/checkout@v4
@@ -36,11 +46,14 @@ jobs:
 
       - run: npm install
 
+      # Generar cliente de Prisma
+      - run: npx prisma generate
+
       # Esperar a que Postgres esté listo
       - run: npx wait-on tcp:5432
 
       # Crear schema
       - run: npx prisma db push
 
-      # Ejecutar tests
+      # Ejecutar tests con db real
       - run: npm run test:run

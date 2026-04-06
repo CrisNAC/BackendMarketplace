@@ -65,6 +65,8 @@ const STORE_RESPONSE_SELECT = {
       city: true,
       region: true,
       postal_code: true,
+      latitude: true,
+      longitude: true,
       status: true,
       created_at: true,
       updated_at: true
@@ -150,6 +152,99 @@ const validateEmailField = (value) => {
   }
 
   return normalizedEmail;
+};
+
+const validateCoordinateField = (value, fieldName, min, max) => {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    throw {
+      status: 400,
+      message: `${fieldName} inválida`
+    };
+  }
+
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue) || parsedValue < min || parsedValue > max) {
+    throw {
+      status: 400,
+      message: `${fieldName} inválida`
+    };
+  }
+
+  return parsedValue;
+};
+
+const getReverseGeocodedAddress = async (latitude, longitude) => {
+  const params = new URLSearchParams({
+    format: "json",
+    lat: latitude.toString(),
+    lon: longitude.toString()
+  });
+
+  let response;
+  try {
+    response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?${params.toString()}`,
+      {
+        headers: {
+          "User-Agent": "BackendMarketplace/1.0",
+          Accept: "application/json",
+          "Accept-Language": "es"
+        },
+        signal: AbortSignal.timeout(10000)
+      }
+    );
+  } catch (error) {
+    throw {
+      status: 502,
+      message: "No se pudo conectar con el servicio de Nominatim"
+    };
+  }
+
+  if (!response.ok) {
+    throw {
+      status: 502,
+      message: "No se pudo obtener la ubicacion desde Nominatim"
+    };
+  }
+
+  const data = await response.json();
+  const parsedAddress = data?.address || {};
+
+  return {
+    city: validateRequiredStringField(
+      parsedAddress.city ||
+        parsedAddress.town ||
+        parsedAddress.village ||
+        parsedAddress.hamlet ||
+        parsedAddress.county ||
+        parsedAddress.state ||
+        "Sin ciudad",
+      "city",
+      100
+    ),
+    region: validateRequiredStringField(
+      parsedAddress.suburb ||
+        parsedAddress.neighbourhood ||
+        parsedAddress.city_district ||
+        parsedAddress.state_district ||
+        parsedAddress.road ||
+        parsedAddress.residential ||
+        parsedAddress.county ||
+        "Sin region",
+      "region",
+      100
+    ),
+    postal_code: validateOptionalStringField(
+      parsedAddress.postcode ?? null,
+      "postal_code",
+      20
+    ) ?? null
+  };
 };
 
 const parseBooleanField = (value, fieldName) => {
@@ -317,9 +412,8 @@ export const createStoreService = async (data) => {
     instagram_url,
     tiktok_url,
     address,
-    city,
-    region,
-    postal_code,
+    latitude,
+    longitude,
   } = data;
 
   if (
@@ -329,8 +423,8 @@ export const createStoreService = async (data) => {
     !email ||
     !phone ||
     !address ||
-    !city ||
-    !region
+    latitude === undefined ||
+    longitude === undefined
   ) {
     throw { status: 400, message: "Faltan campos obligatorios" };
   }
@@ -371,13 +465,9 @@ export const createStoreService = async (data) => {
     throw { status: 400, message: "La direccion es obligatoria" };
   }
 
-  if (!city || typeof city !== "string" || !city.trim()) {
-    throw { status: 400, message: "La ciudad es obligatoria" };
-  }
-
-  if (!region || typeof region !== "string" || !region.trim()) {
-    throw { status: 400, message: "La region es obligatoria" };
-  }
+  const normalizedLatitude = validateCoordinateField(latitude, "latitud", -90, 90);
+  const normalizedLongitude = validateCoordinateField(longitude, "longitud", -180, 180);
+  const reverseAddress = await getReverseGeocodedAddress(normalizedLatitude, normalizedLongitude);
 
   try {
     const usuario = await prisma.users.findUnique({
@@ -430,9 +520,11 @@ export const createStoreService = async (data) => {
           fk_user,
           fk_store: store.id_store,
           address: address.trim(),
-          city: city.trim(),
-          region: region.trim(),
-          postal_code
+          city: reverseAddress.city,
+          region: reverseAddress.region,
+          postal_code: reverseAddress.postal_code,
+          latitude: normalizedLatitude,
+          longitude: normalizedLongitude,
         }
       });
 
@@ -467,6 +559,7 @@ export const updateStoreService = async (
 
   const dataToUpdate = {};
   const addressDataToUpdate = {};
+  let hasCoordinatesToUpdate = false;
 
   if (payload?.fk_store_category !== undefined) {
     dataToUpdate.fk_store_category = await validateStoreCategoryService(
@@ -525,28 +618,40 @@ export const updateStoreService = async (
     );
   }
 
-  if (payload?.city !== undefined) {
-    addressDataToUpdate.city = validateRequiredStringField(
-      payload.city,
-      "city",
-      100
-    );
+  const hasLatitude = payload?.latitude !== undefined;
+  const hasLongitude = payload?.longitude !== undefined;
+
+  if (hasLatitude !== hasLongitude) {
+    throw {
+      status: 400,
+      message: "Debe enviar latitud y longitud juntas"
+    };
   }
 
-  if (payload?.region !== undefined) {
-    addressDataToUpdate.region = validateRequiredStringField(
-      payload.region,
-      "region",
-      100
+  if (hasLatitude && hasLongitude) {
+    const normalizedLatitude = validateCoordinateField(
+      payload.latitude,
+      "latitud",
+      -90,
+      90
     );
-  }
+    const normalizedLongitude = validateCoordinateField(
+      payload.longitude,
+      "longitud",
+      -180,
+      180
+    );
+    const reverseAddress = await getReverseGeocodedAddress(
+      normalizedLatitude,
+      normalizedLongitude
+    );
 
-  if (payload?.postal_code !== undefined) {
-    addressDataToUpdate.postal_code = validateOptionalStringField(
-      payload.postal_code,
-      "postal_code",
-      20
-    );
+    addressDataToUpdate.latitude = normalizedLatitude;
+    addressDataToUpdate.longitude = normalizedLongitude;
+    addressDataToUpdate.city = reverseAddress.city;
+    addressDataToUpdate.region = reverseAddress.region;
+    addressDataToUpdate.postal_code = reverseAddress.postal_code;
+    hasCoordinatesToUpdate = true;
   }
 
   if (
@@ -593,14 +698,31 @@ export const updateStoreService = async (
           data: addressDataToUpdate
         });
       } else if (Object.keys(addressDataToUpdate).length > 0) {
+        if (!hasCoordinatesToUpdate) {
+          throw {
+            status: 400,
+            message:
+              "Para crear la dirección inicial del comercio debes enviar latitude y longitude"
+          };
+        }
+        if (!addressDataToUpdate.address) {
+          throw {
+            status: 400,
+            message:
+              "Para crear la dirección inicial del comercio debes enviar address, latitude y longitude"
+          };
+        }
+
         await tx.addresses.create({
           data: {
             fk_user: store.fk_user,
             fk_store: store.id_store,
-            address: addressDataToUpdate.address ?? "",
+            address: addressDataToUpdate.address,
             city: addressDataToUpdate.city ?? "",
             region: addressDataToUpdate.region ?? "",
-            postal_code: addressDataToUpdate.postal_code ?? null
+            postal_code: addressDataToUpdate.postal_code ?? null,
+            latitude: addressDataToUpdate.latitude,
+            longitude: addressDataToUpdate.longitude,
           }
         });
       }
@@ -682,7 +804,19 @@ export const getStoreByIdService = async (id) => {
         },
         addresses: {
           where: { status: true },
-          select: { id_address: true }
+          orderBy: { created_at: "asc" },
+          select: {
+            id_address: true,
+            address: true,
+            city: true,
+            region: true,
+            postal_code: true,
+            latitude: true,
+            longitude: true,
+            status: true,
+            created_at: true,
+            updated_at: true
+          }
         }
       }
     });
