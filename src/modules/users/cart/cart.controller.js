@@ -1,4 +1,9 @@
-import { addCartItemService, getActiveCartsForUserService, getCartItemsByIdService } from "./cart.service.js";
+import { 
+  addCartItemService, 
+  getActiveCartsForUserService, 
+  getCartItemsByIdService, 
+  removeCartItemService, 
+  updatedCartItemQuantityService } from "./cart.service.js";
 
 /**
  * GET /api/users/:customerId/carts
@@ -68,3 +73,43 @@ export const getCartItemsById = async (req, res, next) => {
     next(error);
   }
 }
+
+/**
+ * 
+ * DELETE /api/users/cart/items/:cartItemId - elimina un item del carrito de compras 
+ */
+export const removeCartItem = async (req, res, next) => {
+  try {
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        message: "Usuario autenticado requerido"
+      });
+    }
+    const { cartItemId } = req.params;
+    const updatedCart = await removeCartItemService(req.user.id_user, cartItemId);
+    return res.status(200).json(updatedCart);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 
+ * PUT /api/users/cart/items/:cartItemId - actualiza la cantidad de un item del carrito de compras
+ * Body: { quantity }
+ */
+export const updateCartItemQuantity = async (req, res, next) => {
+  try {
+    if (!req.user?.id_user) {
+      return res.status(401).json({
+        message: "Usuario autenticado requerido"
+      });
+    }
+    const { cartItemId } = req.params;
+    const { quantity } = req.body;
+    const updatedCart = await updatedCartItemQuantityService(req.user.id_user, cartItemId, quantity);
+    return res.status(200).json(updatedCart);
+  } catch (error) {
+    next(error);
+  }
+};
