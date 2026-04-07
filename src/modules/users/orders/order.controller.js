@@ -1,4 +1,10 @@
-import { createOrderService, getOrdersService, getStoreOrdersService, updateOrderStatusService } from "./order.service.js";
+import {
+  createOrderService,
+  getOrderShippingQuoteService,
+  getOrdersService,
+  getStoreOrdersService,
+  updateOrderStatusService
+} from "./order.service.js";
 
 export const createOrder = async (req, res, next) => {
   try {
@@ -41,6 +47,15 @@ export const updateOrderStatus = async (req, res, next) => {
     const order = await updateOrderStatusService(req.user.id_user, orderId, order_status);
     return res.status(200).json(order);
   
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getOrderShippingQuote = async (req, res, next) => {
+  try {
+    const quote = await getOrderShippingQuoteService(req.user.id_user, req.body);
+    return res.status(200).json(quote);
   } catch (error) {
     next(error);
   }

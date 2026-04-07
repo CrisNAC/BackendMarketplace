@@ -7,6 +7,7 @@ import { validateStoreCategoryService } from "../store-categories/store-category
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALLOWED_LOCAL_LOGO_DIRECTORIES = new Set(["uploads", "storage", "public"]);
+const DISTANCE_THRESHOLD_KM = 2;
 const STORE_RESPONSE_SELECT = {
   id_store: true,
   fk_user: true,
@@ -67,6 +68,18 @@ const STORE_RESPONSE_SELECT = {
       postal_code: true,
       latitude: true,
       longitude: true,
+      status: true,
+      created_at: true,
+      updated_at: true
+    }
+  },
+  shipping_zones: {
+    where: { status: true },
+    orderBy: { created_at: "asc" },
+    select: {
+      id_shipping_zone: true,
+      base_price: true,
+      distance_price: true,
       status: true,
       created_at: true,
       updated_at: true
@@ -176,6 +189,29 @@ const validateCoordinateField = (value, fieldName, min, max) => {
   }
 
   return parsedValue;
+};
+
+const validateNonNegativeNumberField = (value, fieldName) => {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    throw {
+      status: 400,
+      message: `${fieldName} es requerido`
+    };
+  }
+
+  const parsedValue = Number(value);
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    throw {
+      status: 400,
+      message: `${fieldName} no puede ser negativo`
+    };
+  }
+
+  return Number(parsedValue.toFixed(2));
 };
 
 const getReverseGeocodedAddress = async (latitude, longitude) => {
@@ -289,6 +325,14 @@ const mapStoreWithPricedProducts = (store) => {
     ...store,
     products: Array.isArray(store.products)
       ? store.products.map(mapStoreProductPricing)
+      : [],
+    shipping_zones: Array.isArray(store.shipping_zones)
+      ? store.shipping_zones.map((zone) => ({
+          ...zone,
+          base_price: Number(zone.base_price),
+          distance_price: Number(zone.distance_price),
+          distance_threshold_km: DISTANCE_THRESHOLD_KM
+        }))
       : []
   };
 };
@@ -414,6 +458,8 @@ export const createStoreService = async (data) => {
     address,
     latitude,
     longitude,
+    base_price,
+    distance_price
   } = data;
 
   if (
@@ -424,7 +470,9 @@ export const createStoreService = async (data) => {
     !phone ||
     !address ||
     latitude === undefined ||
-    longitude === undefined
+    longitude === undefined ||
+    base_price === undefined ||
+    distance_price === undefined
   ) {
     throw { status: 400, message: "Faltan campos obligatorios" };
   }
@@ -467,6 +515,8 @@ export const createStoreService = async (data) => {
 
   const normalizedLatitude = validateCoordinateField(latitude, "latitud", -90, 90);
   const normalizedLongitude = validateCoordinateField(longitude, "longitud", -180, 180);
+  const normalizedBasePrice = validateNonNegativeNumberField(base_price, "base_price");
+  const normalizedDistancePrice = validateNonNegativeNumberField(distance_price, "distance_price");
   const reverseAddress = await getReverseGeocodedAddress(normalizedLatitude, normalizedLongitude);
 
   try {
@@ -499,8 +549,8 @@ export const createStoreService = async (data) => {
       throw { status: 400, message: "Categoria no valida" };
     }
 
-    const nuevaTienda = await prisma.$transaction(async (tx) => {
-      const store = await tx.stores.create({
+    const newStore = await prisma.$transaction(async (tx) => {
+      const createdStore = await tx.stores.create({
         data: {
           fk_user,
           fk_store_category,
@@ -518,7 +568,7 @@ export const createStoreService = async (data) => {
       await tx.addresses.create({
         data: {
           fk_user,
-          fk_store: store.id_store,
+          fk_store: createdStore.id_store,
           address: address.trim(),
           city: reverseAddress.city,
           region: reverseAddress.region,
@@ -528,16 +578,28 @@ export const createStoreService = async (data) => {
         }
       });
 
+      await tx.shippingZones.create({
+        data: {
+          fk_store: createdStore.id_store,
+          base_price: normalizedBasePrice,
+          distance_price: normalizedDistancePrice,
+          status: true
+        }
+      });
+
       // Actualizamos rol del usuario a SELLER al crearse el comercio
       await tx.users.update({
         where: { id_user: fk_user },
         data: { role: "SELLER" }
       });
 
-      return store;
+      return tx.stores.findUnique({
+        where: { id_store: createdStore.id_store },
+        select: STORE_RESPONSE_SELECT
+      });
     });
 
-    return nuevaTienda;
+    return mapStoreWithPricedProducts(newStore);
   } catch (error) {
     if (error.code === "P2002") {
       throw { status: 409, message: "Email ya registrado" };
@@ -559,6 +621,7 @@ export const updateStoreService = async (
 
   const dataToUpdate = {};
   const addressDataToUpdate = {};
+  const shippingZoneDataToUpdate = {};
   let hasCoordinatesToUpdate = false;
 
   if (payload?.fk_store_category !== undefined) {
@@ -620,12 +683,32 @@ export const updateStoreService = async (
 
   const hasLatitude = payload?.latitude !== undefined;
   const hasLongitude = payload?.longitude !== undefined;
+  const hasBasePrice = payload?.base_price !== undefined;
+  const hasDistancePrice = payload?.distance_price !== undefined;
 
   if (hasLatitude !== hasLongitude) {
     throw {
       status: 400,
       message: "Debe enviar latitud y longitud juntas"
     };
+  }
+
+  if (hasBasePrice !== hasDistancePrice) {
+    throw {
+      status: 400,
+      message: "Debe enviar base_price y distance_price juntos"
+    };
+  }
+
+  if (hasBasePrice && hasDistancePrice) {
+    shippingZoneDataToUpdate.base_price = validateNonNegativeNumberField(
+      payload.base_price,
+      "base_price"
+    );
+    shippingZoneDataToUpdate.distance_price = validateNonNegativeNumberField(
+      payload.distance_price,
+      "distance_price"
+    );
   }
 
   if (hasLatitude && hasLongitude) {
@@ -656,7 +739,8 @@ export const updateStoreService = async (
 
   if (
     Object.keys(dataToUpdate).length === 0 &&
-    Object.keys(addressDataToUpdate).length === 0
+    Object.keys(addressDataToUpdate).length === 0 &&
+    Object.keys(shippingZoneDataToUpdate).length === 0
   ) {
     throw {
       status: 400,
@@ -665,6 +749,7 @@ export const updateStoreService = async (
   }
 
   let addressId = null;
+  let shippingZoneId = null;
 
   if (Object.keys(addressDataToUpdate).length > 0) {
     const existingAddress = await prisma.addresses.findFirst({
@@ -681,6 +766,23 @@ export const updateStoreService = async (
     });
 
     addressId = existingAddress?.id_address ?? null;
+  }
+
+  if (Object.keys(shippingZoneDataToUpdate).length > 0) {
+    const existingZone = await prisma.shippingZones.findFirst({
+      where: {
+        fk_store: store.id_store,
+        status: true
+      },
+      orderBy: {
+        created_at: "asc"
+      },
+      select: {
+        id_shipping_zone: true
+      }
+    });
+
+    shippingZoneId = existingZone?.id_shipping_zone ?? null;
   }
 
   try {
@@ -723,6 +825,21 @@ export const updateStoreService = async (
             postal_code: addressDataToUpdate.postal_code ?? null,
             latitude: addressDataToUpdate.latitude,
             longitude: addressDataToUpdate.longitude,
+          }
+        });
+      }
+
+      if (shippingZoneId) {
+        await tx.shippingZones.update({
+          where: { id_shipping_zone: shippingZoneId },
+          data: shippingZoneDataToUpdate
+        });
+      } else if (Object.keys(shippingZoneDataToUpdate).length > 0) {
+        await tx.shippingZones.create({
+          data: {
+            fk_store: store.id_store,
+            ...shippingZoneDataToUpdate,
+            status: true
           }
         });
       }
@@ -770,6 +887,7 @@ export const getStoreByIdService = async (id) => {
       // Datos del comercio
       select: {
         id_store: true,
+        fk_store_category: true,
         name: true,
         description: true,
         logo: true,
@@ -813,6 +931,18 @@ export const getStoreByIdService = async (id) => {
             postal_code: true,
             latitude: true,
             longitude: true,
+            status: true,
+            created_at: true,
+            updated_at: true
+          }
+        },
+        shipping_zones: {
+          where: { status: true },
+          orderBy: { created_at: "asc" },
+          select: {
+            id_shipping_zone: true,
+            base_price: true,
+            distance_price: true,
             status: true,
             created_at: true,
             updated_at: true
