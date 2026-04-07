@@ -4,9 +4,11 @@ import {
     createStore,
     updateStore,
     getStoreById,
+    getMyStore,
     getStores,
     getAllProductsByStore,
     filterStoreProducts,
+    updateStoreStatus,
     deleteStore
 } from "./store.controller.js";
 import { parsePagination } from "../../../middlewares/pagination.middleware.js";
@@ -155,6 +157,9 @@ router.put("/:id", authenticate, updateStore);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get("/", getStores);
+
+// Ruta autenticada para el SELLER — va ANTES de /:id para no colisionar
+router.get("/my/:id", authenticate, getMyStore);  // ← agregar
 
 /**
  * @swagger
@@ -306,6 +311,9 @@ router.get(
     validate(FilterStoreProductsDTO, "query"),
     filterStoreProducts
 );
+
+// PATCH /api/commerces/:id/status — habilitar/deshabilitar comercio
+router.patch("/:id/status", authenticate, updateStoreStatus);
 
 /**
  * @swagger

@@ -293,3 +293,84 @@ export const getCartItemsByIdService = async (authenticatedUserId, cartId) => {
     };
   });
 };
+
+/**
+ * Elimina un item del carrito de compras
+ * DELETE /api/users/cart/items/:cartItemId
+ * 
+ */
+export const removeCartItemService = async (authenticatedUserId, cartItemId) => {
+  const resolvedCartItemId = parsePositiveInteger(cartItemId, "cartItemId");
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "authenticatedUserId");
+
+  //validar que el item existe, que el carrito al que pertenece es del user autenticado, y que ambos estén activos
+  const cartItem = await prisma.cartItems.findFirst({
+    where: {
+      id_cart_item: resolvedCartItemId,
+      status: true,
+      cart: {
+        fk_user: resolvedUserId,
+        status: true,
+        cart_status: "ACTIVE"
+      }
+    },
+    select: {id_cart_item: true, fk_cart: true }
+  });
+
+  if (!cartItem) throw new NotFoundError("Item de carrito no encontrado.");
+
+  //se aplica el borrado logico del item
+  const updated = await prisma.cartItems.update({
+    where: { id_cart_item: resolvedCartItemId },
+    data: { status: false }
+  });
+
+  const updatedCart = await getCartWithItems(cartItem.fk_cart);
+  return mapCartResponse(updatedCart);
+};
+
+/**
+ * 
+  * Actualiza la cantidad de un item del carrito de compras
+  * PUT /api/users/cart/items/:cartItemId
+ */
+export const updatedCartItemQuantityService = async (authenticatedUserId, cartItemId, newQuantity) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "authenticatedUserId");
+  const resolvedCartItemId = parsePositiveInteger(cartItemId, "cartItemId");
+  const resolvedQuantity = Number(newQuantity);
+
+  if (!Number.isInteger(resolvedQuantity) || resolvedQuantity < 1) throw new ValidationError("La cantidad nueva debe ser un entero mayor a 0");
+
+  const cartItem = await prisma.cartItems.findFirst({
+    where: {
+      id_cart_item: resolvedCartItemId,
+      status: true,
+      cart: {
+        fk_user: resolvedUserId,
+        cart_status: "ACTIVE",
+        status: true
+      }
+    }, select: {
+      id_cart_item: true,
+      fk_cart: true,
+      product: {
+        select: { quantity: true }
+      }
+    }
+  });
+
+  if (!cartItem) throw new NotFoundError("Item de carrito no encontrado.");
+
+  //validar que el producto tenga stock suficiente para la cantidad nueva
+  const stock = cartItem.product.quantity;
+  if(stock != null && Number.isFinite(Number(stock)) && resolvedQuantity > Number(stock))
+    throw new ValidationError("No hay stock suficiente para esta cantidad");
+
+  await prisma.cartItems.update({
+    where: { id_cart_item: resolvedCartItemId },
+    data: { quantity: resolvedQuantity }
+  });
+
+  const updatedCart = await getCartWithItems(cartItem.fk_cart);
+  return mapCartResponse(updatedCart);
+}
