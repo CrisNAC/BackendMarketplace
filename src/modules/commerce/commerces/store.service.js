@@ -755,7 +755,7 @@ export const updateStoreService = async (
   }
 };
 
-export const getStoreByIdService = async (id) => {
+export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}) => {
   try {
     // validaciones básicas
     if (!id) {
@@ -779,6 +779,7 @@ export const getStoreByIdService = async (id) => {
         instagram_url: true,
         tiktok_url: true,
         status: true,
+        store_status: true,
         created_at: true,
         user: {
           select: { id_user: true, name: true, email: true }
@@ -826,6 +827,11 @@ export const getStoreByIdService = async (id) => {
       throw { status: 404, message: "Comercio no encontrado" };
     }
 
+    // DESPUÉS — null se trata como ACTIVE (comportamiento por defecto del schema)
+    if (!ignoreStoreStatus && store.store_status && store.store_status !== "ACTIVE") {
+      throw { status: 404, message: "Comercio no disponible" };
+    }
+    
     return mapStoreWithPricedProducts(store);
 
   } catch (error) {
@@ -1059,6 +1065,33 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
   }
 };
 
+export const updateStoreStatusService = async (authenticatedUserId, storeId, store_status) => {
+    const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeId);
+
+    const ALLOWED_STATUSES = ["ACTIVE", "INACTIVE"];
+    if (!ALLOWED_STATUSES.includes(store_status)) {
+        throw { status: 400, message: "store_status debe ser ACTIVE o INACTIVE" };
+    }
+
+    await prisma.$transaction([
+        prisma.stores.update({
+            where: { id_store: store.id_store },
+            data: { store_status }
+        }),
+        // Al desactivar → ocultar productos. Al activar → hacerlos visibles nuevamente.
+        prisma.products.updateMany({
+            where: { fk_store: store.id_store, status: true },
+            data: { visible: store_status === "ACTIVE" }
+        })
+    ]);
+
+    const updated = await prisma.stores.findUnique({
+        where: { id_store: store.id_store },
+        select: { id_store: true, name: true, store_status: true, status: true }
+    });
+
+    return updated;
+};
 
 /**
  * Esta funcion se utiliza para el borrado logico de un comercio y sus respectivos productos en base al usuario autenticado que debe ser el dueño.
@@ -1091,7 +1124,10 @@ export const getStoresService = async (filters = {}) => {
   const categoryIdRaw =
     filters.storeCategoryId ?? filters.categoryId ?? filters.fk_store_category;
 
-  const where = { status: true };
+  const where = {
+    status: true,
+    store_status: "ACTIVE"
+  };
 
   if (search) {
     where.OR = [
