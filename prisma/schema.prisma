@@ -98,8 +98,6 @@ model StoreCategories {
 model ShippingZones {
   id_shipping_zone  Int   @id @default(autoincrement())
   fk_store          Int
-  region            String    @db.VarChar(50)  //distrito al que se envia el pedido (Ej: 8 de diciembre, azotea, barrio san miguel, etc.)
-  postal_code       String?   @db.VarChar(20)  //codigo postal del distrito
   base_price        Decimal  @db.Decimal(10, 2)  //precio base para entregas cercanas
   distance_price    Decimal  @db.Decimal(10, 2)  //precio que sera calculado cuando supera cierto barrio/distrito/codigo_postal
   status            Boolean   @default(true)
