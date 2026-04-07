@@ -98,8 +98,6 @@ model StoreCategories {
 model ShippingZones {
   id_shipping_zone  Int   @id @default(autoincrement())
   fk_store          Int
-  region            String    @db.VarChar(50)  //distrito al que se envia el pedido (Ej: 8 de diciembre, azotea, barrio san miguel, etc.)
-  postal_code       String?   @db.VarChar(20)  //codigo postal del distrito
   base_price        Decimal  @db.Decimal(10, 2)  //precio base para entregas cercanas
   distance_price    Decimal  @db.Decimal(10, 2)  //precio que sera calculado cuando supera cierto barrio/distrito/codigo_postal
   status            Boolean   @default(true)
@@ -115,12 +113,12 @@ model Addresses {
   id_address      Int    @id @default(autoincrement())
   fk_user         Int
   fk_store        Int?      //Dejo como opcional porque un Cliente puede no tener registrado un comercio
-  address         String   //Descripcion precisa de la calle donde sreside la persona (region es el barrio/comunidad)
+  address         String   //Descripcion precisa de la calle donde reside la persona (region es el barrio/comunidad)
   city            String   @db.VarChar(100)
   region          String   @db.VarChar(100)
   postal_code     String?   @db.VarChar(20)
   latitude        Decimal? @db.Decimal(10, 8)
-  longitude       Decimal? @db.Decimal(10, 8)
+  longitude       Decimal? @db.Decimal(11, 8)
   status          Boolean   @default(true)
   created_at      DateTime  @default(now()) @db.Timestamptz
   updated_at      DateTime  @updatedAt @db.Timestamptz
