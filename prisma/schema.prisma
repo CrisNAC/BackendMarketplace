@@ -115,12 +115,12 @@ model Addresses {
   id_address      Int    @id @default(autoincrement())
   fk_user         Int
   fk_store        Int?      //Dejo como opcional porque un Cliente puede no tener registrado un comercio
-  address         String   //Descripcion precisa de la calle donde sreside la persona (region es el barrio/comunidad)
+  address         String   //Descripcion precisa de la calle donde reside la persona (region es el barrio/comunidad)
   city            String   @db.VarChar(100)
   region          String   @db.VarChar(100)
   postal_code     String?   @db.VarChar(20)
   latitude        Decimal? @db.Decimal(10, 8)
-  longitude       Decimal? @db.Decimal(10, 8)
+  longitude       Decimal? @db.Decimal(11, 8)
   status          Boolean   @default(true)
   created_at      DateTime  @default(now()) @db.Timestamptz
   updated_at      DateTime  @updatedAt @db.Timestamptz
