@@ -39,6 +39,9 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     stores: {
       findFirst: vi.fn(),
     },
+    shippingZones: {
+      findFirst: vi.fn(),
+    },
     users: {
       findFirst: vi.fn(),
     },
@@ -84,7 +87,13 @@ const mockCart = {
   ],
 };
 
-const mockAddress = { id_address: 1, fk_user: 1, status: true };
+const mockAddress = {
+  id_address: 1,
+  fk_user: 1,
+  status: true,
+  latitude: -25.28,
+  longitude: -57.63,
+};
 
 const mockOrderFromDB = {
   id_order: 100,
@@ -168,16 +177,68 @@ describe("createOrderService", () => {
 
   it("lanza NotFoundError cuando la dirección no existe o no pertenece al usuario", async () => {
     prisma.carts.findFirst.mockResolvedValue(mockCart);
+    prisma.stores.findFirst.mockResolvedValue({
+      id_store: 10,
+      addresses: [
+        {
+          latitude: -25.28,
+          longitude: -57.63,
+        },
+      ],
+      shipping_zones: [
+        {
+          base_price: 10000,
+          distance_price: 15000,
+        },
+      ],
+    });
     prisma.addresses.findFirst.mockResolvedValue(null);
 
     await expect(
-      createOrderService(1, { cartId: 1, addressId: 99, notes: null, total: 200 })
+      createOrderService(1, {
+        cartId: 1,
+        addressId: 99,
+        notes: null,
+        shippingMethod: "standard",
+      })
     ).rejects.toThrow(NotFoundError);
   });
 
   it("crea la orden correctamente con dirección válida", async () => {
     prisma.carts.findFirst.mockResolvedValue(mockCart);
+    prisma.stores.findFirst.mockResolvedValue({
+      id_store: 10,
+      addresses: [
+        {
+          latitude: -25.28,
+          longitude: -57.63,
+        },
+      ],
+      shipping_zones: [
+        {
+          base_price: 10000,
+          distance_price: 15000,
+        },
+      ],
+    });
     prisma.addresses.findFirst.mockResolvedValue(mockAddress);
+    prisma.shippingZones.findFirst.mockResolvedValue({
+      base_price: 10000,
+      distance_price: 15000,
+    });
+    process.env.ORS_API_KEY = "test-ors-key";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        routes: [
+          {
+            summary: {
+              distance: 1500,
+            },
+          },
+        ],
+      }),
+    }));
     prisma.$transaction.mockImplementation(async (fn) => fn(prisma));
     prisma.orders.create.mockResolvedValue({ id_order: 100 });
     prisma.orderItems.createMany.mockResolvedValue({});
@@ -188,7 +249,7 @@ describe("createOrderService", () => {
       cartId: 1,
       addressId: 1,
       notes: "entregar en la mañana",
-      total: 200,
+      shippingMethod: "standard",
     });
 
     expect(result).toMatchObject({
@@ -196,6 +257,8 @@ describe("createOrderService", () => {
       status: "PENDING",
       total: 200,
     });
+
+    vi.unstubAllGlobals();
   });
 
   it("crea la orden sin dirección (retiro en tienda)", async () => {
@@ -210,7 +273,6 @@ describe("createOrderService", () => {
       cartId: 1,
       addressId: null,
       notes: null,
-      total: 200,
     });
 
     expect(result.id).toBe(100);
@@ -255,7 +317,7 @@ describe("createOrderService", () => {
     prisma.carts.update.mockResolvedValue({});
     prisma.orders.findUnique.mockResolvedValue(mockOrderFromDB);
 
-    await createOrderService(1, { cartId: 1, addressId: null, notes: null, total: 160 });
+    await createOrderService(1, { cartId: 1, addressId: null, notes: null });
 
     const itemsCreated = prisma.orderItems.createMany.mock.calls[0][0].data;
     expect(itemsCreated[0]).toMatchObject({
@@ -270,7 +332,7 @@ describe("createOrderService", () => {
 
   it("lanza ValidationError cuando cartId no es un entero positivo", async () => {
     await expect(
-      createOrderService(1, { cartId: -1, addressId: null, notes: null, total: 100 })
+      createOrderService(1, { cartId: -1, addressId: null, notes: null })
     ).rejects.toThrow(ValidationError);
   });
 });

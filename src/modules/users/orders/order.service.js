@@ -11,6 +11,11 @@ const mapOrderResponse = (order) => ({
   id: order.id_order,
   status: order.order_status,
   total: Number(order.total),
+  shippingCost: Number(order.shipping_cost ?? 0),
+  shippingDistanceKm:
+    order.shipping_distance_km === null || order.shipping_distance_km === undefined
+      ? null
+      : Number(order.shipping_distance_km),
   notes: order.notes ?? null,
   address: order.address ? {
     id: order.address.id_address,
@@ -31,6 +36,182 @@ const mapOrderResponse = (order) => ({
   updatedAt: order.updated_at
 });
 
+const DISTANCE_THRESHOLD_KM = 2;
+
+const roundToTwoDecimals = (value) => Number(Number(value).toFixed(2));
+
+const getRouteDistanceKm = async (coordinates) => {
+  if (!process.env.ORS_API_KEY) {
+    throw new ValidationError("Servicio de geolocalización no disponible");
+  }
+
+  let response;
+  try {
+    response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
+      method: "POST",
+      headers: {
+        Authorization: process.env.ORS_API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ coordinates }),
+      signal: AbortSignal.timeout(15000)
+    });
+  } catch {
+    throw new ValidationError("No se pudo conectar con el servicio de distancias");
+  }
+
+  if (!response.ok) {
+    throw new ValidationError("No se pudo calcular la distancia de envío");
+  }
+
+  const data = await response.json();
+  const distanceMeters = data?.routes?.[0]?.summary?.distance;
+
+  if (!Number.isFinite(distanceMeters)) {
+    throw new ValidationError("No se pudo calcular la distancia de envío");
+  }
+
+  return roundToTwoDecimals(distanceMeters / 1000);
+};
+
+const getUserAddressForShipping = async (resolvedUserId, resolvedAddressId) => {
+  const address = await prisma.addresses.findFirst({
+    where: {
+      id_address: resolvedAddressId,
+      fk_user: resolvedUserId,
+      status: true
+    },
+    select: {
+      id_address: true,
+      latitude: true,
+      longitude: true
+    }
+  });
+
+  if (!address) {
+    throw new NotFoundError("Dirección no encontrada");
+  }
+
+  if (address.latitude == null || address.longitude == null) {
+    throw new ValidationError("La dirección seleccionada no tiene coordenadas");
+  }
+
+  return {
+    id: address.id_address,
+    lat: Number(address.latitude),
+    lng: Number(address.longitude)
+  };
+};
+
+const getStoreShippingConfig = async (storeId) => {
+  const store = await prisma.stores.findFirst({
+    where: {
+      id_store: storeId,
+      status: true
+    },
+    select: {
+      id_store: true,
+      addresses: {
+        where: { status: true },
+        orderBy: { created_at: "asc" },
+        select: {
+          latitude: true,
+          longitude: true
+        },
+        take: 1
+      },
+      shipping_zones: {
+        where: { status: true },
+        orderBy: { created_at: "asc" },
+        select: {
+          base_price: true,
+          distance_price: true
+        },
+        take: 1
+      }
+    }
+  });
+
+  if (!store) {
+    throw new NotFoundError("Comercio no encontrado");
+  }
+
+  const storeAddress = store.addresses?.[0];
+  if (!storeAddress || storeAddress.latitude == null || storeAddress.longitude == null) {
+    throw new ValidationError("El comercio no tiene ubicación válida para calcular envío");
+  }
+
+  const shippingZone = store.shipping_zones?.[0];
+  if (!shippingZone) {
+    throw new ValidationError("El comercio no tiene precios de envío configurados");
+  }
+
+  return {
+    storeLat: Number(storeAddress.latitude),
+    storeLng: Number(storeAddress.longitude),
+    basePrice: Number(shippingZone.base_price),
+    distancePrice: Number(shippingZone.distance_price)
+  };
+};
+
+const buildShippingQuote = async ({ storeId, userId, addressId }) => {
+  const [storeConfig, userAddress] = await Promise.all([
+    getStoreShippingConfig(storeId),
+    getUserAddressForShipping(userId, addressId)
+  ]);
+
+  const distanceKm = await getRouteDistanceKm([
+    [storeConfig.storeLng, storeConfig.storeLat],
+    [userAddress.lng, userAddress.lat]
+  ]);
+
+  const useDistanceRate = distanceKm > DISTANCE_THRESHOLD_KM;
+  const ratePerKm = useDistanceRate
+    ? storeConfig.distancePrice
+    : storeConfig.basePrice;
+  const shippingCost = roundToTwoDecimals(ratePerKm * distanceKm);
+
+  return {
+    distance_km: distanceKm,
+    shipping_cost: shippingCost,
+    threshold_km: DISTANCE_THRESHOLD_KM,
+    rate_type: useDistanceRate ? "distance_price" : "base_price",
+    rate_per_km: ratePerKm
+  };
+};
+
+export const getOrderShippingQuoteService = async (
+  authenticatedUserId,
+  { cartId, addressId }
+) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
+  const resolvedCartId = parsePositiveInteger(cartId, "cartId");
+  const resolvedAddressId = parsePositiveInteger(addressId, "addressId");
+
+  const cart = await prisma.carts.findFirst({
+    where: {
+      id_cart: resolvedCartId,
+      fk_user: resolvedUserId,
+      cart_status: "ACTIVE",
+      status: true
+    },
+    select: {
+      id_cart: true,
+      fk_store: true
+    }
+  });
+
+  if (!cart) {
+    throw new NotFoundError("Carrito no encontrado");
+  }
+
+  return buildShippingQuote({
+    storeId: cart.fk_store,
+    userId: resolvedUserId,
+    addressId: resolvedAddressId
+  });
+};
+
 
 
 /**
@@ -47,10 +228,15 @@ const mapOrderResponse = (order) => ({
  *   "notes": "Puedo recibir solo de mañana" // esto es opcional
  * }
  */
-export const createOrderService = async (authenticatedUserId, { cartId, addressId, notes, total }) => {
+export const createOrderService = async (
+  authenticatedUserId,
+  { cartId, addressId, notes, shippingMethod = "pickup" }
+) => {
   const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
   const resolvedCartId = parsePositiveInteger(cartId, "cartId");
   const resolvedAddressId = addressId ? parsePositiveInteger(addressId, "addressId") : null;
+  const normalizedShippingMethod =
+    shippingMethod === "standard" ? "standard" : "pickup";
 
   // Validar que el carrito existe, está activa y pertenece al usuario
   const cart = await prisma.carts.findFirst({
@@ -106,16 +292,10 @@ export const createOrderService = async (authenticatedUserId, { cartId, addressI
     throw new ValidationError("Uno o más productos del carrito ya no están disponibles");
   }
 
-  // Validar la direccion solo si se envia
-  if (resolvedAddressId) {
-    const address = await prisma.addresses.findFirst({
-      where: { id_address: resolvedAddressId, fk_user: resolvedUserId, status: true }
-    });
-
-    if (!address) {
-      throw new NotFoundError("Dirección no encontrada");
-    }
+  if (normalizedShippingMethod === "standard" && !resolvedAddressId) {
+    throw new ValidationError("Debes seleccionar una dirección para envío estándar");
   }
+
   // Calcular precios historicos por item
   const itemsData = cart.items.map((item) => {
     const isOfferApplied = item.product.is_offer && item.product.offer_price != null;
@@ -134,6 +314,28 @@ export const createOrderService = async (authenticatedUserId, { cartId, addressI
     };
   });
 
+  const itemsTotal = roundToTwoDecimals(
+    itemsData.reduce((acc, item) => acc + item.subtotal, 0)
+  );
+
+  let shippingCost = 0;
+  let shippingDistanceKm = null;
+  let finalAddressId = null;
+
+  if (normalizedShippingMethod === "standard") {
+    const shippingQuote = await buildShippingQuote({
+      storeId: cart.fk_store,
+      userId: resolvedUserId,
+      addressId: resolvedAddressId
+    });
+
+    shippingCost = shippingQuote.shipping_cost;
+    shippingDistanceKm = shippingQuote.distance_km;
+    finalAddressId = resolvedAddressId;
+  }
+
+  const total = roundToTwoDecimals(itemsTotal + shippingCost);
+
   // Crear orden, items y marcar carrito como CHECKED_OUT en una sola transacción
   const createdOrder = await prisma.$transaction(async (tx) => {
     const order = await tx.orders.create({
@@ -147,14 +349,16 @@ export const createOrderService = async (authenticatedUserId, { cartId, addressI
         cart: {
           connect: { id_cart: resolvedCartId }
         },
-        ...(resolvedAddressId
+        ...(finalAddressId
           ? {
               address: {
-                connect: { id_address: resolvedAddressId }
+                connect: { id_address: finalAddressId }
               }
             }
           : {}),
         total,
+        shipping_cost: shippingCost,
+        shipping_distance_km: shippingDistanceKm,
         notes: notes ?? null,
         status: true
       },
@@ -180,6 +384,8 @@ export const createOrderService = async (authenticatedUserId, { cartId, addressI
         id_order: true,
         order_status: true,
         total: true,
+        shipping_cost: true,
+        shipping_distance_km: true,
         notes: true,
         created_at: true,
         updated_at: true,
@@ -254,6 +460,8 @@ export const getOrdersService = async (authenticatedUserId, customerId) => {
       id_order: true,
       order_status: true,
       total: true,
+      shipping_cost: true,
+      shipping_distance_km: true,
       notes: true,
       created_at: true,
       updated_at: true,
@@ -339,6 +547,8 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
         id_order: true,
         order_status: true,
         total: true,
+        shipping_cost: true,
+        shipping_distance_km: true,
         notes: true,
         created_at: true,
         updated_at: true,
@@ -454,6 +664,8 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
       id_order: true,
       order_status: true,
       total: true,
+      shipping_cost: true,
+      shipping_distance_km: true,
       notes: true,
       created_at: true,
       updated_at: true,

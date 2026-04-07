@@ -6,15 +6,6 @@ export const CreateShippingZoneDTO = z.object({
         .number({ error: "fk_store es requerido" })
         .int()
         .positive("fk_store debe ser un ID válido"),
-    region: z
-        .string({ error: "region es requerida" })
-        .min(1, "region no puede estar vacía")
-        .max(50, "region no puede superar 50 caracteres"),
-    postal_code: z
-        .string()
-        .max(20, "postal_code no puede superar 20 caracteres")
-        .nullable()
-        .optional(),
     base_price: z
         .number({ error: "base_price es requerido" })
         .min(0, "base_price no puede ser negativo"),
@@ -24,16 +15,6 @@ export const CreateShippingZoneDTO = z.object({
 });
 export const UpdateShippingZoneDTO = z
     .object({
-    region: z
-        .string()
-        .min(1, "region no puede estar vacía")
-        .max(50, "region no puede superar 50 caracteres")
-        .optional(),
-    postal_code: z
-        .string()
-        .max(20, "postal_code no puede superar 20 caracteres")
-        .nullable()
-        .optional(),
     base_price: z
         .number({ error: "base_price debe ser número" })
         .min(0, "base_price no puede ser negativo")
@@ -52,7 +33,6 @@ export const FilterShippingZoneDTO = z.object({
         .transform(Number)
         .pipe(z.number().int().positive("fk_store debe ser un ID válido"))
         .optional(),
-    region: z.string().optional(),
     page: z
         .string()
         .transform(Number)
@@ -70,8 +50,6 @@ export const FilterShippingZoneDTO = z.object({
 export class ShippingZoneResponseDTO extends BaseResponseDTO {
     id_shipping_zone;
     fk_store;
-    region;
-    postal_code;
     base_price;
     distance_price;
     constructor(data) {
@@ -82,8 +60,6 @@ export class ShippingZoneResponseDTO extends BaseResponseDTO {
         });
         this.id_shipping_zone = data.id_shipping_zone;
         this.fk_store = data.fk_store;
-        this.region = data.region;
-        this.postal_code = data.postal_code ?? null;
         this.base_price = Number(data.base_price);
         this.distance_price = Number(data.distance_price);
     }

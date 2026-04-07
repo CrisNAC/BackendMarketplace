@@ -28,6 +28,11 @@ vi.mock("../../src/lib/prisma.js", () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
+    shippingZones: {
+      create: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -259,10 +264,10 @@ describe("POST /api/commerces", () => {
         email: "email-invalido",
         phone: "0981000000",
         address: "Calle 1",
-        city: "Asunción",
-        region: "Central",
         latitude: -25.28,
         longitude: -57.63,
+        base_price: 10000,
+        distance_price: 15000,
       });
 
     expect(res.status).toBe(400);
@@ -282,10 +287,10 @@ describe("POST /api/commerces", () => {
         email: "nueva@test.com",
         phone: "0981000000",
         address: "Calle 1",
-        city: "Asunción",
-        region: "Central",
         latitude: -25.28,
         longitude: -57.63,
+        base_price: 10000,
+        distance_price: 15000,
       });
 
     expect(res.status).toBe(409);
@@ -300,8 +305,25 @@ describe("POST /api/commerces", () => {
       fn({
         stores: {
           create: vi.fn().mockResolvedValue({ id_store: 1 }),
+          findUnique: vi.fn().mockResolvedValue({
+            ...mockStore,
+            shipping_zones: [
+              {
+                id_shipping_zone: 1,
+                fk_store: 1,
+                base_price: 10000,
+                distance_price: 15000,
+                status: true,
+                created_at: "2026-01-01T00:00:00.000Z",
+                updated_at: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+          }),
         },
         addresses: {
+          create: vi.fn().mockResolvedValue({}),
+        },
+        shippingZones: {
           create: vi.fn().mockResolvedValue({}),
         },
         users: {
@@ -319,10 +341,10 @@ describe("POST /api/commerces", () => {
         email: "nueva@test.com",
         phone: "0981000000",
         address: "Calle 1",
-        city: "Asunción",
-        region: "Central",
         latitude: -25.28,
         longitude: -57.63,
+        base_price: 10000,
+        distance_price: 15000,
       });
 
     expect(res.status).toBe(201);
