@@ -163,13 +163,10 @@ describe("Product Image endpoints", () => {
 
   // ── PUT ──────────────────────────────────────────────────────────
   describe("PUT /products/:id/image", () => {
-    it("devuelve 403 cuando no hay token", async () => {
-      const res = await asRole(
-        request(app).put("/products/1/image").attach("image", fakeFile, "test.jpg"),
-        "seller"
-      )
+    it("devuelve 401 cuando no hay token", async () => {
+      const res = await request(app).put("/products/1/image").attach("image", fakeFile, "test.jpg")
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(401);
     });
 
     it("reemplaza la imagen y devuelve 200 con la nueva URL", async () => {
