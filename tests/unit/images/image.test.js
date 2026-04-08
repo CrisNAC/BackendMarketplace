@@ -64,7 +64,7 @@ const asRole = (req, role) => req.set("x-test-role", role)
 
 // ─── PRODUCT IMAGE ────────────────────────────────────────────────
 describe("Product Image endpoints", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   // ── GET ──────────────────────────────────────────────────────────
   describe("GET /products/:id/image", () => {
@@ -241,7 +241,7 @@ describe("Product Image endpoints", () => {
 
 // ─── STORE IMAGE ──────────────────────────────────────────────────
 describe("Store Image endpoints", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   describe("GET /stores/:id/image", () => {
     it("devuelve 200 con logo null cuando el comercio no tiene logo", async () => {
@@ -337,7 +337,7 @@ describe("Store Image endpoints", () => {
 
 // ─── USER IMAGE ───────────────────────────────────────────────────
 describe("User Image endpoints", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   describe("GET /users/:id/image", () => {
     it("devuelve 200 con avatar_url null cuando el usuario no tiene avatar", async () => {

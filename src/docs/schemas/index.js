@@ -8,6 +8,4 @@ export * from "./commerce/product.schema.js";
 
 export * from "./session/session.schema.js";
 
-/* export * from "./order.schema.js";
-export * from "./review.schema.js";
-export * from "./user.schema.js"; */
+export * from "../image.schema.js";
