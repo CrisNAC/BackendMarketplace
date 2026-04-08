@@ -101,8 +101,9 @@ export const getAllProductsByStore = async (req, res) => {
 export const filterStoreProducts = async (req, res) => {
   try {
     const { id } = req.params;
-    const { category, price_min, price_max } = req.query;
+    const { name, category, price_min, price_max } = req.query;
     const products = await filterStorePriductsService(id, {
+      name,
       category,
       price_min,
       price_max

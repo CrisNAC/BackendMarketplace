@@ -760,12 +760,28 @@ export const filterStorePriductsService = async (id, filters) => {
       whereConditions.name = { contains: name, mode: "insensitive" };
     }
 
-    if (category) {
-      whereConditions.fk_product_category = Number(category);
+    if (category !== undefined && category !== null && String(category).trim() !== "") {
+      const categoryId = Number(category);
+      if (!Number.isInteger(categoryId) || categoryId <= 0) {
+        throw { status: 400, message: "category debe ser un entero mayor a 0" };
+      }
+      whereConditions.fk_product_category = categoryId;
     }
 
-    if (visible !== undefined && visible !== null) {
+    if (visible === undefined || visible === null || visible === "") {
+      // Flujo cliente: solo productos publicados/visibles del comercio.
+      whereConditions.visible = true;
+    } else if (typeof visible === "boolean") {
       whereConditions.visible = visible;
+    } else {
+      const normalizedVisible = String(visible).toLowerCase();
+      if (normalizedVisible === "true" || normalizedVisible === "1") {
+        whereConditions.visible = true;
+      } else if (normalizedVisible === "false" || normalizedVisible === "0") {
+        whereConditions.visible = false;
+      } else {
+        throw { status: 400, message: "visible debe ser booleano" };
+      }
     }
 
     const resolvedMinPrice = minPrice ?? price_min;
