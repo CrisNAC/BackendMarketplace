@@ -882,75 +882,136 @@ export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}
       throw { status: 400, message: "ID de tienda debe ser un número" };
     }
 
-    const store = await prisma.stores.findUnique({
-      where: { id_store: Number(id) },
-      // Datos del comercio
-      select: {
-        id_store: true,
-        fk_store_category: true,
-        name: true,
-        description: true,
-        logo: true,
-        phone: true,
-        email: true,
-        website_url: true,
-        instagram_url: true,
-        tiktok_url: true,
-        status: true,
-        store_status: true,
-        created_at: true,
-        user: {
-          select: { id_user: true, name: true, email: true }
-        },
-        // Categoría del comercio y productos visibles
-        store_category: {
-          select: { id_store_category: true, name: true }
-        },
-        products: {
-          where: { status: true, visible: true },
-          select: {
-            id_product: true,
-            name: true,
-            price: true,
-            offer_price: true,
-            quantity: true,
-            visible: true,
-            is_offer: true,
-            product_category: {
-              select: { id_product_category: true, name: true }
-            }
-          }
-        },
-        addresses: {
-          where: { status: true },
-          orderBy: { created_at: "asc" },
-          select: {
-            id_address: true,
-            address: true,
-            city: true,
-            region: true,
-            postal_code: true,
-            latitude: true,
-            longitude: true,
-            status: true,
-            created_at: true,
-            updated_at: true
-          }
-        },
-        shipping_zones: {
-          where: { status: true },
-          orderBy: { created_at: "asc" },
-          select: {
-            id_shipping_zone: true,
-            base_price: true,
-            distance_price: true,
-            status: true,
-            created_at: true,
-            updated_at: true
+    const storeSelect = {
+      id_store: true,
+      fk_store_category: true,
+      name: true,
+      description: true,
+      logo: true,
+      phone: true,
+      email: true,
+      website_url: true,
+      instagram_url: true,
+      tiktok_url: true,
+      status: true,
+      store_status: true,
+      created_at: true,
+      user: {
+        select: { id_user: true, name: true, email: true }
+      },
+      store_category: {
+        select: { id_store_category: true, name: true }
+      },
+      products: {
+        where: { status: true, visible: true },
+        select: {
+          id_product: true,
+          name: true,
+          price: true,
+          offer_price: true,
+          quantity: true,
+          visible: true,
+          is_offer: true,
+          product_category: {
+            select: { id_product_category: true, name: true }
           }
         }
+      },
+      addresses: {
+        where: { status: true },
+        orderBy: { created_at: "asc" },
+        select: {
+          id_address: true,
+          address: true,
+          city: true,
+          region: true,
+          postal_code: true,
+          status: true,
+          created_at: true,
+          updated_at: true
+        }
+      },
+      shipping_zones: {
+        where: { status: true },
+        orderBy: { created_at: "asc" },
+        select: {
+          id_shipping_zone: true,
+          base_price: true,
+          distance_price: true,
+          status: true,
+          created_at: true,
+          updated_at: true
+        }
       }
-    });
+    };
+
+    const legacyStoreSelect = {
+      id_store: true,
+      fk_store_category: true,
+      name: true,
+      description: true,
+      logo: true,
+      phone: true,
+      email: true,
+      website_url: true,
+      instagram_url: true,
+      tiktok_url: true,
+      status: true,
+      created_at: true,
+      user: {
+        select: { id_user: true, name: true, email: true }
+      },
+      store_category: {
+        select: { id_store_category: true, name: true }
+      },
+      products: {
+        where: { status: true, visible: true },
+        select: {
+          id_product: true,
+          name: true,
+          price: true,
+          quantity: true,
+          visible: true,
+          product_category: {
+            select: { id_product_category: true, name: true }
+          }
+        }
+      },
+      addresses: {
+        where: { status: true },
+        orderBy: { created_at: "asc" },
+        select: {
+          id_address: true,
+          address: true,
+          city: true,
+          region: true,
+          postal_code: true,
+          status: true,
+          created_at: true,
+          updated_at: true
+        }
+      }
+    };
+
+    let store;
+    try {
+      store = await prisma.stores.findUnique({
+        where: { id_store: Number(id) },
+        select: storeSelect
+      });
+    } catch (queryError) {
+      const shouldUseLegacyFallback =
+        queryError?.code === "P2021" || queryError?.code === "P2022";
+
+      if (!shouldUseLegacyFallback) {
+        throw queryError;
+      }
+
+      store = await prisma.stores.findUnique({
+        where: { id_store: Number(id) },
+        select: legacyStoreSelect
+      });
+    }
 
     // Si no se encuentra el comercio, lanzar error 404
     if (!store) {
