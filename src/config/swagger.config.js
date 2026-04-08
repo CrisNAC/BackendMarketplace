@@ -66,11 +66,11 @@ const options = {
                 // /images
                 ...imageSchemas
             }
-        }
+        },
+        security: [
+            { cookieAuth: [] }
+        ],
     },
-    security: [
-        { cookieAuth: [] }
-    ],
     // Rutas donde swagger-jsdoc va a buscar los comentarios @swagger
     apis: [
         "./src/modules/**/*.routes.js",
