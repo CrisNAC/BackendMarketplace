@@ -68,7 +68,7 @@ export async function removeStoreImage(id, user) {
     throw new ForbiddenError('No tenés permisos para modificar este comercio')
   }
 
-  if (!store.logo) throw new ValidationError('El comercio no tiene logo')
+  if (!store.logo) throw new NotFoundError('El comercio no tiene logo')
 
   const filePath = extractFilePath(store.logo, BUCKET)
 

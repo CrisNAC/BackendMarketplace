@@ -68,7 +68,7 @@ export async function removeUserImage(id, authUser) {
     throw new ForbiddenError('No tenés permisos para modificar este avatar')
   }
 
-  if (!user.avatar_url) throw new ValidationError('El usuario no tiene avatar')
+  if (!user.avatar_url) throw new NotFoundError('El usuario no tiene avatar')
 
   const filePath = extractFilePath(user.avatar_url, BUCKET)
 

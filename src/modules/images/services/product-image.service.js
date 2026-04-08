@@ -71,7 +71,7 @@ export async function removeProductImage(id, user) {
     throw new ForbiddenError('No tenés permisos para modificar este producto')
   }
 
-  if (!product.image_url) throw new ValidationError('El producto no tiene imagen')
+  if (!product.image_url) throw new NotFoundError('El producto no tiene imagen')
 
   const filePath = extractFilePath(product.image_url, BUCKET)
 
