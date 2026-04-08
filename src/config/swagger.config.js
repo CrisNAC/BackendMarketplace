@@ -75,7 +75,7 @@ const options = {
     apis: [
         "./src/modules/**/*.routes.js",
         "./src/modules/**/routes/*.routes.js",
-        "./src/docs/*.schema.js"
+        "./src/docs/**/*.schema.js"
     ]
 };
 
