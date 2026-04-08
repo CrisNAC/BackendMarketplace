@@ -4,7 +4,7 @@ import { IMAGE } from '../utils/contants/image.constant.js'
 
 export const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: IMAGE.MAX_SIZE_MB },
+  limits: { fileSize: IMAGE.MAX_SIZE_MB() },
   fileFilter: (req, file, cb) => {
     if (IMAGE.ALLOWED_TYPES.includes(file.mimetype)) {
       cb(null, true)
