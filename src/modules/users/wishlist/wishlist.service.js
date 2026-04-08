@@ -1,4 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
+import { getProductPricing } from "../../../lib/product-pricing.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/validators.js";
 
@@ -21,15 +22,22 @@ const getOrCreateActiveWishlist = async (userId) => {
 const mapWishlistResponse = (wishlist) => ({
   id: wishlist.id_wishlist,
   name: wishlist.name,
-  items: wishlist.wishlist_items.map((item) => ({
-    id: item.id_wishlist_item,
-    quantity: item.quantity,
-    product: {
-      id: item.product.id_product,
-      name: item.product.name,
-      price: Number(item.product.price)
-    }
-  }))
+  items: wishlist.wishlist_items.map((item) => {
+    const pricing = getProductPricing(item.product);
+
+    return {
+      id: item.id_wishlist_item,
+      quantity: item.quantity,
+      product: {
+        id: item.product.id_product,
+        name: item.product.name,
+        price: pricing.price,
+        originalPrice: pricing.originalPrice,
+        offerPrice: pricing.offerPrice,
+        isOffer: pricing.isOffer
+      }
+    };
+  })
 });
 
 const getWishlistWithItems = async (wishlistId) => {
@@ -47,7 +55,9 @@ const getWishlistWithItems = async (wishlistId) => {
             select: {
               id_product: true,
               name: true,
-              price: true
+              price: true,
+              offer_price: true,
+              is_offer: true
             }
           }
         }

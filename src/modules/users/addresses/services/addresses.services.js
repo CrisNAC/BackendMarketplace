@@ -13,6 +13,8 @@ const ADDRESS_SELECT = {
     city: true,
     region: true,
     postal_code: true,
+    latitude: true,
+    longitude: true,
     status: true,
     created_at: true,
     updated_at: true,
@@ -125,37 +127,132 @@ const validateOptionalStringField = (value, fieldName, maxLength = null) => {
     return parsedValue;
 };
 
-// centraliza la validacion del payload para reutilizarla en create y update
-const buildAddressData = (payload, { requireAllFields = false } = {}) => {
+const validateCoordinateField = (value, fieldName, min, max) => {
+    const parsedValue = Number(value);
+
+    if (!Number.isFinite(parsedValue) || parsedValue < min || parsedValue > max) {
+        throw {
+            status: 400,
+            message: `${fieldName} invalida`,
+        };
+    }
+
+    return parsedValue;
+};
+
+const getReverseGeocodedAddress = async (latitude, longitude) => {
+    const params = new URLSearchParams({
+        format: "json",
+        lat: latitude.toString(),
+        lon: longitude.toString(),
+    });
+
+    const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?${params.toString()}`,
+        {
+            headers: {
+                "User-Agent": "BackendMarketplace/1.0",
+                Accept: "application/json",
+                "Accept-Language": "es",
+            },
+        }
+    );
+
+    if (!response.ok) {
+        throw {
+            status: 502,
+            message: "No se pudo obtener la ubicacion desde Nominatim",
+        };
+    }
+
+    const data = await response.json();
+    const parsedAddress = data?.address || {};
+
+    const city = validateRequiredStringField(
+        parsedAddress.city ||
+            parsedAddress.town ||
+            parsedAddress.village ||
+            parsedAddress.hamlet ||
+            parsedAddress.county ||
+            parsedAddress.state ||
+            "Sin ciudad",
+        "city",
+        100
+    );
+
+    const region = validateRequiredStringField(
+        parsedAddress.suburb ||
+            parsedAddress.neighbourhood ||
+            parsedAddress.city_district ||
+            parsedAddress.state_district ||
+            parsedAddress.road ||
+            parsedAddress.residential ||
+            parsedAddress.county ||
+            "Sin region",
+        "region",
+        100
+    );
+
+    const postalCode = validateOptionalStringField(
+        parsedAddress.postcode ?? null,
+        "postal_code",
+        20
+    );
+
+    return {
+        city,
+        region,
+        postal_code: postalCode ?? null,
+    };
+};
+
+const buildCreateAddressData = async (payload) => {
+    const address = validateRequiredStringField(payload?.address, "address");
+    const latitude = validateCoordinateField(payload?.latitude, "latitud", -90, 90);
+    const longitude = validateCoordinateField(payload?.longitude, "longitud", -180, 180);
+    const reverseAddress = await getReverseGeocodedAddress(latitude, longitude);
+
+    return {
+        address,
+        ...reverseAddress,
+        latitude,
+        longitude,
+    };
+};
+
+const buildUpdateAddressData = async (payload) => {
     const data = {};
 
-    if (requireAllFields || payload?.address !== undefined) {
+    if (payload?.address !== undefined) {
         data.address = validateRequiredStringField(payload?.address, "address");
     }
 
-    if (requireAllFields || payload?.city !== undefined) {
-        data.city = validateRequiredStringField(payload?.city, "city", 100);
-    }
+    const hasLatitude = payload?.latitude !== undefined;
+    const hasLongitude = payload?.longitude !== undefined;
 
-    if (requireAllFields || payload?.region !== undefined) {
-        data.region = validateRequiredStringField(payload?.region, "region", 100);
-    }
-
-    if (requireAllFields || payload?.postal_code !== undefined) {
-        const postalCode = validateOptionalStringField(
-            payload?.postal_code,
-            "postal_code",
-            20
-        );
-
-        data.postal_code = postalCode ?? null;
-    }
-
-    if (!requireAllFields && Object.keys(data).length === 0) {
+    if (hasLatitude !== hasLongitude) {
         throw {
             status: 400,
-            message:
-                "Debe enviar al menos uno de estos campos: address, city, region, postal_code",
+            message: "Debe enviar latitud y longitud juntas",
+        };
+    }
+
+    if (hasLatitude && hasLongitude) {
+        const latitude = validateCoordinateField(payload?.latitude, "latitud", -90, 90);
+        const longitude = validateCoordinateField(payload?.longitude, "longitud", -180, 180);
+        const reverseAddress = await getReverseGeocodedAddress(latitude, longitude);
+
+        data.latitude = latitude;
+        data.longitude = longitude;
+        data.city = reverseAddress.city;
+        data.region = reverseAddress.region;
+        data.postal_code = reverseAddress.postal_code;
+    }
+
+    if (Object.keys(data).length === 0) {
+        throw {
+            status: 400,
+            message: "Debe enviar al menos uno de estos campos: address, latitude, longitude",
         };
     }
 
@@ -164,7 +261,7 @@ const buildAddressData = (payload, { requireAllFields = false } = {}) => {
 
 // busca una direccion personal activa y confirma que pertenezca al usuario autenticado
 const getOwnedPersonalAddressOrThrow = async (userId, requestedAddressId) => {
-    const addressId = parsePositiveInteger(requestedAddressId, "ID de direccion");
+    const addressId = parsePositiveInteger(requestedAddressId, "ID de dirección");
 
     const address = await prisma.addresses.findFirst({
         where: {
@@ -179,7 +276,7 @@ const getOwnedPersonalAddressOrThrow = async (userId, requestedAddressId) => {
     if (!address) {
         throw {
             status: 404,
-            message: "Direccion no encontrada",
+            message: "Dirección no encontrada",
         };
     }
 
@@ -192,12 +289,11 @@ export const createAddressService = async (
     requestedUserId,
     payload
 ) => {
-    //const { fk_store, address, city, region, postal_code } = payload;
     const user = await getAuthorizedUserService(
         authenticatedUserId,
         requestedUserId
     );
-    const dataToCreate = buildAddressData(payload, { requireAllFields: true });
+    const dataToCreate = await buildCreateAddressData(payload);
 
     const newAddress = await prisma.$transaction(async (tx) => {
         const lockedUsers = await tx.$queryRaw`
@@ -226,7 +322,7 @@ export const createAddressService = async (
         if (addressesFromUser >= MAX_USER_ADDRESSES) {
             throw {
                 status: 400,
-                message: `El usuario ya alcanzo el limite de ${MAX_USER_ADDRESSES} direcciones`,
+                message: `El usuario ya alcanzó el límite de ${MAX_USER_ADDRESSES} direcciones`,
             };
         }
 
@@ -293,8 +389,8 @@ export const updateAddressService = async (
         authenticatedUserId,
         requestedUserId
     );
-    const addressId = parsePositiveInteger(requestedAddressId, "ID de direccion");
-    const dataToUpdate = buildAddressData(payload);
+    const addressId = parsePositiveInteger(requestedAddressId, "ID de dirección");
+    const dataToUpdate = await buildUpdateAddressData(payload);
 
     const updatedAddresses = await prisma.addresses.updateMany({
         where: {
@@ -309,7 +405,7 @@ export const updateAddressService = async (
     if (updatedAddresses.count !== 1) {
         throw {
             status: 404,
-            message: "Direccion no encontrada",
+            message: "Dirección no encontrada",
         };
     }
 
@@ -323,23 +419,10 @@ export const updateAddressService = async (
     if (!updatedAddress) {
         throw {
             status: 500,
-            message: "No se pudo recuperar la direccion actualizada",
+            message: "No se pudo recuperar la dirección actualizada",
         };
     }
 
-    if (!updatedAddress) {
-        throw {
-            status: 500,
-            message: "No se pudo recuperar la direccion actualizada",
-        };
-    }
-
-    if (!updatedAddress) {
-        throw {
-            status: 500,
-            message: "No se pudo recuperar la direccion actualizada",
-        };
-    }
     return updatedAddress;
 };
 

@@ -1,4 +1,10 @@
 import { prisma } from "../../../lib/prisma.js";
+import {
+  getEffectiveProductPrice,
+  getOfferProductPrice,
+  getOriginalProductPrice,
+  getProductPricing
+} from "../../../lib/product-pricing.js";
 import { validateProductCategoryService } from "../../global/categories/product-categories/product-category.service.js";
 import {
   parseProductTagIdsService,
@@ -17,10 +23,12 @@ const PRODUCT_RESPONSE_SELECT = {
   name: true,
   description: true,
   price: true,
+  offer_price: true,
   quantity: true,
   fk_product_category: true,
   fk_store: true,
   visible: true,
+  is_offer: true,
   created_at: true,
   updated_at: true,
   product_category: {
@@ -84,6 +92,19 @@ const sanitizePaginationValue = (value, fallback) => {
   return Math.floor(parsedValue);
 };
 
+const hasOwnProperty = (payload, fieldName) =>
+  Object.prototype.hasOwnProperty.call(payload ?? {}, fieldName);
+
+const getFirstDefinedValue = (payload, fieldNames) => {
+  for (const fieldName of fieldNames) {
+    if (hasOwnProperty(payload, fieldName)) {
+      return payload[fieldName];
+    }
+  }
+
+  return undefined;
+};
+
 const validateRequiredStringField = (value, fieldName, maxLength = null) => {
   const normalizedValue = value?.toString().trim();
 
@@ -125,6 +146,59 @@ const validatePriceField = (value) => {
   }
 
   return parsedPrice;
+};
+
+const parseOptionalPriceField = (value, fieldName) => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === "") {
+    return null;
+  }
+
+  const parsedPrice = Number(value);
+  if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+    throw { status: 400, message: `${fieldName} debe ser mayor a 0` };
+  }
+
+  return parsedPrice;
+};
+
+const parseBooleanField = (value, fieldName) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    if (value === 1) {
+      return true;
+    }
+
+    if (value === 0) {
+      return false;
+    }
+  }
+
+  const normalizedValue = String(value).trim().toLowerCase();
+
+  if (normalizedValue === "true" || normalizedValue === "1") {
+    return true;
+  }
+
+  if (normalizedValue === "false" || normalizedValue === "0") {
+    return false;
+  }
+
+  throw { status: 400, message: `${fieldName} debe ser booleano` };
+};
+
+const parseOptionalBooleanField = (value, fieldName) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  return parseBooleanField(value, fieldName);
 };
 
 const parseQuantityField = (value) => {
@@ -187,15 +261,68 @@ const parseVisibilityOverride = (payload) => {
   return null;
 };
 
+const resolveOfferPayload = (payload, currentState = {}) => {
+  const hasIsOfferField =
+    hasOwnProperty(payload, "isOffer") || hasOwnProperty(payload, "is_offer");
+  const hasOfferPriceField =
+    hasOwnProperty(payload, "offerPrice") || hasOwnProperty(payload, "offer_price");
+
+  const parsedIsOffer = parseOptionalBooleanField(
+    getFirstDefinedValue(payload, ["isOffer", "is_offer"]),
+    "isOffer"
+  );
+  const parsedOfferPrice = parseOptionalPriceField(
+    getFirstDefinedValue(payload, ["offerPrice", "offer_price"]),
+    "offerPrice"
+  );
+
+  let isOffer = Boolean(currentState.is_offer);
+  let offerPrice =
+    currentState.offer_price === undefined ? null : currentState.offer_price;
+
+  if (parsedIsOffer !== undefined) {
+    isOffer = parsedIsOffer;
+  }
+
+  if (hasOfferPriceField) {
+    offerPrice = parsedOfferPrice;
+  }
+
+  if (!hasIsOfferField && hasOfferPriceField && parsedOfferPrice !== null) {
+    isOffer = true;
+  }
+
+  if (hasIsOfferField && parsedIsOffer === false && !hasOfferPriceField) {
+    offerPrice = null;
+  }
+
+  if (isOffer && (offerPrice === null || offerPrice === undefined)) {
+    throw {
+      status: 400,
+      message: "offerPrice es requerido cuando isOffer=true"
+    };
+  }
+
+  return {
+    hasOfferData: hasIsOfferField || hasOfferPriceField,
+    is_offer: isOffer,
+    offer_price: offerPrice
+  };
+};
+
 const mapProductResponse = (product) => {
   const ratings = product.product_reviews?.map(r => r.rating).filter(r => r !== null) || [];
   const lifecycleStatus = product.visible ? "active" : "pending";
+  const pricing = getProductPricing(product);
 
   return {
     id: product.id_product,
     name: product.name,
     description: product.description,
-    price: Number(product.price),
+    price: pricing.price,
+    originalPrice: pricing.originalPrice,
+    offerPrice: pricing.offerPrice,
+    isOffer: pricing.isOffer,
     quantity: product.quantity,
     categoryId: product.fk_product_category,
     category: product.product_category
@@ -274,6 +401,8 @@ const getExistingProductForUpdateService = async (productId) => {
     select: {
       id_product: true,
       fk_store: true,
+      offer_price: true,
+      is_offer: true,
       status: true
     }
   });
@@ -310,6 +439,7 @@ const buildCreateProductData = async (payload) => {
   const description = normalizeOptionalStringField(payload?.description) ?? null;
   const visibilityOverride = parseVisibilityOverride({ visible: payload?.visible });
   const tagIds = parseProductTagIdsService(payload?.tags);
+  const { is_offer, offer_price } = resolveOfferPayload(payload);
 
   await validateProductTagsService(tagIds);
 
@@ -318,16 +448,23 @@ const buildCreateProductData = async (payload) => {
       name,
       description,
       price,
+      offer_price,
       quantity: quantity ?? null,
-      fk_product_category: categoryId
+      fk_product_category: categoryId,
+      is_offer
     },
     tagIds,
     visibilityOverride
   };
 };
 
-const buildUpdateProductData = async (payload) => {
+const buildUpdateProductData = async (payload, existingProduct) => {
   const dataToUpdate = {};
+  const hasOfferFields =
+    hasOwnProperty(payload, "isOffer") ||
+    hasOwnProperty(payload, "is_offer") ||
+    hasOwnProperty(payload, "offerPrice") ||
+    hasOwnProperty(payload, "offer_price");
 
   if (payload?.name !== undefined) {
     dataToUpdate.name = validateRequiredStringField(payload.name, "name", 100);
@@ -347,6 +484,12 @@ const buildUpdateProductData = async (payload) => {
 
   if (payload?.quantity !== undefined) {
     dataToUpdate.quantity = parseQuantityField(payload.quantity);
+  }
+
+  if (hasOfferFields) {
+    const offerPayload = resolveOfferPayload(payload, existingProduct);
+    dataToUpdate.is_offer = offerPayload.is_offer;
+    dataToUpdate.offer_price = offerPayload.offer_price;
   }
 
   const visibilityOverride = parseVisibilityOverride(payload);
@@ -508,7 +651,7 @@ export const updateProductService = async (
   const {
     dataToUpdate,
     nextTagIds
-  } = await buildUpdateProductData(payload);
+  } = await buildUpdateProductData(payload, existingProduct);
 
   const updatedProduct = await prisma.$transaction(async (tx) => {
     if (Object.keys(dataToUpdate).length > 0) {
@@ -534,10 +677,10 @@ export const updateProductService = async (
   return mapProductResponse(updatedProduct);
 };
 
-/** esta funcion recibe un filtro (search) y retorna los productos con status=true y visible=true*/
 export const getProductsSearchService = async (filters) => {
   const search = filters.search?.toString().trim();
   const categoryIdRaw = filters.categoryId ?? filters.category_id ?? filters.fk_product_category;
+  const isOfferRaw = filters.isOffer ?? filters.is_offer;
   
   //Paginacion
   const page = sanitizePaginationValue(filters.page, DEFAULT_PRODUCTS_PAGE);
@@ -560,6 +703,33 @@ export const getProductsSearchService = async (filters) => {
     }
     where.fk_product_category = categoryId;
   }
+
+  if (isOfferRaw !== undefined && isOfferRaw !== null && String(isOfferRaw).trim() !== "") {
+    where.is_offer = parseBooleanField(isOfferRaw, "isOffer");
+  }
+  // Después del bloque de isOffer, antes del bloque de search:
+
+if (filters.minPrice !== undefined && filters.minPrice !== null && String(filters.minPrice).trim() !== "") {
+  const minPrice = Number(filters.minPrice);
+  if (!Number.isFinite(minPrice) || minPrice <= 0) {
+    throw { status: 400, message: "minPrice debe ser un número mayor a 0" };
+  }
+  where.price = { ...where.price, gte: minPrice };
+}
+
+if (filters.maxPrice !== undefined && filters.maxPrice !== null && String(filters.maxPrice).trim() !== "") {
+  const maxPrice = Number(filters.maxPrice);
+  if (!Number.isFinite(maxPrice) || maxPrice <= 0) {
+    throw { status: 400, message: "maxPrice debe ser un número mayor a 0" };
+  }
+  where.price = { ...where.price, lte: maxPrice };
+}
+
+if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
+  if (where.price.gte > where.price.lte) {
+    throw { status: 400, message: "minPrice no puede ser mayor que maxPrice" };
+  }
+}
 
   //si se le pasa un search, se busca en name y description
   if (search) {
@@ -601,6 +771,8 @@ export const getProductsSearchService = async (filters) => {
         name: true,
         description: true,
         price: true,
+        offer_price: true,
+        is_offer: true,
         store: {
           select: {
             id_store: true,
@@ -612,13 +784,28 @@ export const getProductsSearchService = async (filters) => {
   ]);
 
   return {
-    products,
-  pagination: {
-    totalProducts,
-    page,
-    limit,
-    totalPages: Math.ceil(totalProducts/limit)
-  }};
+    products: products.map((product) => ({
+      id_product: product.id_product,
+      name: product.name,
+      description: product.description,
+      price: getEffectiveProductPrice(product),
+      original_price: getOriginalProductPrice(product),
+      offer_price: getOfferProductPrice(product),
+      is_offer: Boolean(product.is_offer),
+      store: product.store
+        ? {
+            id_store: product.store.id_store,
+            name: product.store.name
+          }
+        : null
+    })),
+    pagination: {
+      totalProducts,
+      page,
+      limit,
+      totalPages: Math.ceil(totalProducts / limit)
+    }
+  };
 };
 
 export const deleteProductService = async (authenticatedUserId, productId) => {
@@ -653,4 +840,106 @@ export const getProductByIdService = async (id) => {
   }
 
   return mapProductResponse(product);
+};
+
+export const filterProductsService = async (filters, pagination) => {
+  const {
+    search,
+    categoryId,
+    isOffer,
+    minPrice,
+    maxPrice,
+    sortBy,
+    sortOrder
+  } = filters;
+
+  const whereConditions = {
+    status: true,
+    visible: true
+  };
+
+  if (search) {
+    whereConditions.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } }
+    ];
+  }
+
+  if (categoryId !== undefined && categoryId !== null) {
+    whereConditions.fk_product_category = Number(categoryId);
+  }
+
+  if (isOffer !== undefined && isOffer !== null) {
+    whereConditions.is_offer = isOffer;
+  }
+
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    const priceRange = {};
+    if (minPrice !== undefined) priceRange.gte = Number(minPrice);
+    if (maxPrice !== undefined) priceRange.lte = Number(maxPrice);
+
+    const priceBranches = [];
+
+    if (isOffer !== true) {
+      priceBranches.push({
+        AND: [{ is_offer: false }, { price: priceRange }]
+      });
+    }
+
+    if (isOffer !== false) {
+      priceBranches.push({
+        AND: [{ is_offer: true }, { offer_price: priceRange }]
+      });
+    }
+
+    whereConditions.OR = [
+      ...(Array.isArray(whereConditions.OR) ? whereConditions.OR : []),
+      ...priceBranches
+    ];
+  }
+
+  const orderBy = { [sortBy || "created_at"]: sortOrder === "asc" ? "asc" : "desc" };
+
+  const [totalProducts, products] = await Promise.all([
+    prisma.products.count({ where: whereConditions }),
+    prisma.products.findMany({
+      where: whereConditions,
+      skip: pagination?.skip ?? 0,
+      take: pagination?.limit ?? 20,
+      orderBy,
+      select: {
+        id_product: true,
+        name: true,
+        description: true,
+        price: true,
+        offer_price: true,
+        is_offer: true,
+        quantity: true,
+        product_category: {
+          select: { id_product_category: true, name: true }
+        },
+        store: {
+          select: { id_store: true, name: true }
+        }
+      }
+    })
+  ]);
+
+  return {
+    products: products.map((product) => ({
+      id_product: product.id_product,
+      name: product.name,
+      description: product.description,
+      price: getEffectiveProductPrice(product),
+      original_price: getOriginalProductPrice(product),
+      offer_price: getOfferProductPrice(product),
+      is_offer: Boolean(product.is_offer),
+      quantity: product.quantity,
+      category: product.product_category ?? null,
+      store: product.store
+        ? { id_store: product.store.id_store, name: product.store.name }
+        : null
+    })),
+    totalProducts
+  };
 };

@@ -2,10 +2,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../../../lib/prisma.js";
+import { getProductPricing } from "../../../lib/product-pricing.js";
 import { validateStoreCategoryService } from "../store-categories/store-category.service.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALLOWED_LOCAL_LOGO_DIRECTORIES = new Set(["uploads", "storage", "public"]);
+const DISTANCE_THRESHOLD_KM = 2;
 const STORE_RESPONSE_SELECT = {
   id_store: true,
   fk_user: true,
@@ -43,8 +45,10 @@ const STORE_RESPONSE_SELECT = {
       id_product: true,
       name: true,
       price: true,
+      offer_price: true,
       quantity: true,
       visible: true,
+      is_offer: true,
       product_category: {
         select: {
           id_product_category: true,
@@ -62,6 +66,20 @@ const STORE_RESPONSE_SELECT = {
       city: true,
       region: true,
       postal_code: true,
+      latitude: true,
+      longitude: true,
+      status: true,
+      created_at: true,
+      updated_at: true
+    }
+  },
+  shipping_zones: {
+    where: { status: true },
+    orderBy: { created_at: "asc" },
+    select: {
+      id_shipping_zone: true,
+      base_price: true,
+      distance_price: true,
       status: true,
       created_at: true,
       updated_at: true
@@ -147,6 +165,176 @@ const validateEmailField = (value) => {
   }
 
   return normalizedEmail;
+};
+
+const validateCoordinateField = (value, fieldName, min, max) => {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    throw {
+      status: 400,
+      message: `${fieldName} inválida`
+    };
+  }
+
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue) || parsedValue < min || parsedValue > max) {
+    throw {
+      status: 400,
+      message: `${fieldName} inválida`
+    };
+  }
+
+  return parsedValue;
+};
+
+const validateNonNegativeNumberField = (value, fieldName) => {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    throw {
+      status: 400,
+      message: `${fieldName} es requerido`
+    };
+  }
+
+  const parsedValue = Number(value);
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    throw {
+      status: 400,
+      message: `${fieldName} no puede ser negativo`
+    };
+  }
+
+  return Number(parsedValue.toFixed(2));
+};
+
+const getReverseGeocodedAddress = async (latitude, longitude) => {
+  const params = new URLSearchParams({
+    format: "json",
+    lat: latitude.toString(),
+    lon: longitude.toString()
+  });
+
+  let response;
+  try {
+    response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?${params.toString()}`,
+      {
+        headers: {
+          "User-Agent": "BackendMarketplace/1.0",
+          Accept: "application/json",
+          "Accept-Language": "es"
+        },
+        signal: AbortSignal.timeout(10000)
+      }
+    );
+  } catch (error) {
+    throw {
+      status: 502,
+      message: "No se pudo conectar con el servicio de Nominatim"
+    };
+  }
+
+  if (!response.ok) {
+    throw {
+      status: 502,
+      message: "No se pudo obtener la ubicacion desde Nominatim"
+    };
+  }
+
+  const data = await response.json();
+  const parsedAddress = data?.address || {};
+
+  return {
+    city: validateRequiredStringField(
+      parsedAddress.city ||
+        parsedAddress.town ||
+        parsedAddress.village ||
+        parsedAddress.hamlet ||
+        parsedAddress.county ||
+        parsedAddress.state ||
+        "Sin ciudad",
+      "city",
+      100
+    ),
+    region: validateRequiredStringField(
+      parsedAddress.suburb ||
+        parsedAddress.neighbourhood ||
+        parsedAddress.city_district ||
+        parsedAddress.state_district ||
+        parsedAddress.road ||
+        parsedAddress.residential ||
+        parsedAddress.county ||
+        "Sin region",
+      "region",
+      100
+    ),
+    postal_code: validateOptionalStringField(
+      parsedAddress.postcode ?? null,
+      "postal_code",
+      20
+    ) ?? null
+  };
+};
+
+const parseBooleanField = (value, fieldName) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalizedValue = String(value).trim().toLowerCase();
+
+  if (normalizedValue === "true" || normalizedValue === "1") {
+    return true;
+  }
+
+  if (normalizedValue === "false" || normalizedValue === "0") {
+    return false;
+  }
+
+  throw {
+    status: 400,
+    message: `${fieldName} debe ser booleano`
+  };
+};
+
+const mapStoreProductPricing = (product) => {
+  const pricing = getProductPricing(product);
+
+  return {
+    ...product,
+    price: pricing.price,
+    original_price: pricing.originalPrice,
+    offer_price: pricing.offerPrice,
+    is_offer: pricing.isOffer
+  };
+};
+
+const mapStoreWithPricedProducts = (store) => {
+  if (!store) {
+    return store;
+  }
+
+  return {
+    ...store,
+    products: Array.isArray(store.products)
+      ? store.products.map(mapStoreProductPricing)
+      : [],
+    shipping_zones: Array.isArray(store.shipping_zones)
+      ? store.shipping_zones.map((zone) => ({
+          ...zone,
+          base_price: Number(zone.base_price),
+          distance_price: Number(zone.distance_price),
+          distance_threshold_km: DISTANCE_THRESHOLD_KM
+        }))
+      : []
+  };
 };
 
 // valida que el usuario autenticado sea el propietario del comercio solicitado
@@ -268,9 +456,10 @@ export const createStoreService = async (data) => {
     instagram_url,
     tiktok_url,
     address,
-    city,
-    region,
-    postal_code,
+    latitude,
+    longitude,
+    base_price,
+    distance_price
   } = data;
 
   if (
@@ -280,8 +469,10 @@ export const createStoreService = async (data) => {
     !email ||
     !phone ||
     !address ||
-    !city ||
-    !region
+    latitude === undefined ||
+    longitude === undefined ||
+    base_price === undefined ||
+    distance_price === undefined
   ) {
     throw { status: 400, message: "Faltan campos obligatorios" };
   }
@@ -322,13 +513,11 @@ export const createStoreService = async (data) => {
     throw { status: 400, message: "La direccion es obligatoria" };
   }
 
-  if (!city || typeof city !== "string" || !city.trim()) {
-    throw { status: 400, message: "La ciudad es obligatoria" };
-  }
-
-  if (!region || typeof region !== "string" || !region.trim()) {
-    throw { status: 400, message: "La region es obligatoria" };
-  }
+  const normalizedLatitude = validateCoordinateField(latitude, "latitud", -90, 90);
+  const normalizedLongitude = validateCoordinateField(longitude, "longitud", -180, 180);
+  const normalizedBasePrice = validateNonNegativeNumberField(base_price, "base_price");
+  const normalizedDistancePrice = validateNonNegativeNumberField(distance_price, "distance_price");
+  const reverseAddress = await getReverseGeocodedAddress(normalizedLatitude, normalizedLongitude);
 
   try {
     const usuario = await prisma.users.findUnique({
@@ -360,8 +549,8 @@ export const createStoreService = async (data) => {
       throw { status: 400, message: "Categoria no valida" };
     }
 
-    const nuevaTienda = await prisma.$transaction(async (tx) => {
-      const store = await tx.stores.create({
+    const newStore = await prisma.$transaction(async (tx) => {
+      const createdStore = await tx.stores.create({
         data: {
           fk_user,
           fk_store_category,
@@ -379,11 +568,22 @@ export const createStoreService = async (data) => {
       await tx.addresses.create({
         data: {
           fk_user,
-          fk_store: store.id_store,
+          fk_store: createdStore.id_store,
           address: address.trim(),
-          city: city.trim(),
-          region: region.trim(),
-          postal_code
+          city: reverseAddress.city,
+          region: reverseAddress.region,
+          postal_code: reverseAddress.postal_code,
+          latitude: normalizedLatitude,
+          longitude: normalizedLongitude,
+        }
+      });
+
+      await tx.shippingZones.create({
+        data: {
+          fk_store: createdStore.id_store,
+          base_price: normalizedBasePrice,
+          distance_price: normalizedDistancePrice,
+          status: true
         }
       });
 
@@ -393,10 +593,13 @@ export const createStoreService = async (data) => {
         data: { role: "SELLER" }
       });
 
-      return store;
+      return tx.stores.findUnique({
+        where: { id_store: createdStore.id_store },
+        select: STORE_RESPONSE_SELECT
+      });
     });
 
-    return nuevaTienda;
+    return mapStoreWithPricedProducts(newStore);
   } catch (error) {
     if (error.code === "P2002") {
       throw { status: 409, message: "Email ya registrado" };
@@ -418,6 +621,8 @@ export const updateStoreService = async (
 
   const dataToUpdate = {};
   const addressDataToUpdate = {};
+  const shippingZoneDataToUpdate = {};
+  let hasCoordinatesToUpdate = false;
 
   if (payload?.fk_store_category !== undefined) {
     dataToUpdate.fk_store_category = await validateStoreCategoryService(
@@ -476,33 +681,66 @@ export const updateStoreService = async (
     );
   }
 
-  if (payload?.city !== undefined) {
-    addressDataToUpdate.city = validateRequiredStringField(
-      payload.city,
-      "city",
-      100
+  const hasLatitude = payload?.latitude !== undefined;
+  const hasLongitude = payload?.longitude !== undefined;
+  const hasBasePrice = payload?.base_price !== undefined;
+  const hasDistancePrice = payload?.distance_price !== undefined;
+
+  if (hasLatitude !== hasLongitude) {
+    throw {
+      status: 400,
+      message: "Debe enviar latitud y longitud juntas"
+    };
+  }
+
+  if (hasBasePrice !== hasDistancePrice) {
+    throw {
+      status: 400,
+      message: "Debe enviar base_price y distance_price juntos"
+    };
+  }
+
+  if (hasBasePrice && hasDistancePrice) {
+    shippingZoneDataToUpdate.base_price = validateNonNegativeNumberField(
+      payload.base_price,
+      "base_price"
+    );
+    shippingZoneDataToUpdate.distance_price = validateNonNegativeNumberField(
+      payload.distance_price,
+      "distance_price"
     );
   }
 
-  if (payload?.region !== undefined) {
-    addressDataToUpdate.region = validateRequiredStringField(
-      payload.region,
-      "region",
-      100
+  if (hasLatitude && hasLongitude) {
+    const normalizedLatitude = validateCoordinateField(
+      payload.latitude,
+      "latitud",
+      -90,
+      90
     );
-  }
+    const normalizedLongitude = validateCoordinateField(
+      payload.longitude,
+      "longitud",
+      -180,
+      180
+    );
+    const reverseAddress = await getReverseGeocodedAddress(
+      normalizedLatitude,
+      normalizedLongitude
+    );
 
-  if (payload?.postal_code !== undefined) {
-    addressDataToUpdate.postal_code = validateOptionalStringField(
-      payload.postal_code,
-      "postal_code",
-      20
-    );
+    addressDataToUpdate.latitude = normalizedLatitude;
+    addressDataToUpdate.longitude = normalizedLongitude;
+    addressDataToUpdate.city = reverseAddress.city;
+    addressDataToUpdate.region = reverseAddress.region;
+    addressDataToUpdate.postal_code = reverseAddress.postal_code;
+    hasCoordinatesToUpdate = true;
   }
 
   if (
     Object.keys(dataToUpdate).length === 0 &&
-    Object.keys(addressDataToUpdate).length === 0
+    Object.keys(addressDataToUpdate).length === 0 &&
+    Object.keys(shippingZoneDataToUpdate).length === 0
   ) {
     throw {
       status: 400,
@@ -511,6 +749,7 @@ export const updateStoreService = async (
   }
 
   let addressId = null;
+  let shippingZoneId = null;
 
   if (Object.keys(addressDataToUpdate).length > 0) {
     const existingAddress = await prisma.addresses.findFirst({
@@ -529,6 +768,23 @@ export const updateStoreService = async (
     addressId = existingAddress?.id_address ?? null;
   }
 
+  if (Object.keys(shippingZoneDataToUpdate).length > 0) {
+    const existingZone = await prisma.shippingZones.findFirst({
+      where: {
+        fk_store: store.id_store,
+        status: true
+      },
+      orderBy: {
+        created_at: "asc"
+      },
+      select: {
+        id_shipping_zone: true
+      }
+    });
+
+    shippingZoneId = existingZone?.id_shipping_zone ?? null;
+  }
+
   try {
     const updatedStore = await prisma.$transaction(async (tx) => {
       if (Object.keys(dataToUpdate).length > 0) {
@@ -544,14 +800,46 @@ export const updateStoreService = async (
           data: addressDataToUpdate
         });
       } else if (Object.keys(addressDataToUpdate).length > 0) {
+        if (!hasCoordinatesToUpdate) {
+          throw {
+            status: 400,
+            message:
+              "Para crear la dirección inicial del comercio debes enviar latitude y longitude"
+          };
+        }
+        if (!addressDataToUpdate.address) {
+          throw {
+            status: 400,
+            message:
+              "Para crear la dirección inicial del comercio debes enviar address, latitude y longitude"
+          };
+        }
+
         await tx.addresses.create({
           data: {
             fk_user: store.fk_user,
             fk_store: store.id_store,
-            address: addressDataToUpdate.address ?? "",
+            address: addressDataToUpdate.address,
             city: addressDataToUpdate.city ?? "",
             region: addressDataToUpdate.region ?? "",
-            postal_code: addressDataToUpdate.postal_code ?? null
+            postal_code: addressDataToUpdate.postal_code ?? null,
+            latitude: addressDataToUpdate.latitude,
+            longitude: addressDataToUpdate.longitude,
+          }
+        });
+      }
+
+      if (shippingZoneId) {
+        await tx.shippingZones.update({
+          where: { id_shipping_zone: shippingZoneId },
+          data: shippingZoneDataToUpdate
+        });
+      } else if (Object.keys(shippingZoneDataToUpdate).length > 0) {
+        await tx.shippingZones.create({
+          data: {
+            fk_store: store.id_store,
+            ...shippingZoneDataToUpdate,
+            status: true
           }
         });
       }
@@ -571,7 +859,7 @@ export const updateStoreService = async (
 
     await deletePreviousStoreLogoFromStorage(store.logo, updatedStore.logo);
 
-    return updatedStore;
+    return mapStoreWithPricedProducts(updatedStore);
   } catch (error) {
     if (error.code === "P2002") {
       throw {
@@ -584,7 +872,7 @@ export const updateStoreService = async (
   }
 };
 
-export const getStoreByIdService = async (id) => {
+export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}) => {
   try {
     // validaciones básicas
     if (!id) {
@@ -599,6 +887,7 @@ export const getStoreByIdService = async (id) => {
       // Datos del comercio
       select: {
         id_store: true,
+        fk_store_category: true,
         name: true,
         description: true,
         logo: true,
@@ -608,6 +897,7 @@ export const getStoreByIdService = async (id) => {
         instagram_url: true,
         tiktok_url: true,
         status: true,
+        store_status: true,
         created_at: true,
         user: {
           select: { id_user: true, name: true, email: true }
@@ -622,8 +912,10 @@ export const getStoreByIdService = async (id) => {
             id_product: true,
             name: true,
             price: true,
+            offer_price: true,
             quantity: true,
             visible: true,
+            is_offer: true,
             product_category: {
               select: { id_product_category: true, name: true }
             }
@@ -631,7 +923,31 @@ export const getStoreByIdService = async (id) => {
         },
         addresses: {
           where: { status: true },
-          select: { id_address: true }
+          orderBy: { created_at: "asc" },
+          select: {
+            id_address: true,
+            address: true,
+            city: true,
+            region: true,
+            postal_code: true,
+            latitude: true,
+            longitude: true,
+            status: true,
+            created_at: true,
+            updated_at: true
+          }
+        },
+        shipping_zones: {
+          where: { status: true },
+          orderBy: { created_at: "asc" },
+          select: {
+            id_shipping_zone: true,
+            base_price: true,
+            distance_price: true,
+            status: true,
+            created_at: true,
+            updated_at: true
+          }
         }
       }
     });
@@ -641,7 +957,12 @@ export const getStoreByIdService = async (id) => {
       throw { status: 404, message: "Comercio no encontrado" };
     }
 
-    return store;
+    // DESPUÉS — null se trata como ACTIVE (comportamiento por defecto del schema)
+    if (!ignoreStoreStatus && store.store_status && store.store_status !== "ACTIVE") {
+      throw { status: 404, message: "Comercio no disponible" };
+    }
+    
+    return mapStoreWithPricedProducts(store);
 
   } catch (error) {
     if (error.status) {
@@ -688,8 +1009,10 @@ export const getAllProductsByStoreService = async (id) => {
         name: true,
         description: true,
         price: true,
+        offer_price: true,
         quantity: true,
         visible: true,
+        is_offer: true,
         created_at: true,
         product_category: {
           select: { id_product_category: true, name: true },
@@ -705,7 +1028,7 @@ export const getAllProductsByStoreService = async (id) => {
       };
     }
 
-    return products;
+    return products.map(mapStoreProductPricing);
 
   } catch (error) {
     if (error.status) {
@@ -720,7 +1043,7 @@ export const getAllProductsByStoreService = async (id) => {
   }
 };
 
-export const filterStorePriductsService = async (id, filters) => {
+export const filterStoreProductsService = async (id, filters, pagination) => {
   try {
     // validaciones básicas
     if (!id) {
@@ -743,10 +1066,13 @@ export const filterStorePriductsService = async (id, filters) => {
       name,
       category,
       visible,
+      available,
       minPrice,
       maxPrice,
       price_min,
       price_max,
+      isOffer,
+      is_offer,
       sortBy,
       sortOrder
     } = filters;
@@ -768,61 +1094,107 @@ export const filterStorePriductsService = async (id, filters) => {
       whereConditions.fk_product_category = categoryId;
     }
 
-    if (visible === undefined || visible === null || visible === "") {
-      // Flujo cliente: solo productos publicados/visibles del comercio.
+    const resolvedVisible = visible ?? available;
+    if (
+      resolvedVisible === undefined ||
+      resolvedVisible === null ||
+      (typeof resolvedVisible === "string" && resolvedVisible.trim() === "")
+    ) {
+      // Flujo cliente por defecto: solo productos visibles/publicados.
       whereConditions.visible = true;
-    } else if (typeof visible === "boolean") {
-      whereConditions.visible = visible;
     } else {
-      const normalizedVisible = String(visible).toLowerCase();
-      if (normalizedVisible === "true" || normalizedVisible === "1") {
-        whereConditions.visible = true;
-      } else if (normalizedVisible === "false" || normalizedVisible === "0") {
-        whereConditions.visible = false;
-      } else {
-        throw { status: 400, message: "visible debe ser booleano" };
-      }
+      whereConditions.visible =
+        typeof resolvedVisible === "boolean"
+          ? resolvedVisible
+          : parseBooleanField(resolvedVisible, "visible");
+    }
+
+    const resolvedIsOffer = isOffer ?? is_offer;
+    let normalizedIsOfferFilter;
+    if (resolvedIsOffer !== undefined && resolvedIsOffer !== null) {
+      normalizedIsOfferFilter =
+        typeof resolvedIsOffer === "boolean"
+          ? resolvedIsOffer
+          : parseBooleanField(resolvedIsOffer, "isOffer");
+      whereConditions.is_offer = normalizedIsOfferFilter;
     }
 
     const resolvedMinPrice = minPrice ?? price_min;
     const resolvedMaxPrice = maxPrice ?? price_max;
 
+    const effectivePriceRange = {};
     if (resolvedMinPrice !== undefined && resolvedMinPrice !== null) {
-      whereConditions.price = { gte: Number(resolvedMinPrice) };
+      effectivePriceRange.gte = Number(resolvedMinPrice);
     }
 
     if (resolvedMaxPrice !== undefined && resolvedMaxPrice !== null) {
-      whereConditions.price = {
-        ...whereConditions.price,
-        lte: Number(resolvedMaxPrice)
-      };
+      effectivePriceRange.lte = Number(resolvedMaxPrice);
     }
 
-    const products = await prisma.products.findMany({
+    if (Object.keys(effectivePriceRange).length > 0) {
+      const effectivePriceBranches = [];
+
+      if (normalizedIsOfferFilter !== true) {
+        effectivePriceBranches.push({
+          AND: [
+            { is_offer: false },
+            { price: effectivePriceRange }
+          ]
+        });
+      }
+
+      if (normalizedIsOfferFilter !== false) {
+        effectivePriceBranches.push({
+          AND: [
+            { is_offer: true },
+            { offer_price: effectivePriceRange }
+          ]
+        });
+      }
+
+      whereConditions.OR = [
+        ...(Array.isArray(whereConditions.OR) ? whereConditions.OR : []),
+        ...effectivePriceBranches
+      ];
+    }
+
+    const [totalProducts, products] = await Promise.all([
+      prisma.products.count({
+        where: whereConditions
+      }),
+      prisma.products.findMany({
       where: whereConditions,
+      skip: pagination?.skip ?? 0,
+      take: pagination?.limit ?? 20,
       select: {
         id_product: true,
         name: true,
         description: true,
         price: true,
+        offer_price: true,
         quantity: true,
         visible: true,
+        is_offer: true,
         created_at: true,
         product_category: {
           select: { id_product_category: true, name: true },
         },
       },
       orderBy: { [sortBy || "created_at"]: sortOrder === "asc" ? "asc" : "desc" }
-    });
+      })
+    ]);
 
-    if (!products || products.length === 0) {
+    if (totalProducts === 0) {
       throw {
         status: 404,
         message: "No se encontraron productos para esta tienda con los filtros aplicados"
       };
     }
 
-    return products;
+    return {
+      products: products.map(mapStoreProductPricing),
+      totalProducts
+    };
 
   } catch (error) {
     if (error.status) {
@@ -837,6 +1209,33 @@ export const filterStorePriductsService = async (id, filters) => {
   }
 };
 
+export const updateStoreStatusService = async (authenticatedUserId, storeId, store_status) => {
+    const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeId);
+
+    const ALLOWED_STATUSES = ["ACTIVE", "INACTIVE"];
+    if (!ALLOWED_STATUSES.includes(store_status)) {
+        throw { status: 400, message: "store_status debe ser ACTIVE o INACTIVE" };
+    }
+
+    await prisma.$transaction([
+        prisma.stores.update({
+            where: { id_store: store.id_store },
+            data: { store_status }
+        }),
+        // Al desactivar → ocultar productos. Al activar → hacerlos visibles nuevamente.
+        prisma.products.updateMany({
+            where: { fk_store: store.id_store, status: true },
+            data: { visible: store_status === "ACTIVE" }
+        })
+    ]);
+
+    const updated = await prisma.stores.findUnique({
+        where: { id_store: store.id_store },
+        select: { id_store: true, name: true, store_status: true, status: true }
+    });
+
+    return updated;
+};
 
 /**
  * Esta funcion se utiliza para el borrado logico de un comercio y sus respectivos productos en base al usuario autenticado que debe ser el dueño.
@@ -869,7 +1268,10 @@ export const getStoresService = async (filters = {}) => {
   const categoryIdRaw =
     filters.storeCategoryId ?? filters.categoryId ?? filters.fk_store_category;
 
-  const where = { status: true };
+  const where = {
+    status: true,
+    store_status: "ACTIVE"
+  };
 
   if (search) {
     where.OR = [

@@ -1,3 +1,5 @@
+import { validateEnv } from './config/env.config.js'
+validateEnv() // Si falta algo, el servidor no arranca
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
@@ -16,6 +18,7 @@ import sessionRoutes from "./modules/session/routes/session.routes.js";
 import userProductReviewRoutes from "./modules/users/product-review/product-review.routes.js";
 
 import wishlistRoutes from "./modules/users/wishlist/wishlist.routes.js";
+import cartRoutes from "./modules/users/cart/cart.routes.js";
 
 import { orderRouter, userOrderRouter } from "./modules/users/orders/order.routes.js";
 
@@ -23,6 +26,12 @@ import { errorHandler } from "./middlewares/errorHandler.js";
 import { NotFoundError } from "./lib/errors.js";
 
 import { setupSwagger } from "./config/swagger.config.js";
+
+import distanceRoutes from "./modules/global/distances/routes/distance.routes.js";
+
+import productImageRoutes from './modules/images/routes/product-image.routes.js';
+import userImageRoutes from './modules/images/routes/user-image.routes.js';
+import storeImageRoutes from './modules/images/routes/store-image.routes.js';
 
 const app = express();
 
@@ -57,11 +66,19 @@ app.use("/products/:id/reviews", userProductReviewRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/users", addressRoutes);
 app.use("/api/users", wishlistRoutes);
+app.use("/api/users", cartRoutes);
 app.use("/api/users", userOrderRouter);
 app.use('/api/session', sessionRoutes);
 
 // Rutas de pedidos
 app.use("/api/orders", orderRouter);
+
+// Rutas de distancias
+app.use("/api/distances", distanceRoutes);
+
+app.use('/products', productImageRoutes)
+app.use('/users', userImageRoutes)
+app.use('/stores', storeImageRoutes)
 
 // Ruta no encontrada — va ANTES del errorHandler
 app.use((req, _res, next) => {

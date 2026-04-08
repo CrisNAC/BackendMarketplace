@@ -19,12 +19,18 @@ vi.mock("../../src/lib/prisma.js", () => ({
       findUnique: vi.fn(),
     },
     products: {
+      count: vi.fn(),
       findMany: vi.fn(),
       updateMany: vi.fn(),
     },
     addresses: {
       findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
+    },
+    shippingZones: {
+      create: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     $transaction: vi.fn(),
@@ -82,7 +88,7 @@ const mockProducts = [
 // ─── GET /api/commerces/:id ───────────────────────────────────────────────────
 
 describe("GET /api/commerces/:id", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 200 con datos del comercio cuando existe", async () => {
     prisma.stores.findUnique.mockResolvedValue(mockStore);
@@ -98,7 +104,7 @@ describe("GET /api/commerces/:id", () => {
     const res = await request(app).get("/api/commerces/abc");
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/numero/i);
+    expect(res.body.message).toMatch(/n.mero/i);
   });
 
   it("devuelve 404 cuando el comercio no existe", async () => {
@@ -114,7 +120,7 @@ describe("GET /api/commerces/:id", () => {
 // ─── GET /api/commerces/products/:id ─────────────────────────────────────────
 
 describe("GET /api/commerces/products/:id", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 200 con los productos del comercio", async () => {
     // Primera llamada: verificar que el store existe
@@ -150,10 +156,11 @@ describe("GET /api/commerces/products/:id", () => {
 // ─── GET /api/commerces/products/filter/:id ───────────────────────────────────
 
 describe("GET /api/commerces/products/filter/:id", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 200 con productos filtrados por precio", async () => {
     prisma.stores.findUnique.mockResolvedValue({ id_store: 1 });
+    prisma.products.count.mockResolvedValue(1);
     prisma.products.findMany.mockResolvedValue(mockProducts);
 
     const res = await request(app).get(
@@ -161,11 +168,52 @@ describe("GET /api/commerces/products/filter/:id", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveProperty("content");
+    expect(Array.isArray(res.body.content)).toBe(true);
+  });
+
+  it("aplica el rango sobre price u offer_price segun el precio efectivo", async () => {
+    prisma.stores.findUnique.mockResolvedValue({ id_store: 1 });
+    prisma.products.count.mockResolvedValue(1);
+    prisma.products.findMany.mockResolvedValue([
+      {
+        ...mockProducts[0],
+        price: 20,
+        offer_price: 12,
+        is_offer: true
+      }
+    ]);
+
+    const res = await request(app).get(
+      "/api/commerces/products/filter/1?price_min=10&price_max=15"
+    );
+
+    expect(res.status).toBe(200);
+    expect(prisma.products.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            {
+              AND: [
+                { is_offer: false },
+                { price: { gte: 10, lte: 15 } }
+              ]
+            },
+            {
+              AND: [
+                { is_offer: true },
+                { offer_price: { gte: 10, lte: 15 } }
+              ]
+            }
+          ]
+        })
+      })
+    );
   });
 
   it("devuelve 404 cuando no hay productos con los filtros aplicados", async () => {
     prisma.stores.findUnique.mockResolvedValue({ id_store: 1 });
+    prisma.products.count.mockResolvedValue(0);
     prisma.products.findMany.mockResolvedValue([]);
 
     const res = await request(app).get(
@@ -177,9 +225,15 @@ describe("GET /api/commerces/products/filter/:id", () => {
 });
 
 // ─── POST /api/commerces ──────────────────────────────────────────────────────
-
 describe("POST /api/commerces", () => {
-  beforeEach(() => vi.clearAllMocks());
+  
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ address: {} }),
+    }));
+  });
 
   it("devuelve 401 cuando no hay cookie de autenticación", async () => {
     const res = await request(app).post("/api/commerces").send({});
@@ -210,8 +264,10 @@ describe("POST /api/commerces", () => {
         email: "email-invalido",
         phone: "0981000000",
         address: "Calle 1",
-        city: "Asunción",
-        region: "Central",
+        latitude: -25.28,
+        longitude: -57.63,
+        base_price: 10000,
+        distance_price: 15000,
       });
 
     expect(res.status).toBe(400);
@@ -231,8 +287,10 @@ describe("POST /api/commerces", () => {
         email: "nueva@test.com",
         phone: "0981000000",
         address: "Calle 1",
-        city: "Asunción",
-        region: "Central",
+        latitude: -25.28,
+        longitude: -57.63,
+        base_price: 10000,
+        distance_price: 15000,
       });
 
     expect(res.status).toBe(409);
@@ -247,8 +305,25 @@ describe("POST /api/commerces", () => {
       fn({
         stores: {
           create: vi.fn().mockResolvedValue({ id_store: 1 }),
+          findUnique: vi.fn().mockResolvedValue({
+            ...mockStore,
+            shipping_zones: [
+              {
+                id_shipping_zone: 1,
+                fk_store: 1,
+                base_price: 10000,
+                distance_price: 15000,
+                status: true,
+                created_at: "2026-01-01T00:00:00.000Z",
+                updated_at: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+          }),
         },
         addresses: {
+          create: vi.fn().mockResolvedValue({}),
+        },
+        shippingZones: {
           create: vi.fn().mockResolvedValue({}),
         },
         users: {
@@ -266,18 +341,24 @@ describe("POST /api/commerces", () => {
         email: "nueva@test.com",
         phone: "0981000000",
         address: "Calle 1",
-        city: "Asunción",
-        region: "Central",
+        latitude: -25.28,
+        longitude: -57.63,
+        base_price: 10000,
+        distance_price: 15000,
       });
 
     expect(res.status).toBe(201);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 });
 
 // ─── PUT /api/commerces/:id ───────────────────────────────────────────────────
 
 describe("PUT /api/commerces/:id", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 401 cuando no hay cookie de autenticación", async () => {
     const res = await request(app)
@@ -342,7 +423,7 @@ describe("PUT /api/commerces/:id", () => {
 // ─── DELETE /api/commerces/:id ────────────────────────────────────────────────
 
 describe("DELETE /api/commerces/:id", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it("devuelve 401 cuando no hay cookie de sesión", async () => {
     const res = await request(app).delete("/api/commerces/1");
