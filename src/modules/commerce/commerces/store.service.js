@@ -337,6 +337,39 @@ const mapStoreWithPricedProducts = (store) => {
   };
 };
 
+const getAddressCoordinatesByStoreId = async (storeId) => {
+  try {
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT id_address, latitude, longitude
+       FROM "Addresses"
+       WHERE fk_store = $1 AND status = true
+       ORDER BY created_at ASC`,
+      storeId
+    );
+
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+
+    return rows
+      .map((row) => ({
+        id_address: Number(row?.id_address),
+        latitude:
+          row?.latitude === null || row?.latitude === undefined
+            ? null
+            : Number(row.latitude),
+        longitude:
+          row?.longitude === null || row?.longitude === undefined
+            ? null
+            : Number(row.longitude)
+      }))
+      .filter((row) => Number.isInteger(row.id_address) && row.id_address > 0);
+  } catch (_error) {
+    // Compatibilidad: si la BD/cliente no tiene coordenadas, no romper el endpoint público.
+    return [];
+  }
+};
+
 // valida que el usuario autenticado sea el propietario del comercio solicitado
 export const getAuthorizedStoreOwnerService = async (
   authenticatedUserId,
@@ -1023,7 +1056,26 @@ export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}
       throw { status: 404, message: "Comercio no disponible" };
     }
     
-    return mapStoreWithPricedProducts(store);
+    const coordinates = await getAddressCoordinatesByStoreId(Number(id));
+    const coordinatesByAddressId = new Map(
+      coordinates.map((item) => [item.id_address, item])
+    );
+
+    const storeWithCoordinates = {
+      ...store,
+      addresses: Array.isArray(store.addresses)
+        ? store.addresses.map((address) => {
+            const coordinateData = coordinatesByAddressId.get(address.id_address);
+            return {
+              ...address,
+              latitude: coordinateData?.latitude ?? null,
+              longitude: coordinateData?.longitude ?? null
+            };
+          })
+        : []
+    };
+
+    return mapStoreWithPricedProducts(storeWithCoordinates);
 
   } catch (error) {
     if (error.status) {
