@@ -1,10 +1,12 @@
 import {
   createProductService,
+  filterProductsService,
   getProductsSearchService,
   getProductByIdService,
   updateProductService,
   deleteProductService
 } from "./product.service.js";
+import { PaginatedResponseDTO } from "../../global/dtos/base/base.response.dto.js";
 
 export const createProduct = async (req, res) => {
   try {
@@ -56,7 +58,7 @@ export const updateProduct = async (req, res) => {
  * Obs.: Este endpoint se puede usar para traer todos los productos (con status=true y visible=true), basta con pasarle vacio los parametros*/
 export const getProductsSearch = async (request, response) => {
   try {
-    const filterProducts = await getProductsSearchService(request.query);
+    const filterProducts = await getProductsSearchService(request.validated ?? request.query);
     console.info("Obteniendo productos...")
     return response.status(200).json(filterProducts);
   }
@@ -137,6 +139,13 @@ export const compareProducts = async (request, response) => {
       name: p.name,
       description: p.description,
       price: Number(p.price),
+      originalPrice:
+        p.original_price === undefined ? Number(p.price) : Number(p.original_price),
+      offerPrice:
+        p.offer_price === undefined || p.offer_price === null
+          ? null
+          : Number(p.offer_price),
+      isOffer: Boolean(p.is_offer),
       store: p.store
         ? {
             id: p.store.id_store,
@@ -158,3 +167,26 @@ export const compareProducts = async (request, response) => {
   }
 };
 
+export const filterProducts = async (req, res) => {
+  try {
+    const filters = req.validated ?? req.query;
+    const pagination = req.pagination ?? { page: 1, limit: 20, skip: 0 };
+
+    const { products, totalProducts } = await filterProductsService(
+      filters,
+      pagination
+    );
+
+    return res.status(200).json(
+      PaginatedResponseDTO.from(products, totalProducts, pagination.page, pagination.limit)
+    );
+  } catch (error) {
+    const status =
+      Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599
+        ? error.status
+        : 500;
+    return res.status(status).json({
+      message: status < 500 ? error.message : "Error interno del servidor"
+    });
+  }
+};

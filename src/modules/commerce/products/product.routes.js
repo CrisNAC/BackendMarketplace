@@ -2,12 +2,16 @@ import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import {
   createProduct,
+  filterProducts,
   getProductsSearch,
   getProductById,
   updateProduct,
   deleteProduct,
   compareProducts
 } from "./product.controller.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
+import { FilterProductDTO } from "../../global/dtos/products/product.request.dto.js";
+import { parsePagination } from "../../../middlewares/pagination.middleware.js";
 
 const router = Router();
 
@@ -33,7 +37,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/ProductResponse'
  *       400:
- *         description: Campos inválidos o faltantes
+ *         description: Campos invalidos o faltantes
  *         content:
  *           application/json:
  *             schema:
@@ -82,7 +86,7 @@ router.post("/", authenticate, createProduct);
  *             schema:
  *               $ref: '#/components/schemas/ProductResponse'
  *       400:
- *         description: Sin campos para actualizar o campos inválidos
+ *         description: Sin campos para actualizar o campos invalidos
  *         content:
  *           application/json:
  *             schema:
@@ -112,7 +116,7 @@ router.put("/:id", authenticate, updateProduct);
  * @swagger
  * /products/{id}:
  *   delete:
- *     summary: Eliminar un producto (borrado lógico)
+ *     summary: Eliminar un producto (borrado logico)
  *     tags: [Products]
  *     security:
  *       - cookieAuth: []
@@ -149,33 +153,64 @@ router.delete("/:id", authenticate, deleteProduct);
 
 /**
  * @swagger
- * /products:
+ * /products/filter:
  *   get:
- *     summary: Buscar y listar productos activos
+ *     summary: Filtrar productos activos (cliente)
  *     tags: [Products]
  *     parameters:
  *       - in: query
  *         name: search
  *         schema:
  *           type: string
- *         description: Buscar por nombre o descripción
+ *         description: Buscar por nombre o descripcion
  *       - in: query
  *         name: categoryId
  *         schema:
  *           type: integer
- *         description: Filtrar por ID de categoría
+ *         description: Filtrar por ID de categoria
+ *       - in: query
+ *         name: isOffer
+ *         schema:
+ *           type: boolean
+ *         description: Filtrar productos en oferta
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *         description: Precio minimo (inclusive)
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *         description: Precio maximo (inclusive)
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [created_at, price, name]
+ *           default: created_at
+ *         description: Campo por el que ordenar
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Direccion del ordenamiento
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
  *           default: 1
- *         description: Número de página
+ *         description: Numero de pagina
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           default: 20
- *         description: Cantidad de productos por página (máx. 100)
+ *         description: Cantidad de productos por pagina (max. 100)
  *     responses:
  *       200:
  *         description: Lista paginada de productos
@@ -184,13 +219,24 @@ router.delete("/:id", authenticate, deleteProduct);
  *             schema:
  *               $ref: '#/components/schemas/ProductSearchResponse'
  *       400:
- *         description: Parámetros inválidos
+ *         description: Parametros invalidos
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/", getProductsSearch);
+router.get(
+  "/filter",
+  parsePagination,
+  validate(FilterProductDTO, "query"),
+  filterProducts
+);
+
+router.get("/",
+  parsePagination,
+  validate(FilterProductDTO, "query"), 
+  getProductsSearch
+);
 
 /**
  * @swagger
@@ -203,12 +249,12 @@ router.get("/", getProductsSearch);
  *         name: search
  *         schema:
  *           type: string
- *         description: Término de búsqueda del producto a comparar
+ *         description: Termino de busqueda del producto a comparar
  *       - in: query
  *         name: categoryId
  *         schema:
  *           type: integer
- *         description: Filtrar por categoría
+ *         description: Filtrar por categoria
  *     responses:
  *       200:
  *         description: Producto base y ofertas similares en otras tiendas

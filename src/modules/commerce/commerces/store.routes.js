@@ -4,11 +4,16 @@ import {
     createStore,
     updateStore,
     getStoreById,
+    getMyStore,
     getStores,
     getAllProductsByStore,
     filterStoreProducts,
+    updateStoreStatus,
     deleteStore
 } from "./store.controller.js";
+import { parsePagination } from "../../../middlewares/pagination.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
+import { FilterStoreProductsDTO } from "../../global/dtos/commerce/filter-store-products.dto.js";
 
 const router = Router();
 
@@ -153,6 +158,9 @@ router.put("/:id", authenticate, updateStore);
  */
 router.get("/", getStores);
 
+// Ruta autenticada para el SELLER — va ANTES de /:id para no colisionar
+router.get("/my/:id", authenticate, getMyStore);  // ← agregar
+
 /**
  * @swagger
  * /api/commerces/{id}:
@@ -247,34 +255,65 @@ router.get("/products/:id", getAllProductsByStore);
  *           type: number
  *         description: Precio máximo
  *       - in: query
+ *         name: available
+ *         schema:
+ *           type: boolean
+ *         description: Filtrar solo productos visibles/disponibles
+ *       - in: query
  *         name: sortBy
  *         schema:
  *           type: string
  *           enum: [created_at, price, name]
+ *           default: created_at
  *         description: Campo por el que ordenar
  *       - in: query
  *         name: sortOrder
  *         schema:
  *           type: string
  *           enum: [asc, desc]
+ *           default: desc
  *         description: Dirección del ordenamiento
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número de página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Cantidad de productos por página (máx. 100)
  *     responses:
  *       200:
- *         description: Productos filtrados
+ *         description: Productos filtrados con paginación
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/StoreProductResponse'
+ *               $ref: '#/components/schemas/StoreProductsPageResponse'
+ *       400:
+ *         description: Parámetros inválidos o price_min mayor que price_max
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
- *         description: Comercio no encontrado o sin productos con esos filtros
+ *         description: Comercio no encontrado
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/products/filter/:id", filterStoreProducts);
+router.get(
+    "/products/filter/:id",
+    parsePagination,
+    validate(FilterStoreProductsDTO, "query"),
+    filterStoreProducts
+);
+
+// PATCH /api/commerces/:id/status — habilitar/deshabilitar comercio
+router.patch("/:id/status", authenticate, updateStoreStatus);
 
 /**
  * @swagger

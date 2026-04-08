@@ -2,7 +2,17 @@ export const storeSchemas = {
     // ─── REQUESTS ──────────────────────────────────────────────────
     CreateStoreRequest: {
         type: "object",
-        required: ["fk_store_category", "name", "email", "phone", "address", "city", "region"],
+        required: [
+            "fk_store_category",
+            "name",
+            "email",
+            "phone",
+            "address",
+            "latitude",
+            "longitude",
+            "base_price",
+            "distance_price"
+        ],
         properties: {
             fk_store_category: { type: "integer", example: 2 },
             name: { type: "string", maxLength: 100, example: "Mi Comercio" },
@@ -14,9 +24,13 @@ export const storeSchemas = {
             instagram_url: { type: "string", nullable: true, example: "https://instagram.com/micomercio" },
             tiktok_url: { type: "string", nullable: true, example: "https://tiktok.com/@micomercio" },
             address: { type: "string", example: "Av. España 1234" },
+            latitude: { type: "number", example: -25.2961 },
+            longitude: { type: "number", example: -57.6222 },
             city: { type: "string", maxLength: 100, example: "Asunción" },
             region: { type: "string", maxLength: 100, example: "Villa Morra" },
-            postal_code: { type: "string", maxLength: 20, nullable: true, example: "1209" }
+            postal_code: { type: "string", maxLength: 20, nullable: true, example: "1209" },
+            base_price: { type: "number", minimum: 0, example: 2500 },
+            distance_price: { type: "number", minimum: 0, example: 4000 }
         }
     },
 
@@ -36,6 +50,9 @@ export const storeSchemas = {
             city: { type: "string", maxLength: 100 },
             region: { type: "string", maxLength: 100 },
             postal_code: { type: "string", maxLength: 20, nullable: true }
+            ,
+            base_price: { type: "number", minimum: 0 },
+            distance_price: { type: "number", minimum: 0 }
         }
     },
 
@@ -147,6 +164,20 @@ export const storeSchemas = {
                     name: { type: "string", example: "Audio" }
                 }
             }
+        }
+    },
+
+    StoreProductsPageResponse: {
+        type: "object",
+        properties: {
+            content: {
+                type: "array",
+                items: { $ref: "#/components/schemas/StoreProductResponse" }
+            },
+            total_elements: { type: "integer", example: 68 },
+            total_pages: { type: "integer", example: 4 },
+            size: { type: "integer", example: 20 },
+            page: { type: "integer", example: 1 }
         }
     }
 };
