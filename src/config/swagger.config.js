@@ -10,6 +10,7 @@ import {
     productSchemas,
     // /session
     sessionSchemas,
+    imageSchemas
 } from "../docs/schemas/index.js";
 
 const options = {
@@ -41,6 +42,7 @@ const options = {
             { name: "Reviews", description: "Reseñas de productos" },
             { name: "Users", description: "Gestión de usuarios" },
             { name: "Orders", description: "Gestión de pedidos" },
+            { name: "Images", description: "Gestión de imágenes" },
         ],
         components: {
             securitySchemes: {
@@ -61,11 +63,20 @@ const options = {
 
                 // /session
                 ...sessionSchemas,
+                // /images
+                ...imageSchemas
             }
-        }
+        },
+        security: [
+            { cookieAuth: [] }
+        ],
     },
     // Rutas donde swagger-jsdoc va a buscar los comentarios @swagger
-    apis: ["./src/modules/**/*.routes.js", "./src/modules/**/routes/*.routes.js"]
+    apis: [
+        "./src/modules/**/*.routes.js",
+        "./src/modules/**/routes/*.routes.js",
+        "./src/docs/**/*.schema.js"
+    ]
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
