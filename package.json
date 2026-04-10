@@ -10,6 +10,8 @@
     "test:e2e": "vitest run tests/e2e",
     "test:unit": "vitest run tests/unit",
     "test:ci": "vitest run --exclude tests/e2e/product/filter-product.test.js",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:unit": "vitest run --coverage tests/unit",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "build": "tsc"
@@ -49,6 +51,7 @@
     "@types/node": "^25.3.2",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.0",
     "prisma": "^7.4.1",
     "supertest": "^7.2.2",
     "tsx": "^4.21.0",
