@@ -27,7 +27,7 @@ export const getUsersAdminService = async ({ search, role, status }, pagination)
 
   // Filtro por rol
   if (role !== undefined) {
-    const normalizedRole = role.toString().toUpperCase();
+    const normalizedRole = role.toString().trim().toUpperCase();
     if (!VALID_ROLES.includes(normalizedRole)) {
       throw new ValidationError(
         `role inválido. Valores permitidos: ${VALID_ROLES.join(", ")}`
@@ -38,7 +38,7 @@ export const getUsersAdminService = async ({ search, role, status }, pagination)
 
   // Filtro por estado
   if (status !== undefined) {
-    const normalizedStatus = status.toString().toLowerCase();
+    const normalizedStatus = status.toString().trim().toLowerCase();
     if (normalizedStatus !== "true" && normalizedStatus !== "false") {
       throw new ValidationError("status debe ser true o false");
     }
