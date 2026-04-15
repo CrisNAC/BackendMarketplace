@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
-import { NotFoundError } from "../../../lib/errors.js";
+import { NotFoundError, ValidationError  } from "../../../lib/errors.js";
 
 export const getAdminProductCategoryService = async (id) => {
   const category = await prisma.productCategories.findUnique({
@@ -24,4 +24,27 @@ export const getAdminProductCategoryService = async (id) => {
     createdAt: category.created_at,
     updatedAt: category.updated_at
   };
+};
+
+export const deleteAdminProductCategoryService = async (id) => {
+  if (id === 1) {
+    throw new ValidationError("No se puede eliminar la categoría Sin categoría");
+  }
+
+  const category = await prisma.productCategories.findUnique({
+    where: { id_product_category: id }
+  });
+
+  if (!category) throw new NotFoundError("Categoría no encontrada");
+
+  await prisma.$transaction([
+    prisma.products.updateMany({
+      where: { fk_product_category: id },
+      data: { fk_product_category: 1 }
+    }),
+    prisma.productCategories.update({
+      where: { id_product_category: id },
+      data: { status: false }
+    })
+  ]);
 };
