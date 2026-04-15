@@ -48,7 +48,8 @@ const getCartWithItems = async (cartId) => {
               name: true,
               price: true,
               offer_price: true,
-              is_offer: true
+              is_offer: true,
+              image_url: true
             }
           }
         }
@@ -78,7 +79,8 @@ const mapCartResponse = (cart) => {
           price: pricing.price,
           originalPrice: pricing.originalPrice,
           offerPrice: pricing.offerPrice,
-          isOffer: pricing.isOffer
+          isOffer: pricing.isOffer,
+          imageUrl: item.product.image_url ?? null
         }
       };
     })
