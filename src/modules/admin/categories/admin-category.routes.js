@@ -27,6 +27,12 @@ const router = Router();
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/AdminCategoryResponse'
+ *       400:
+ *         description: ID inválido
+ *       401:
+ *         description: No autenticado
+ *       403:
+ *         description: Sin permisos de administrador
  *       404:
  *         description: Categoría no encontrada
  */
