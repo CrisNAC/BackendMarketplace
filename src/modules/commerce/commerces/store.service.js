@@ -49,6 +49,7 @@ const STORE_RESPONSE_SELECT = {
       quantity: true,
       visible: true,
       is_offer: true,
+      image_url: true,
       product_category: {
         select: {
           id_product_category: true,
@@ -945,6 +946,7 @@ export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}
           quantity: true,
           visible: true,
           is_offer: true,
+          image_url: true, 
           product_category: {
             select: { id_product_category: true, name: true }
           }
