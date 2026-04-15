@@ -69,6 +69,7 @@ const mapCartResponse = (cart) => {
       : null,
     status: cart.cart_status,
     items: cart.items.map((item) => {
+      
       const pricing = getProductPricing(item.product);
       return {
         id: item.id_cart_item,
