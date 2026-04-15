@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import { upload } from '../../../middlewares/upload.middleware.js'
 import authenticate from '../../../config/jwt.config.js'
-import { requireRole } from '../../../middlewares/auth.middleware.js'
 import {
   getUserImage,
   uploadUserImage,
@@ -19,4 +18,4 @@ router.post('/:id/image', authenticate, upload.single('image'), uploadUserImage)
 router.put('/:id/image', authenticate, upload.single('image'), updateUserImage)
 router.delete('/:id/image', authenticate, deleteUserImage)
 
-export default router
+export { router as userImageRoutes }

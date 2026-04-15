@@ -29,10 +29,18 @@ import { setupSwagger } from "./config/swagger.config.js";
 
 import distanceRoutes from "./modules/global/distances/routes/distance.routes.js";
 
-import productImageRoutes from './modules/images/routes/product-image.routes.js';
-import userImageRoutes from './modules/images/routes/user-image.routes.js';
-import storeImageRoutes from './modules/images/routes/store-image.routes.js';
-import adminUserRoutes from "./modules/admin/users/admin-users.routes.js";
+// Rutas de imágenes
+import { 
+  productImageRoutes, 
+  userImageRoutes, 
+  storeImageRoutes, 
+} from './modules/images/routes/index.js';
+
+// Rutas de administración
+import {
+  adminUsersRoutes, 
+  adminCategoryRoutes,
+} from "./modules/admin/index.js";
 
 const app = express();
 
@@ -75,7 +83,8 @@ app.use('/api/session', sessionRoutes);
 app.use("/api/orders", orderRouter);
 
 // Rutas de administración
-app.use("/api/admin", adminUserRoutes);
+app.use("/api/admin", adminUsersRoutes);
+app.use("/api/admin/categories", adminCategoryRoutes);
 
 // Rutas de distancias
 app.use("/api/distances", distanceRoutes);
