@@ -10,4 +10,4 @@ const router = Router();
 // GET /api/admin/users?search=&role=&status=&page=&limit=
 router.get("/users", authenticate, requireRole(ROLES.ADMIN), parsePagination, getUsers);
 
-export default router;
+export { router as adminUsersRoutes };
