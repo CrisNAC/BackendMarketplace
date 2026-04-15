@@ -34,6 +34,15 @@ vi.mock("../../../src/config/jwt.config.js", () => ({
   }
 }));
 
+// ─── MOCK adicional para $transaction y products ──────────────────
+vi.mock("../../../src/lib/prisma.js", () => ({
+  prisma: {
+    productCategories: { findUnique: vi.fn(), update: vi.fn() },
+    products: { updateMany: vi.fn() },
+    $transaction: vi.fn()
+  }
+}));
+
 // ─── HELPERS ──────────────────────────────────────────────────────
 const asRole = (req, role) => req.set("x-test-role", role);
 
@@ -139,5 +148,78 @@ describe("GET /api/admin/categories/:id", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.productCount).toBe(0);
+  });
+});
+
+// ─── DELETE /api/admin/categories/:id ─────────────────────────────
+describe("DELETE /api/admin/categories/:id", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("devuelve 401 cuando no hay token", async () => {
+    const res = await request(app).delete("/api/admin/categories/1");
+
+    expect(res.status).toBe(401);
+  });
+
+  it("devuelve 403 cuando el usuario no es ADMIN", async () => {
+    const res = await asRole(
+      request(app).delete("/api/admin/categories/2"),
+      "seller"
+    );
+
+    expect(res.status).toBe(403);
+  });
+
+  it("devuelve 400 cuando el id no es un entero válido", async () => {
+    const res = await asRole(
+      request(app).delete("/api/admin/categories/abc"),
+      "admin"
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("devuelve 400 cuando se intenta eliminar la categoría con id 1", async () => {
+    const res = await asRole(
+      request(app).delete("/api/admin/categories/1"),
+      "admin"
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("devuelve 404 cuando la categoría no existe", async () => {
+    prisma.productCategories.findUnique.mockResolvedValue(null);
+
+    const res = await asRole(
+      request(app).delete("/api/admin/categories/999"),
+      "admin"
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it("devuelve 204 cuando la categoría se elimina correctamente", async () => {
+    prisma.productCategories.findUnique.mockResolvedValue(mockCategory);
+    prisma.$transaction.mockResolvedValue([]);
+
+    const res = await asRole(
+      request(app).delete("/api/admin/categories/2"),
+      "admin"
+    );
+
+    expect(res.status).toBe(204);
+  });
+
+  it("reasigna los productos a la categoría 1 al eliminar", async () => {
+    prisma.productCategories.findUnique.mockResolvedValue(mockCategory);
+    prisma.$transaction.mockImplementation(async (ops) => ops);
+
+    await asRole(
+      request(app).delete("/api/admin/categories/2"),
+      "admin"
+    );
+
+    expect(prisma.$transaction).toHaveBeenCalled();
   });
 });
