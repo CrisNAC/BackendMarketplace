@@ -1,5 +1,7 @@
 import { prisma } from "../../../lib/prisma.js";
-import { NotFoundError, ValidationError  } from "../../../lib/errors.js";
+import { NotFoundError, ValidationError } from "../../../lib/errors.js";
+import { getEffectiveProductPrice, getOriginalProductPrice, getOfferProductPrice } from "../../../lib/product-pricing.js";
+import { PAGINATION } from "../../../utils/contants/pagination.constant.js";
 
 export const getAdminProductCategoryService = async (id) => {
   const category = await prisma.productCategories.findUnique({
@@ -23,6 +25,154 @@ export const getAdminProductCategoryService = async (id) => {
     productCount: category._count.products,
     createdAt: category.created_at,
     updatedAt: category.updated_at
+  };
+};
+
+export const getAllCategories = async (filters = {}, categoryPagination = {}) => {
+  const { visible, searchCategory } = filters;
+
+  const where = {};
+
+  if (visible === "true") where.visible = true;
+  else if (visible === "false") where.visible = false;
+
+  if (searchCategory) {
+    where.name = { contains: searchCategory, mode: "insensitive" };
+  }
+
+  const categorySkip = categoryPagination.skip ?? 0;
+  const categoryLimit = categoryPagination.limit ?? PAGINATION.DEFAULT_LIMIT;
+
+  const [categoryTotal, categories] = await Promise.all([
+    prisma.productCategories.count({ where }),
+    prisma.productCategories.findMany({
+      where,
+      skip: categorySkip,
+      take: categoryLimit,
+      orderBy: { name: "asc" },
+      select: {
+        id_product_category: true,
+        name: true,
+        status: true,
+        visible: true,
+        _count: { select: { products: true } }
+      }
+    })
+  ]);
+
+  return {
+    data: categories.map((c) => ({
+      id: c.id_product_category,
+      name: c.name,
+      status: c.status,
+      visible: c.visible,
+      productCount: c._count.products
+    })),
+    categoryTotal,
+    categoryPage: categoryPagination.page ?? PAGINATION.DEFAULT_PAGE,
+    categoryLimit,
+    categoryTotalPages: Math.ceil(categoryTotal / categoryLimit)
+  };
+};
+
+export const filterCategoriesWithProducts = async (filters = {}, categoryPagination = {}, productPagination = {}) => {
+  const { visible, search, searchCategory, searchProduct } = filters;
+
+  const categoryWhere = {};
+
+  if (visible === "true") categoryWhere.visible = true;
+  else if (visible === "false") categoryWhere.visible = false;
+
+  // Modo 1: search — filtra categorías y productos por el mismo término
+  if (search) {
+    categoryWhere.name = { contains: search, mode: "insensitive" };
+  }
+
+  // Modo 2: searchCategory + searchProduct — dependientes
+  if (searchCategory) {
+    categoryWhere.name = { contains: searchCategory, mode: "insensitive" };
+  }
+
+  const productWhere = { status: true };
+
+  if (search) {
+    productWhere.name = { contains: search, mode: "insensitive" };
+  } else if (searchCategory && searchProduct) {
+    productWhere.name = { contains: searchProduct, mode: "insensitive" };
+  }
+
+  const categorySkip = categoryPagination.skip ?? 0;
+  const categoryLimit = categoryPagination.limit ?? PAGINATION.DEFAULT_LIMIT;
+  const productSkip = productPagination.skip ?? 0;
+  const productLimit = productPagination.limit ?? PAGINATION.DEFAULT_LIMIT;
+
+  const [categoryTotal, categories] = await Promise.all([
+    prisma.productCategories.count({ where: categoryWhere }),
+    prisma.productCategories.findMany({
+      where: categoryWhere,
+      skip: categorySkip,
+      take: categoryLimit,
+      orderBy: { name: "asc" },
+      select: {
+        id_product_category: true,
+        name: true,
+        status: true,
+        visible: true,
+        _count: { select: { products: true } },
+        products: {
+          where: productWhere,
+          skip: productSkip,
+          take: productLimit,
+          select: {
+            id_product: true,
+            name: true,
+            price: true,
+            offer_price: true,
+            is_offer: true,
+            status: true,
+            visible: true
+          }
+        }
+      }
+    })
+  ]);
+
+  const productCounts = await Promise.all(
+    categories.map((c) =>
+      prisma.products.count({
+        where: { ...productWhere, fk_product_category: c.id_product_category }
+      })
+    )
+  );
+
+  return {
+    data: categories.map((c, i) => ({
+      id: c.id_product_category,
+      name: c.name,
+      status: c.status,
+      visible: c.visible,
+      productCount: c._count.products,
+      products: {
+        data: c.products.map((p) => ({
+          id: p.id_product,
+          name: p.name,
+          price: getEffectiveProductPrice(p),
+          originalPrice: getOriginalProductPrice(p),
+          offerPrice: getOfferProductPrice(p),
+          isOffer: Boolean(p.is_offer),
+          status: p.status,
+          visible: p.visible
+        })),
+        total: productCounts[i] ?? 0,
+        productPage: productPagination.page ?? PAGINATION.DEFAULT_PAGE,
+        productLimit,
+        productTotalPages: Math.ceil((productCounts[i] ?? 0) / productLimit)
+      }
+    })),
+    categoryTotal,
+    categoryPage: categoryPagination.page ?? PAGINATION.DEFAULT_PAGE,
+    categoryLimit,
+    categoryTotalPages: Math.ceil(categoryTotal / categoryLimit)
   };
 };
 

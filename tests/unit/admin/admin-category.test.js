@@ -6,7 +6,17 @@ import { prisma } from "../../../src/lib/prisma.js";
 // ─── MOCKS ────────────────────────────────────────────────────────
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
-    productCategories: { findUnique: vi.fn() }
+    productCategories: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      count: vi.fn(),
+      findMany: vi.fn()
+    },
+    products: {
+      updateMany: vi.fn(),
+      count: vi.fn()
+    },
+    $transaction: vi.fn()
   }
 }));
 
@@ -34,15 +44,6 @@ vi.mock("../../../src/config/jwt.config.js", () => ({
   }
 }));
 
-// ─── MOCK adicional para $transaction y products ──────────────────
-vi.mock("../../../src/lib/prisma.js", () => ({
-  prisma: {
-    productCategories: { findUnique: vi.fn(), update: vi.fn() },
-    products: { updateMany: vi.fn() },
-    $transaction: vi.fn()
-  }
-}));
-
 // ─── HELPERS ──────────────────────────────────────────────────────
 const asRole = (req, role) => req.set("x-test-role", role);
 
@@ -54,6 +55,44 @@ const mockCategory = {
   updated_at: new Date().toISOString(),
   _count: { products: 5 }
 };
+
+const mockCategoryList = [
+  {
+    id_product_category: 1,
+    name: "Electrónica",
+    status: true,
+    visible: true,
+    _count: { products: 3 }
+  },
+  {
+    id_product_category: 2,
+    name: "Ropa",
+    status: false,
+    visible: false,
+    _count: { products: 0 }
+  }
+];
+
+const mockCategoryWithProducts = [
+  {
+    id_product_category: 1,
+    name: "Electrónica",
+    status: true,
+    visible: true,
+    _count: { products: 2 },
+    products: [
+      {
+        id_product: 1,
+        name: "Auriculares",
+        price: 150000,
+        offer_price: 120000,
+        is_offer: true,
+        status: true,
+        visible: true
+      }
+    ]
+  }
+];
 
 // ─── GET /api/admin/categories/:id ────────────────────────────────
 describe("GET /api/admin/categories/:id", () => {
@@ -148,6 +187,218 @@ describe("GET /api/admin/categories/:id", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.productCount).toBe(0);
+  });
+});
+
+// ─── GET /api/admin/categories ────────────────────────────────────
+describe("GET /api/admin/categories", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("devuelve 401 cuando no hay token", async () => {
+    const res = await request(app).get("/api/admin/categories");
+
+    expect(res.status).toBe(401);
+  });
+
+  it("devuelve 403 cuando el usuario no es ADMIN", async () => {
+    const res = await asRole(
+      request(app).get("/api/admin/categories"),
+      "seller"
+    );
+
+    expect(res.status).toBe(403);
+  });
+
+  it("devuelve 200 con todas las categorías sin filtros", async () => {
+    prisma.productCategories.count.mockResolvedValue(2);
+    prisma.productCategories.findMany.mockResolvedValue(mockCategoryList);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      categoryTotal: 2,
+      categoryPage: 1
+    });
+    expect(res.body.data).toHaveLength(2);
+  });
+
+  it("incluye categorías con status false (admin ve todo)", async () => {
+    prisma.productCategories.count.mockResolvedValue(1);
+    prisma.productCategories.findMany.mockResolvedValue([mockCategoryList[1]]);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories?visible=false"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].visible).toBe(false);
+  });
+
+  it("filtra por visible=true", async () => {
+    prisma.productCategories.count.mockResolvedValue(1);
+    prisma.productCategories.findMany.mockResolvedValue([mockCategoryList[0]]);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories?visible=true"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].visible).toBe(true);
+  });
+
+  it("filtra por searchCategory", async () => {
+    prisma.productCategories.count.mockResolvedValue(1);
+    prisma.productCategories.findMany.mockResolvedValue([mockCategoryList[0]]);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories?searchCategory=Electr"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].name).toBe("Electrónica");
+  });
+
+  it("retorna paginación correcta", async () => {
+    prisma.productCategories.count.mockResolvedValue(40);
+    prisma.productCategories.findMany.mockResolvedValue(mockCategoryList);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories?categoryPage=2&categoryLimit=20"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      categoryPage: 2,
+      categoryLimit: 20,
+      categoryTotal: 40,
+      categoryTotalPages: 2
+    });
+  });
+
+  it("retorna data vacía cuando no hay coincidencias", async () => {
+    prisma.productCategories.count.mockResolvedValue(0);
+    prisma.productCategories.findMany.mockResolvedValue([]);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories?searchCategory=noexiste"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(0);
+    expect(res.body.categoryTotal).toBe(0);
+  });
+});
+
+// ─── GET /api/admin/categories/filter/withProducts ──────────────────────
+describe("GET /api/admin/categories/filter/withProducts", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("devuelve 401 cuando no hay token", async () => {
+    const res = await request(app).get("/api/admin/categories/filter/withProducts");
+
+    expect(res.status).toBe(401);
+  });
+
+  it("devuelve 403 cuando el usuario no es ADMIN", async () => {
+    const res = await asRole(
+      request(app).get("/api/admin/categories/filter/withProducts"),
+      "seller"
+    );
+
+    expect(res.status).toBe(403);
+  });
+
+  it("devuelve 200 con categorías y productos", async () => {
+    prisma.productCategories.count.mockResolvedValue(1);
+    prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
+    prisma.products.count.mockResolvedValue(2);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories/filter/withProducts"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0]).toHaveProperty("products");
+    expect(res.body.data[0].products).toHaveProperty("data");
+    expect(res.body.data[0].products).toHaveProperty("total");
+  });
+
+  it("filtra por search en categorías y productos", async () => {
+    prisma.productCategories.count.mockResolvedValue(1);
+    prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
+    prisma.products.count.mockResolvedValue(1);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories/filter/withProducts?search=Auriculares"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].products.data[0].name).toBe("Auriculares");
+  });
+
+  it("filtra por searchCategory + searchProduct de forma dependiente", async () => {
+    prisma.productCategories.count.mockResolvedValue(1);
+    prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
+    prisma.products.count.mockResolvedValue(1);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories/filter/withProducts?searchCategory=Electr&searchProduct=Auriculares"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].products.data).toHaveLength(1);
+  });
+
+  it("retorna paginación de categorías y productos correcta", async () => {
+    prisma.productCategories.count.mockResolvedValue(10);
+    prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
+    prisma.products.count.mockResolvedValue(5);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories/filter/withProducts?categoryPage=1&categoryLimit=5&productPage=1&productLimit=2"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      categoryPage: 1,
+      categoryLimit: 5,
+      categoryTotal: 10,
+      categoryTotalPages: 2
+    });
+    expect(res.body.data[0].products).toMatchObject({
+      total: 5,
+      productPage: 1,
+      productLimit: 2,
+      productTotalPages: 3
+    });
+  });
+
+  it("retorna data vacía cuando no hay coincidencias", async () => {
+    prisma.productCategories.count.mockResolvedValue(0);
+    prisma.productCategories.findMany.mockResolvedValue([]);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories/filter/withProducts?search=noexiste"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(0);
+    expect(res.body.categoryTotal).toBe(0);
   });
 });
 
