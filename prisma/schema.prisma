@@ -161,6 +161,7 @@ model ProductCategories {
   id_product_category   Int   @id @default(autoincrement())
   name        String   @db.VarChar(100)
   status      Boolean  @default(true)
+  visible     Boolean  @default(true)
   created_at  DateTime @default(now()) @db.Timestamptz
   updated_at  DateTime @updatedAt @db.Timestamptz
 
