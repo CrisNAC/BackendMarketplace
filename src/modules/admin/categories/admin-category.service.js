@@ -49,7 +49,7 @@ export const getAllCategories = async (filters = {}, categoryPagination = {}) =>
       where,
       skip: categorySkip,
       take: categoryLimit,
-      orderBy: { name: "asc" },
+      orderBy: [{ name: "asc" }, { id_product_category: "asc" }],
       select: {
         id_product_category: true,
         name: true,
@@ -83,23 +83,19 @@ export const filterCategoriesWithProducts = async (filters = {}, categoryPaginat
   if (visible === "true") categoryWhere.visible = true;
   else if (visible === "false") categoryWhere.visible = false;
 
-  // Modo 1: search — filtra categorías y productos por el mismo término
-  if (search) {
-    categoryWhere.name = { contains: search, mode: "insensitive" };
-  }
-
-  // Modo 2: searchCategory + searchProduct — dependientes
+  // searchCategory filtra categorías, independiente de search
   if (searchCategory) {
     categoryWhere.name = { contains: searchCategory, mode: "insensitive" };
   }
 
   const productWhere = { status: true };
 
+  // search o searchProduct filtran productos de forma independiente
   if (search) {
     productWhere.name = { contains: search, mode: "insensitive" };
-  } else if (searchCategory && searchProduct) {
+  } else if (searchProduct) {
     productWhere.name = { contains: searchProduct, mode: "insensitive" };
-  }
+  }5
 
   const categorySkip = categoryPagination.skip ?? 0;
   const categoryLimit = categoryPagination.limit ?? PAGINATION.DEFAULT_LIMIT;
@@ -112,7 +108,8 @@ export const filterCategoriesWithProducts = async (filters = {}, categoryPaginat
       where: categoryWhere,
       skip: categorySkip,
       take: categoryLimit,
-      orderBy: { name: "asc" },
+      orderBy: [{ name: "asc" }, { id_product_category: "asc" }],
+
       select: {
         id_product_category: true,
         name: true,

@@ -344,7 +344,18 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.body.data[0].products.data[0].name).toBe("Auriculares");
+    expect(prisma.productCategories.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({ name: expect.anything() })
+      })
+    );
+    expect(prisma.products.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          name: { contains: "Auriculares", mode: "insensitive" }
+        })
+      })
+    );
   });
 
   it("filtra por searchCategory + searchProduct de forma dependiente", async () => {
@@ -358,8 +369,20 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(1);
-    expect(res.body.data[0].products.data).toHaveLength(1);
+    expect(prisma.productCategories.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          name: { contains: "Electr", mode: "insensitive" }
+        })
+      })
+    );
+    expect(prisma.products.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          name: { contains: "Auriculares", mode: "insensitive" }
+        })
+      })
+    );
   });
 
   it("retorna paginación de categorías y productos correcta", async () => {
