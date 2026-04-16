@@ -596,6 +596,7 @@ export const createStoreService = async (data) => {
           website_url,
           instagram_url,
           tiktok_url,
+          store_status: "INACTIVE", // Pendiente de aprobación del admin
         },
       });
 
