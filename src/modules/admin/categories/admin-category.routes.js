@@ -1,12 +1,12 @@
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
-import { 
-    getAdminProductCategory,
-    getAdminCategories, 
-    getAdminCategoriesWithProducts,
-    deleteAdminProductCategory,
-    updateAdminProductCategory
+import {
+  getAdminProductCategory,
+  getAdminCategories,
+  getAdminCategoriesWithProducts,
+  deleteAdminProductCategory,
+  updateAdminProductCategory
 } from "./admin-category.controller.js";
 import { ROLES } from "../../../utils/contants/roles.constant.js";
 
@@ -130,13 +130,18 @@ router.get("/", authenticate, requireRole(ROLES.ADMIN), getAdminCategories);
  *             schema:
  *               $ref: '#/components/schemas/AdminCategoryWithProductsListResponse'
  */
-router.get("/filter/withProducts", authenticate, requireRole(ROLES.ADMIN), getAdminCategoriesWithProducts);
+router.get(
+  "/filter/withProducts",
+  authenticate,
+  requireRole(ROLES.ADMIN),
+  getAdminCategoriesWithProducts
+);
 
 /**
  * @swagger
  * /api/admin/categories/{id}:
  *   put:
- *     summary: Editar categorí­a de productos (Admin)
+ *     summary: Editar categoría de productos (Admin)
  *     tags: [Admin]
  *     security:
  *       - cookieAuth: []
@@ -156,11 +161,7 @@ router.get("/filter/withProducts", authenticate, requireRole(ROLES.ADMIN), getAd
  *               name:
  *                 type: string
  *                 example: Electrónica premium
- *               description:
- *                 type: string
- *                 nullable: true
- *                 example: Categoría para productos electrónicos de alta gama
- *               visibility:
+ *               visible:
  *                 type: boolean
  *                 example: true
  *     responses:
