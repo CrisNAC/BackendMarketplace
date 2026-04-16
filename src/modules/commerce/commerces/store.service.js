@@ -1290,6 +1290,7 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
         quantity: true,
         visible: true,
         is_offer: true,
+        image_url: true, 
         created_at: true,
         product_category: {
           select: { id_product_category: true, name: true },
