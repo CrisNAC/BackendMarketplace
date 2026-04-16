@@ -9,5 +9,75 @@ export const adminCategorySchemas = {
       createdAt: { type: "string", format: "date-time" },
       updatedAt: { type: "string", format: "date-time" }
     }
-  }
+  },
+  AdminCategoryListResponse: {
+    type: "object",
+    properties: {
+      data: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "integer", example: 1 },
+            name: { type: "string", example: "Electrónica" },
+            status: { type: "boolean", example: true },
+            visible: { type: "boolean", example: true },
+            productCount: { type: "integer", example: 42 }
+          }
+        }
+      },
+      categoryTotal: { type: "integer", example: 10 },
+      categoryPage: { type: "integer", example: 1 },
+      categoryLimit: { type: "integer", example: 20 },
+      categoryTotalPages: { type: "integer", example: 1 }
+    }
+  },
+
+  AdminCategoryWithProductsListResponse: {
+    type: "object",
+    properties: {
+      data: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "integer", example: 1 },
+            name: { type: "string", example: "Electrónica" },
+            status: { type: "boolean", example: true },
+            visible: { type: "boolean", example: true },
+            productCount: { type: "integer", example: 42 },
+            products: {
+              type: "object",
+              properties: {
+                data: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "integer", example: 1 },
+                      name: { type: "string", example: "Auriculares Bluetooth" },
+                      price: { type: "number", example: 120000 },
+                      originalPrice: { type: "number", example: 150000 },
+                      offerPrice: { type: "number", nullable: true, example: 120000 },
+                      isOffer: { type: "boolean", example: true },
+                      status: { type: "boolean", example: true },
+                      visible: { type: "boolean", example: true }
+                    }
+                  }
+                },
+                total: { type: "integer", example: 5 },
+                productPage: { type: "integer", example: 1 },
+                productLimit: { type: "integer", example: 20 },
+                productTotalPages: { type: "integer", example: 1 }
+              }
+            }
+          }
+        }
+      },
+      categoryTotal: { type: "integer", example: 10 },
+      categoryPage: { type: "integer", example: 1 },
+      categoryLimit: { type: "integer", example: 20 },
+      categoryTotalPages: { type: "integer", example: 1 }
+    }
+  },
 };

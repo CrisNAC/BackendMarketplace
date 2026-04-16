@@ -779,7 +779,8 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
         store: {
           select: {
             id_store: true,
-            name: true
+            name: true,
+            logo: true 
           }
         }
       }
@@ -799,7 +800,8 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
       store: product.store
         ? {
             id_store: product.store.id_store,
-            name: product.store.name
+            name: product.store.name,
+            logo: product.store.logo ?? null 
           }
         : null
     })),
