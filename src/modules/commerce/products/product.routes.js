@@ -232,12 +232,6 @@ router.get(
   filterProducts
 );
 
-router.get("/",
-  parsePagination,
-  validate(FilterProductDTO, "query"), 
-  getProductsSearch
-);
-
 /**
  * @swagger
  * /products/compare/search:
@@ -270,6 +264,12 @@ router.get("/",
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get("/compare/search", compareProducts);
+
+router.get("/",
+  parsePagination,
+  validate(FilterProductDTO, "query"),
+  getProductsSearch
+);
 
 /**
  * @swagger

@@ -14,6 +14,7 @@ export class StoreProductItemDTO {
         this.is_offer = Boolean(data.is_offer);
         this.quantity = data.quantity ?? null;
         this.visible = data.visible;
+        this.image_url = data.image_url ?? null; 
         this.created_at = data.created_at;
         this.product_category = data.product_category
             ? {

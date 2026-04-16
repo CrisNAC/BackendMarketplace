@@ -36,7 +36,7 @@ const getCartWithItems = async (cartId) => {
       id_cart: true,
       fk_store: true,
       cart_status: true,
-      store: { select: { id_store: true, name: true } },
+      store: { select: { id_store: true, name: true, logo: true } },
       items: {
         where: { status: true },
         select: {
@@ -65,7 +65,7 @@ const mapCartResponse = (cart) => {
     id: cart.id_cart,
     storeId: cart.fk_store,
     commerce: cart.store
-      ? { id: cart.store.id_store, name: cart.store.name }
+      ? { id: cart.store.id_store, name: cart.store.name, logo: cart.store.logo ?? null }
       : null,
     status: cart.cart_status,
     items: cart.items.map((item) => {

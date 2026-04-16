@@ -138,6 +138,7 @@ export const compareProducts = async (request, response) => {
       productId: p.id_product,
       name: p.name,
       description: p.description,
+      image_url: p.image_url ?? null, 
       price: Number(p.price),
       originalPrice:
         p.original_price === undefined ? Number(p.price) : Number(p.original_price),
@@ -149,7 +150,8 @@ export const compareProducts = async (request, response) => {
       store: p.store
         ? {
             id: p.store.id_store,
-            name: p.store.name
+            name: p.store.name,
+            logo: p.store.logo ?? null
           }
         : null
     }));
