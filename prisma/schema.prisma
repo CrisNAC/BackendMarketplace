@@ -36,6 +36,10 @@ model Users {
   carts             Carts[]     //Usuario puede generar multiples carritos (Un carrito por tienda)
   notifications     Notifications[] //Usuario puede recibir varias notificaciones
   product_reviews   ProductReviews[] //Usuario puede dejar multiples resenas en distintos productos
+  product_review_reports ReviewReports[] @relation("ReviewReporter")//Usuario puede reportar multiples reseñas
+  reviewsResolved   ReviewReports[] @relation("ReviewResolver") //Usuario admin puede resolver multiples reportes de reseñas
+  product_reports    ProductReports[] @relation("ProductReporter") //Usuario puede reportar multiples productos
+  productsResolved   ProductReports[] @relation("ProductReportResolver") //Usuario seller puede resolver multiples reportes de productos
 }
 
 //------------------------------------NOTIFICACIONES----------------------------------------
@@ -154,6 +158,7 @@ model Products {
   wishlist_items          WishlistItems[]
   product_reviews         ProductReviews[]
   cart_items              CartItems[]
+  product_reports         ProductReports[]
 }
 
 //------------------------------------PRODUCTOS-CATEGORIAS----------------------------------------
@@ -231,6 +236,50 @@ model ProductReviews {
 
   user  Users  @relation(fields: [fk_user], references: [id_user])
   product Products @relation(fields: [fk_product], references: [id_product])
+  review_reports ReviewReports[]
+}
+
+//------------------------------------REPORTES-PRODUCTOS/RESEÑAS----------------------------------------
+
+model ReviewReports {
+  id_review_report    Int       @id @default(autoincrement())
+  fk_product_review   Int       //reseña que se reporta
+  fk_reporter         Int       //usuario que reporta la reseña
+  reason              ReviewReportReason // SPAM, OFFENSIVE, FAKE, OTHER
+  description         String?   @db.Text // descripcion del motivo si elige OTHER
+  report_status       ReportStatus @default(PENDING) //PENDING, RESOLVED, REJECTED
+  resolved_by         Int? //id del admin que resolvio el reporte
+  resolved_at         DateTime? @db.Timestamptz //cuando se resolvio el reporte
+  status              Boolean   @default(true)
+  created_at          DateTime  @default(now()) @db.Timestamptz
+  updated_at          DateTime  @updatedAt @db.Timestamptz
+
+  product_review  ProductReviews @relation(fields: [fk_product_review], references: [id_product_review])
+  reporter  Users   @relation("ReviewReporter", fields: [fk_reporter], references: [id_user])
+  resolver  Users?  @relation("ReviewResolver", fields: [resolved_by], references: [id_user])
+
+  @@unique([fk_product_review, fk_reporter]) //Para que un mismo usuario no pueda reportar la misma reseña multiples veces
+}
+
+model ProductReports {
+  id_product_report   Int       @id @default(autoincrement())
+  fk_product          Int
+  fk_reporter         Int
+  fk_order            Int?      
+  reason              ProductReportReason // DEFECTIVE, LATE_DELIVERY, CUSTOMER_SERVICE, WRONG_ITEM, OTHER
+  description         String?   @db.Text
+  report_status       ReportStatus @default(PENDING) //PENDING, RESOLVED, REJECTED
+  notes               String?   @db.Text //nota de como se resolvio el reporte
+  resolved_by         Int? //id del admin que resolvio el reporte
+  resolved_at         DateTime? @db.Timestamptz //cuando se resolvio el reporte
+  status              Boolean   @default(true)
+  created_at          DateTime  @default(now()) @db.Timestamptz
+  updated_at          DateTime  @updatedAt @db.Timestamptz
+
+  product   Products    @relation(fields: [fk_product], references: [id_product])
+  reporter  Users   @relation("ProductReporter", fields: [fk_reporter], references: [id_user])
+  order     Orders?     @relation(fields: [fk_order], references: [id_order])
+  resolver  Users?  @relation("ProductReportResolver", fields: [resolved_by], references: [id_user])
 }
 
 //------------------------------------LISTAS-DESEOS----------------------------------------
@@ -343,6 +392,7 @@ model Orders {
   address              Addresses?           @relation(fields: [fk_address], references: [id_address])
   order_items          OrderItems[]
   delivery_assignment  DeliveryAssignments?
+  product_reports       ProductReports[]
 }
 
 model OrderItems {
@@ -395,4 +445,27 @@ enum StoreStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+}
+
+enum ReviewReportReason {
+  SPAM
+  OFFENSIVE
+  FAKE
+  OTHER
+}
+
+enum ReportStatus { //estado del reporte que se incluye en ambos tipos de reporte producto/reseña
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+enum ProductReportReason {
+  DEFECTIVE
+  LATE_DELIVERY
+  CUSTOMER_SERVICE
+  WRONG_ITEM
+  MISSING_ITEM
+  OTHER
 }
