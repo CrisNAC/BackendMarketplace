@@ -17,6 +17,8 @@ import addressRoutes from "./modules/users/addresses/routes/addresses.routes.js"
 import sessionRoutes from "./modules/session/routes/session.routes.js";
 import userProductReviewRoutes from "./modules/users/product-review/product-review.routes.js";
 
+import productReportRoutes from "./modules/global/reports/product/product-report.routes.js";
+
 import wishlistRoutes from "./modules/users/wishlist/wishlist.routes.js";
 import cartRoutes from "./modules/users/cart/cart.routes.js";
 
@@ -70,6 +72,9 @@ app.use("/products", productRoutes);
 
 // Rutas del Cliente
 app.use("/products/:id/reviews", userProductReviewRoutes);
+
+// Rutas de reportes
+app.use("/api/reports", productReportRoutes);
 
 // Rutas de usuarios
 app.use("/api/users", userRoutes);
