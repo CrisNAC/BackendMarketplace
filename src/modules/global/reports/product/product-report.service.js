@@ -1,10 +1,10 @@
-import { prisma } from "../../../lib/prisma.js";
+import { prisma } from "../../../../lib/prisma.js";
 import {
   ForbiddenError,
   NotFoundError,
   ValidationError
-} from "../../../lib/errors.js";
-import { parsePositiveInteger } from "../../../lib/validators.js";
+} from "../../../../lib/errors.js";
+import { parsePositiveInteger } from "../../../../lib/validators.js";
 
 
 const BASE_QUERY = {
