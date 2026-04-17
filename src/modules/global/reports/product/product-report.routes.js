@@ -1,5 +1,5 @@
 import { Router } from "express";
-import authenticate from "../../../config/jwt.config.js";
+import authenticate from "../../../../config/jwt.config.js";
 import { parsePagination } from "../../../../middlewares/pagination.middleware.js";
 import { getProductsReports, updateProductReport, getProductsReportsFiltered } from "./product-report.controller.js";
 
