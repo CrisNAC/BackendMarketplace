@@ -200,7 +200,7 @@ export const getProductsReportsFilteredService = async (authenticatedUserId, { r
   if (!["ADMIN", "SELLER"].includes(user.role)) throw new ForbiddenError("No tenés permiso para acceder a este recurso");
 
   // Validar report_status si viene
-  const allowedStatuses = ["PENDING", "RESOLVED", "REJECTED"];
+  const allowedStatuses = ["PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"];
   if (report_status && !allowedStatuses.includes(report_status)) {
     throw new ValidationError(
       `Estado inválido. Los valores permitidos son: ${allowedStatuses.join(", ")}`
@@ -228,44 +228,10 @@ export const getProductsReportsFilteredService = async (authenticatedUserId, { r
 
     if (!store) throw new NotFoundError("No se encontró un comercio asociado a este usuario");
 
-    where.fk_store = store.id_store;
+    where.product = { fk_store: store.id_store };
   }
 
-  const select = {
-    id_product_report: true,
-    reason: true,
-    description: true,
-    report_status: true,
-    notes: true,
-    created_at: true,
-    resolved_at: true,
-    reporter: {
-      select: {
-        id_user: true,
-        name: true,
-        email: true,
-        phone: true,
-      },
-    },
-    product: {
-      select: {
-        id_product: true,
-        name: true,
-      },
-    },
-    store: {
-      select: {
-        id_store: true,
-        name: true,
-      },
-    },
-    order: {
-      select: {
-        id_order: true,
-        created_at: true,
-      },
-    },
-  };
+  const select = BASE_QUERY.select;
 
   // Ejecutar query y conteo en paralelo
   const [reports, total] = await Promise.all([
