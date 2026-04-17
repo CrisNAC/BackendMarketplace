@@ -7,45 +7,45 @@ import {
 import { parsePositiveInteger } from "../../../lib/validators.js";
 
 
-BASE_QUERY =  {
-    where: { status: true },
-    orderBy: { created_at: "desc" },
-    select: {
-      id_product_report: true,
-      reason: true,
-      description: true,
-      report_status: true,
-      notes: true,
-      created_at: true,
-      resolved_at: true,
-      reporter: {
-        select: {
-          id_user: true,
-          name: true,
-          email: true,
-          phone: true, // para que el seller pueda contactarlo
-        },
+const BASE_QUERY = {
+  where: { status: true },
+  orderBy: { created_at: "desc" },
+  select: {
+    id_product_report: true,
+    reason: true,
+    description: true,
+    report_status: true,
+    notes: true,
+    created_at: true,
+    resolved_at: true,
+    reporter: {
+      select: {
+        id_user: true,
+        name: true,
+        email: true,
+        phone: true,
       },
-      product: {
-        select: {
-          id_product: true,
-          name: true,
-        },
-      },
-      store: {
-        select: {
-          id_store: true,
-          name: true,
-        },
-      },
-      order: {
-        select: {
-          id_order: true,
-          created_at: true,
+    },
+    product: {
+      select: {
+        id_product: true,
+        name: true,
+        store: {
+          select: {
+            id_store: true,
+            name: true,
+          },
         },
       },
     },
-  };
+    order: {
+      select: {
+        id_order: true,
+        created_at: true,
+      },
+    },
+  },
+};
 
 // Admin obtiene todos los reportes de productos. Seller obtiene los reportes de su tienda.
 export const getProductsReportsService = async (authenticatedUserId) => {
@@ -78,7 +78,9 @@ export const getProductsReportsService = async (authenticatedUserId) => {
       ...BASE_QUERY,
       where: {
         ...BASE_QUERY.where,
-        fk_store: store.id_store,
+        product: {
+          fk_store: store.id_store,
+        },
       },
     });
 
@@ -114,8 +116,10 @@ export const updateProductReportService = async (authenticatedUserId, reportId, 
   const report = await prisma.productReports.findFirst({
     where: {
       id_product_report: resolvedReportId,
-      fk_store: store.id_store,
       status: true,
+      product: {
+        fk_store: store.id_store,
+      },
     },
   });
 
