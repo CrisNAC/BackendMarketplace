@@ -1,6 +1,10 @@
 import { prisma } from "../../../lib/prisma.js";
 import { NotFoundError, ValidationError } from "../../../lib/errors.js";
-import { getEffectiveProductPrice, getOriginalProductPrice, getOfferProductPrice } from "../../../lib/product-pricing.js";
+import {
+  getEffectiveProductPrice,
+  getOriginalProductPrice,
+  getOfferProductPrice
+} from "../../../lib/product-pricing.js";
 import { PAGINATION } from "../../../utils/contants/pagination.constant.js";
 
 export const getAdminProductCategoryService = async (id) => {
@@ -10,6 +14,7 @@ export const getAdminProductCategoryService = async (id) => {
       id_product_category: true,
       name: true,
       status: true,
+      visible: true,
       created_at: true,
       updated_at: true,
       _count: { select: { products: true } }
@@ -22,6 +27,7 @@ export const getAdminProductCategoryService = async (id) => {
     id: category.id_product_category,
     name: category.name,
     status: category.status,
+    visible: category.visible,
     productCount: category._count.products,
     createdAt: category.created_at,
     updatedAt: category.updated_at
@@ -75,7 +81,11 @@ export const getAllCategories = async (filters = {}, categoryPagination = {}) =>
   };
 };
 
-export const filterCategoriesWithProducts = async (filters = {}, categoryPagination = {}, productPagination = {}) => {
+export const filterCategoriesWithProducts = async (
+  filters = {},
+  categoryPagination = {},
+  productPagination = {}
+) => {
   const { visible, search, searchCategory, searchProduct } = filters;
 
   const categoryWhere = {};
@@ -95,7 +105,7 @@ export const filterCategoriesWithProducts = async (filters = {}, categoryPaginat
     productWhere.name = { contains: search, mode: "insensitive" };
   } else if (searchProduct) {
     productWhere.name = { contains: searchProduct, mode: "insensitive" };
-  }5
+  }
 
   const categorySkip = categoryPagination.skip ?? 0;
   const categoryLimit = categoryPagination.limit ?? PAGINATION.DEFAULT_LIMIT;
@@ -194,4 +204,75 @@ export const deleteAdminProductCategoryService = async (id) => {
       data: { status: false }
     })
   ]);
+};
+
+const isPlainObject = (value) =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+const normalizeUpdatePayload = (payload) => {
+  if (!isPlainObject(payload)) {
+    throw new ValidationError("Body inválido");
+  }
+
+  const data = {};
+
+  if (payload.name !== undefined) {
+    if (typeof payload.name !== "string") {
+      throw new ValidationError("name debe ser texto");
+    }
+
+    const normalizedName = payload.name.trim();
+    if (!normalizedName) {
+      throw new ValidationError("name no puede estar vacío");
+    }
+    if (normalizedName.length > 100) {
+      throw new ValidationError("name no puede superar 100 caracteres");
+    }
+
+    data.name = normalizedName;
+  }
+
+  if (payload.visible !== undefined) {
+    if (typeof payload.visible !== "boolean") {
+      throw new ValidationError("visible debe ser boolean");
+    }
+    data.visible = payload.visible;
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw new ValidationError("Debe enviar al menos uno: name o visible");
+  }
+
+  return data;
+};
+
+export const updateAdminProductCategoryService = async (id, payload) => {
+  const data = normalizeUpdatePayload(payload);
+
+  const category = await prisma.productCategories.findUnique({
+    where: { id_product_category: id },
+    select: { id_product_category: true }
+  });
+
+  if (!category) throw new NotFoundError("Categoría no encontrada");
+
+  const updated = await prisma.productCategories.update({
+    where: { id_product_category: id },
+    data,
+    select: {
+      id_product_category: true,
+      name: true,
+      visible: true,
+      created_at: true,
+      updated_at: true
+    }
+  });
+
+  return {
+    id: updated.id_product_category,
+    name: updated.name,
+    visible: updated.visible,
+    createdAt: updated.created_at,
+    updatedAt: updated.updated_at
+  };
 };
