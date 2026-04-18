@@ -165,31 +165,41 @@ export const updateProductReportService = async (authenticatedUserId, reportId, 
 
   const isClosed = ["RESOLVED", "REJECTED"].includes(report_status);
 
-  const updatedReport = await prisma.productReports.update({
-    where: { id_product_report: resolvedReportId },
-    data: {
-      report_status,
-      ...(trimmedNotes  && { notes: trimmedNotes  }),
-      ...(isClosed && {
-        resolved_by: resolvedUserId,
-        resolved_at: new Date(),
-      }),
-    },
-    select: {
-      id_product_report: true,
-      report_status: true,
-      notes: true,
-      resolved_at: true,
-      resolver: {
-        select: {
-          id_user: true,
-          name: true,
+  try {
+    const updatedReport = await prisma.productReports.update({
+      where: {
+        id_product_report: resolvedReportId,
+        report_status: currentStatus, // solo actualiza si el estado no cambió
+      },
+      data: {
+        report_status,
+        ...(trimmedNotes && { notes: trimmedNotes }),
+        ...(isClosed && {
+          resolved_by: resolvedUserId,
+          resolved_at: new Date(),
+        }),
+      },
+      select: {
+        id_product_report: true,
+        report_status: true,
+        notes: true,
+        resolved_at: true,
+        resolver: {
+          select: {
+            id_user: true,
+            name: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  return updatedReport;
+    return updatedReport;
+
+  } catch (error) {
+    if (error.code === "P2025")
+      throw new ValidationError("El reporte fue modificado por otro proceso, intentá de nuevo");
+    throw error;
+  }
 };
 
 // Endpoint para que Admin y Seller puedan obtener reportes de productos filtrados por estado del reporte 
