@@ -540,4 +540,26 @@ describe("DELETE /api/admin/categories/:id", () => {
 
     expect(prisma.$transaction).toHaveBeenCalled();
   });
+
+  it("pone status y visible en false al eliminar", async () => {
+    prisma.productCategories.findUnique.mockResolvedValue(mockCategory);
+    prisma.$transaction.mockResolvedValue([]);
+    prisma.productCategories.update.mockResolvedValue({});
+    prisma.products.updateMany.mockResolvedValue({});
+
+    await asRole(
+      request(app).delete("/api/admin/categories/2"),
+      "admin"
+    );
+
+    expect(prisma.productCategories.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id_product_category: 2 },
+        data: expect.objectContaining({
+          status: false,
+          visible: false
+        })
+      })
+    );
+  });
 });
