@@ -350,6 +350,54 @@ describe("POST /api/commerces", () => {
     expect(res.status).toBe(201);
   });
 
+  it("crea el comercio con store_status INACTIVE (pendiente de aprobación)", async () => {
+    prisma.users.findUnique.mockResolvedValue({ id_user: 1, role: "CUSTOMER", status: true });
+    prisma.stores.findUnique.mockResolvedValue(null);
+    prisma.storeCategories.findUnique.mockResolvedValue({ id_store_category: 1, status: true });
+
+    const mockCreate = vi.fn().mockResolvedValue({ id_store: 1 });
+
+    prisma.$transaction.mockImplementation(async (fn) =>
+      fn({
+        stores: {
+          create: mockCreate,
+          findUnique: vi.fn().mockResolvedValue({
+            ...mockStore,
+            store_status: "INACTIVE",
+            shipping_zones: [],
+          }),
+        },
+        addresses: { create: vi.fn().mockResolvedValue({}) },
+        shippingZones: { create: vi.fn().mockResolvedValue({}) },
+        users: { update: vi.fn().mockResolvedValue({}) },
+      })
+    );
+
+    await request(app)
+      .post("/api/commerces")
+      .set("Cookie", `userToken=${sellerToken}`)
+      .send({
+        fk_store_category: 1,
+        name: "Tienda Pendiente",
+        email: "pendiente@test.com",
+        phone: "0981000000",
+        address: "Calle 1",
+        latitude: -25.28,
+        longitude: -57.63,
+        base_price: 10000,
+        distance_price: 15000,
+      });
+
+    // Verificar que stores.create fue llamado con store_status: "INACTIVE"
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          store_status: "INACTIVE",
+        }),
+      })
+    );
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
   });
