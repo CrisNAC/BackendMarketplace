@@ -100,6 +100,20 @@ export const filterCategoriesWithProducts = async (
 
   const productWhere = { status: true };
 
+  if (search) {
+    categoryWhere.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      {
+        products: {
+          some: {
+            name: { contains: search, mode: "insensitive" },
+            status: true
+          }
+        }
+      }
+    ];
+  }
+
   // search o searchProduct filtran productos de forma independiente
   if (search) {
     productWhere.name = { contains: search, mode: "insensitive" };
