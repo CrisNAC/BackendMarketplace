@@ -201,7 +201,10 @@ export const deleteAdminProductCategoryService = async (id) => {
     }),
     prisma.productCategories.update({
       where: { id_product_category: id },
-      data: { status: false }
+      data: {
+        status: false,
+        visible: false
+      }
     })
   ]);
 };
