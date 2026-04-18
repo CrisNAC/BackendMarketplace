@@ -148,8 +148,14 @@ export const updateProductReportService = async (authenticatedUserId, reportId, 
     );
   }
 
+  //validar que las notas sean texto
+  if (notes !== undefined && notes !== null && typeof notes !== "string")
+    throw new ValidationError("Las notas deben ser texto.")
+
+  const trimmedNotes = notes?.trim();
+
   // Notas obligatorias al cerrar el reporte
-  if (["RESOLVED", "REJECTED"].includes(report_status) && !notes?.trim()) {
+  if (["RESOLVED", "REJECTED"].includes(report_status) && !trimmedNotes) {
     throw new ValidationError(
       report_status === "RESOLVED"
         ? "Debés agregar una nota explicando cómo se resolvió el reclamo"
@@ -163,7 +169,7 @@ export const updateProductReportService = async (authenticatedUserId, reportId, 
     where: { id_product_report: resolvedReportId },
     data: {
       report_status,
-      ...(notes && { notes: notes.trim() }),
+      ...(trimmedNotes  && { notes: trimmedNotes  }),
       ...(isClosed && {
         resolved_by: resolvedUserId,
         resolved_at: new Date(),
