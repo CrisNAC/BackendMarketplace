@@ -314,7 +314,32 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
     expect(res.body.data[0].products).toHaveProperty("total");
   });
 
-  it("filtra por search en categorías y productos", async () => {
+  it("filtra por search — devuelve categoría cuando el nombre de categoría coincide", async () => {
+    prisma.productCategories.count.mockResolvedValue(1);
+    prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
+    prisma.products.count.mockResolvedValue(0);
+
+    const res = await asRole(
+      request(app).get("/api/admin/categories/filter/withProducts?search=Elec"),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(prisma.productCategories.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { name: { contains: "Elec", mode: "insensitive" } },
+            expect.objectContaining({
+              products: expect.objectContaining({ some: expect.anything() })
+            })
+          ])
+        })
+      })
+    );
+  });
+
+  it("filtra por search — devuelve categoría cuando el nombre de producto coincide", async () => {
     prisma.productCategories.count.mockResolvedValue(1);
     prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
     prisma.products.count.mockResolvedValue(1);
@@ -325,11 +350,6 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(prisma.productCategories.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.not.objectContaining({ name: expect.anything() })
-      })
-    );
     expect(prisma.products.count).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -337,6 +357,7 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
         })
       })
     );
+    expect(res.body.data[0].products.data[0].name).toBe("Auriculares");
   });
 
   it("filtra por searchCategory + searchProduct de forma dependiente", async () => {
