@@ -9,6 +9,7 @@ import {
     productTagSchemas,
     productReviewSchemas,
     productSchemas,
+    productReportSchemas,
     // /session
     sessionSchemas,
     // /admin
@@ -63,6 +64,7 @@ const options = {
                 ...productReviewSchemas,
                 ...productTagSchemas,
                 ...productSchemas,
+                ...productReportSchemas,
 
                 // /session
                 ...sessionSchemas,
