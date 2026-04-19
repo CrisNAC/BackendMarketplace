@@ -145,6 +145,8 @@ model Products {
   visible              Boolean   @default(true)
   quantity             Int?
   is_offer             Boolean   @default(false)  //Describe si un producto esta en oferta o no
+  approval_status      ApprovalStatus @default(PENDING) //Estado de aprobación del producto
+  rejection_reason     String?   @db.Text //Motivo del rechazo si aplica
   status               Boolean   @default(true)
   created_at           DateTime  @default(now()) @db.Timestamptz
   updated_at           DateTime  @updatedAt @db.Timestamptz
@@ -468,4 +470,10 @@ enum ProductReportReason {
   WRONG_ITEM
   MISSING_ITEM
   OTHER
+}
+
+enum ApprovalStatus {
+  PENDING
+  ACTIVE
+  REJECTED
 }
