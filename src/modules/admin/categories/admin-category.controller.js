@@ -4,7 +4,8 @@ import {
   getAllCategories, 
   filterCategoriesWithProducts,
   deleteAdminProductCategoryService,
-  updateAdminProductCategoryService
+  updateAdminProductCategoryService,
+  processAdminCategoryRequestService
 } from "./admin-category.service.js";
 import { PAGINATION } from "../../../utils/contants/pagination.constant.js";
 
@@ -77,6 +78,17 @@ export const updateAdminProductCategory = async (req, res, next) => {
   try {
     const id = validateId(req.params.id);
     const result = await updateAdminProductCategoryService(id, req.body);
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const processAdminCategoryRequest = async (req, res, next) => {
+  try {
+    const id = validateId(req.params.id);
+    const { decision } = req.body;
+    const result = await processAdminCategoryRequestService(id, decision);
     return res.status(200).json(result);
   } catch (error) {
     next(error);

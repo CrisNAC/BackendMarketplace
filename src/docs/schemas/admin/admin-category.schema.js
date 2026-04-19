@@ -79,5 +79,30 @@ export const adminCategorySchemas = {
       categoryLimit: { type: "integer", example: 20 },
       categoryTotalPages: { type: "integer", example: 1 }
     }
+  },
+
+  AdminCategoryRequestDecision: {
+    type: "object",
+    required: ["decision"],
+    properties: {
+      decision: {
+        type: "string",
+        enum: ["approve", "reject"],
+        example: "approve"
+      }
+    }
+  },
+
+  AdminCategoryRequestDecisionResponse: {
+    type: "object",
+    properties: {
+      id: { type: "integer", example: 25 },
+      name: { type: "string", example: "Electrónica gamer" },
+      visible: { type: "boolean", example: true },
+      status: { type: "boolean", example: true },
+      decision: { type: "string", example: "approve" },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" }
+    }
   }
 };
