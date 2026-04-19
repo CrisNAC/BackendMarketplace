@@ -2,7 +2,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import { prisma } from "../../../src/lib/prisma.js";
 import {
   reportProductReviewService,
-} from "../../../src/modules/reports/review-report/review-report.service.js";
+} from "../../../src/modules/global/reports/review/review-report.service.js";
 import {
   ConflictError,
   ForbiddenError,
@@ -97,19 +97,12 @@ describe("reportProductReviewService", () => {
   });
 
   it("lanza ValidationError cuando no se envía reason", async () => {
-    prisma.users.findUnique.mockResolvedValue(mockUser);
-    prisma.productReviews.findFirst.mockResolvedValue(mockReview);
-    prisma.reviewReports.findUnique.mockResolvedValue(null);
-
     await expect(
       reportProductReviewService(1, 1, {})
     ).rejects.toThrow(ValidationError);
   });
 
   it("lanza ValidationError cuando reason no es un valor permitido", async () => {
-    prisma.users.findUnique.mockResolvedValue(mockUser);
-    prisma.productReviews.findFirst.mockResolvedValue(mockReview);
-    prisma.reviewReports.findUnique.mockResolvedValue(null);
 
     await expect(
       reportProductReviewService(1, 1, { reason: "INVALIDO" })
@@ -117,9 +110,6 @@ describe("reportProductReviewService", () => {
   });
 
   it("lanza ValidationError cuando reason es OTHER sin description", async () => {
-    prisma.users.findUnique.mockResolvedValue(mockUser);
-    prisma.productReviews.findFirst.mockResolvedValue(mockReview);
-    prisma.reviewReports.findUnique.mockResolvedValue(null);
 
     await expect(
       reportProductReviewService(1, 1, { reason: "OTHER" })
@@ -127,9 +117,6 @@ describe("reportProductReviewService", () => {
   });
 
   it("lanza ValidationError cuando reason es OTHER con description vacía", async () => {
-    prisma.users.findUnique.mockResolvedValue(mockUser);
-    prisma.productReviews.findFirst.mockResolvedValue(mockReview);
-    prisma.reviewReports.findUnique.mockResolvedValue(null);
 
     await expect(
       reportProductReviewService(1, 1, { reason: "OTHER", description: "   " })

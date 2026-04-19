@@ -12,6 +12,13 @@ export const reportProductReviewService = async (authenticatedUserId, reviewId, 
     const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
     const resolvedReviewId = parsePositiveInteger(reviewId, "reviewId");
 
+    const allowedReasons = ["SPAM", "OFFENSIVE", "FAKE", "OTHER"]; //razones permitidas
+    if (!reason) throw new ValidationError("El motivo del reporte es obligatorio."); //verificar que se haya enviado un motivo
+    if (!allowedReasons.includes(reason)) throw new ValidationError("Motivo no válido."); //verificar que el motivo sea valido
+
+    //si el motivo es "OTHER", la descripción es obligatoria
+    if (reason === "OTHER" && !description?.trim()) throw new ValidationError("Debés proporcionar una descripción para el motivo 'OTHER'.");
+    
     const user = await prisma.users.findUnique({//verificar que el user existe
         where: { id_user: resolvedUserId },
         select: { id_user: true }
@@ -36,12 +43,6 @@ export const reportProductReviewService = async (authenticatedUserId, reviewId, 
     });
     if (existingReport) throw new ConflictError("Ya has reportado esta reseña.");
 
-    const allowedReasons = ["SPAM", "INAPPROPRIATE_CONTENT", "FAKE_REVIEW", "OTHER"]; //razones permitidas
-    if (!reason) throw new ValidationError("El motivo del reporte es obligatorio."); //verificar que se haya enviado un motivo
-    if (!allowedReasons.includes(reason)) throw new ValidationError("Motivo no válido."); //verificar que el motivo sea valido
-
-    //si el motivo es "OTHER", la descripción es obligatoria
-    if (reason === "OTHER" && !description?.trim()) throw new ValidationError("Debés proporcionar una descripción para el motivo 'OTHER'.");
 
     const report = await prisma.reviewReports.create({
         data: {
