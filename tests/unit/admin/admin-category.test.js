@@ -6,6 +6,8 @@ import { prisma } from "../../../src/lib/prisma.js";
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
     productCategories: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
       count: vi.fn(),
@@ -102,6 +104,100 @@ const mockCategoryWithProducts = [
     ]
   }
 ];
+
+// ─── POST /api/admin/categories ───────────────────────────────────
+describe("POST /api/admin/categories", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("devuelve 401 cuando no hay token", async () => {
+    const res = await request(app)
+      .post("/api/admin/categories")
+      .send({ name: "Electrónica" });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("devuelve 403 cuando el usuario no es ADMIN", async () => {
+    const res = await asRole(
+      request(app)
+        .post("/api/admin/categories")
+        .send({ name: "Electrónica" }),
+      "seller"
+    );
+
+    expect(res.status).toBe(403);
+  });
+
+  it("devuelve 400 cuando name está vacío", async () => {
+    const res = await asRole(
+      request(app)
+        .post("/api/admin/categories")
+        .send({ name: "   " }),
+      "admin"
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/no puede estar vacío/i);
+  });
+
+  it("devuelve 400 cuando ya existe una categoría activa con el mismo nombre", async () => {
+    prisma.productCategories.findFirst.mockResolvedValue({ id_product_category: 10 });
+
+    const res = await asRole(
+      request(app)
+        .post("/api/admin/categories")
+        .send({ name: "electrónica" }),
+      "admin"
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toBe("Ya existe una categoría con ese nombre");
+    expect(prisma.productCategories.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          name: { equals: "electrónica", mode: "insensitive" },
+          status: true
+        })
+      })
+    );
+  });
+
+  it("devuelve 201 y crea categoría con visible=true y status=true", async () => {
+    prisma.productCategories.findFirst.mockResolvedValue(null);
+    prisma.productCategories.create.mockResolvedValue({
+      id_product_category: 22,
+      name: "Electrónica",
+      visible: true,
+      status: true,
+      created_at: now
+    });
+
+    const res = await asRole(
+      request(app)
+        .post("/api/admin/categories")
+        .send({ name: "  Electrónica  " }),
+      "admin"
+    );
+
+    expect(res.status).toBe(201);
+    expect(prisma.productCategories.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: "Electrónica",
+          visible: true,
+          status: true
+        })
+      })
+    );
+    expect(res.body).toEqual({
+      id: 22,
+      name: "Electrónica",
+      visible: true,
+      status: true,
+      createdAt: now
+    });
+  });
+});
 
 // ─── GET /api/admin/categories/:id ────────────────────────────────
 describe("GET /api/admin/categories/:id", () => {
