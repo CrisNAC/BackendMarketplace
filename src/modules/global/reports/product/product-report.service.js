@@ -58,7 +58,7 @@ export const getProductsReportsService = async (authenticatedUserId) => {
 
   if (!user) throw new NotFoundError("Usuario no encontrado");
 
-  
+
   let productsReports;
 
   if (user.role === "ADMIN") {
@@ -165,11 +165,14 @@ export const updateProductReportService = async (authenticatedUserId, reportId, 
 
   const isClosed = ["RESOLVED", "REJECTED"].includes(report_status);
 
+  let updatedReport;
   try {
-    const updatedReport = await prisma.productReports.update({
+    updatedReport = await prisma.productReports.update({
       where: {
         id_product_report: resolvedReportId,
-        report_status: currentStatus, // solo actualiza si el estado no cambió
+        status: true,
+        report_status: currentStatus,
+        product: { fk_store: store.id_store },
       },
       data: {
         report_status,
@@ -192,14 +195,14 @@ export const updateProductReportService = async (authenticatedUserId, reportId, 
         },
       },
     });
-
-    return updatedReport;
-
-  } catch (error) {
-    if (error.code === "P2025")
-      throw new ValidationError("El reporte fue modificado por otro proceso, intentá de nuevo");
-    throw error;
+  } catch (e) {
+    if (e?.code === "P2025") {
+      throw new NotFoundError("El reporte ya no está disponible o fue modificado por otro proceso");
+    }
+    throw e;
   }
+
+  return updatedReport;
 };
 
 // Endpoint para que Admin y Seller puedan obtener reportes de productos filtrados por estado del reporte 
