@@ -10,6 +10,7 @@ import {
     productReviewSchemas,
     productSchemas,
     productReportSchemas,
+    categoryRequestSchemas,
     // /session
     sessionSchemas,
     // /admin
@@ -43,6 +44,7 @@ const options = {
             { name: "Commerces", description: "Gestión de comercios" },
             { name: "Products", description: "Gestión de productos" },
             { name: "Reviews", description: "Reseñas de productos" },
+            { name: "Categorías", description: "Gestión de categorías de productos" },
             { name: "Users", description: "Gestión de usuarios" },
             { name: "Orders", description: "Gestión de pedidos" },
             { name: "Images", description: "Gestión de imágenes" },
@@ -65,7 +67,7 @@ const options = {
                 ...productTagSchemas,
                 ...productSchemas,
                 ...productReportSchemas,
-
+                ...categoryRequestSchemas,
                 // /session
                 ...sessionSchemas,
                 // /images

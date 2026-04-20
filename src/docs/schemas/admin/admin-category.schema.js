@@ -4,7 +4,7 @@ export const adminCategorySchemas = {
     properties: {
       id: { type: "integer", example: 1 },
       name: { type: "string", example: "Electrónica" },
-      status: { type: "boolean", example: true },
+      visible: { type: "boolean", example: true },
       productCount: { type: "integer", example: 42 },
       createdAt: { type: "string", format: "date-time" },
       updatedAt: { type: "string", format: "date-time" }
@@ -79,5 +79,5 @@ export const adminCategorySchemas = {
       categoryLimit: { type: "integer", example: 20 },
       categoryTotalPages: { type: "integer", example: 1 }
     }
-  },
+  }
 };
