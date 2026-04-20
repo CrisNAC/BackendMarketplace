@@ -10,6 +10,7 @@ import commerceAddressRoutes from "./modules/commerce/addresses/routes/addresses
 import storeCategoryRoutes from "./modules/commerce/store-categories/store-category.routes.js";
 import productRoutes from "./modules/commerce/products/product.routes.js";
 import categoriesRoutes from "./modules/global/categories/categories.routes.js";
+import categoryRequestRoutes from "./modules/commerce/category-requests/category-request.routes.js";
 import productTagRoutes from "./modules/commerce/product-tags/product-tag.routes.js";
 import productReviewRoutes from "./modules/commerce/product-reviews/product-review.routes.js";
 import userRoutes from "./modules/users/users/routes/users.routes.js";
@@ -60,6 +61,7 @@ app.use(cors({
 setupSwagger(app);
 
 // Rutas de comercio
+app.use("/api/commerces/category-requests", categoryRequestRoutes);
 app.use("/api/commerces/categories", storeCategoryRoutes);
 app.use("/api/commerces", storeRoutes);
 app.use("/api/commerces", commerceAddressRoutes);
