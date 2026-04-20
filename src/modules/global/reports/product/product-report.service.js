@@ -58,7 +58,7 @@ export const getProductsReportsService = async (authenticatedUserId) => {
 
   if (!user) throw new NotFoundError("Usuario no encontrado");
 
-  
+
   let productsReports;
 
   if (user.role === "ADMIN") {
@@ -165,29 +165,42 @@ export const updateProductReportService = async (authenticatedUserId, reportId, 
 
   const isClosed = ["RESOLVED", "REJECTED"].includes(report_status);
 
-  const updatedReport = await prisma.productReports.update({
-    where: { id_product_report: resolvedReportId },
-    data: {
-      report_status,
-      ...(trimmedNotes  && { notes: trimmedNotes  }),
-      ...(isClosed && {
-        resolved_by: resolvedUserId,
-        resolved_at: new Date(),
-      }),
-    },
-    select: {
-      id_product_report: true,
-      report_status: true,
-      notes: true,
-      resolved_at: true,
-      resolver: {
-        select: {
-          id_user: true,
-          name: true,
+  let updatedReport;
+  try {
+    updatedReport = await prisma.productReports.update({
+      where: {
+        id_product_report: resolvedReportId,
+        status: true,
+        report_status: currentStatus,
+        product: { fk_store: store.id_store },
+      },
+      data: {
+        report_status,
+        ...(trimmedNotes && { notes: trimmedNotes }),
+        ...(isClosed && {
+          resolved_by: resolvedUserId,
+          resolved_at: new Date(),
+        }),
+      },
+      select: {
+        id_product_report: true,
+        report_status: true,
+        notes: true,
+        resolved_at: true,
+        resolver: {
+          select: {
+            id_user: true,
+            name: true,
+          },
         },
       },
-    },
-  });
+    });
+  } catch (e) {
+    if (e?.code === "P2025") {
+      throw new NotFoundError("El reporte ya no está disponible o fue modificado por otro proceso");
+    }
+    throw e;
+  }
 
   return updatedReport;
 };
