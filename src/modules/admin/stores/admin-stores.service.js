@@ -95,3 +95,51 @@ export const getPendingStoresService = async (pagination) => {
     }
   };
 };
+
+/**
+ * Rechaza un comercio cambiando su store_status de INACTIVE a SUSPENDED.
+ * También envía una notificación al usuario con el motivo del rechazo.
+ */
+export const rejectStoreService = async (storeId, reason) => {
+  const id = Number(storeId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw { status: 400, message: "ID de comercio inválido" };
+  }
+  if (!reason || typeof reason !== "string" || !reason.trim()) {
+    throw { status: 400, message: "El motivo de rechazo es requerido" };
+  }
+
+  const store = await prisma.stores.findUnique({
+    where: { id_store: id },
+    select: { id_store: true, name: true, store_status: true, status: true, fk_user: true }
+  });
+
+  if (!store || !store.status) {
+    throw { status: 404, message: "Comercio no encontrado" };
+  }
+
+  if (store.store_status !== "INACTIVE") {
+    throw { status: 400, message: "El comercio no está pendiente de aprobación" };
+  }
+
+  await prisma.$transaction([
+    prisma.stores.update({
+      where: { id_store: id },
+      data: { store_status: "SUSPENDED" }
+    }),
+    prisma.notifications.create({
+      data: {
+        fk_user: store.fk_user,
+        title: "Solicitud de comercio rechazada",
+        message: `Tu solicitud para registrar el comercio "${store.name}" ha sido rechazada. Motivo: ${reason}`,
+      }
+    })
+  ]);
+
+  const updated = await prisma.stores.findUnique({
+    where: { id_store: id },
+    select: { id_store: true, name: true, store_status: true, status: true }
+  });
+
+  return updated;
+};
