@@ -10,7 +10,11 @@ import {
     productReviewSchemas,
     productSchemas,
     productReportSchemas,
+<<<<<<< HEAD
     reviewReportSchemas,
+=======
+    categoryRequestSchemas,
+>>>>>>> 8ef8d7b16b9d4683f11fbdf669e9a7505c4b753c
     // /session
     sessionSchemas,
     // /admin
@@ -44,6 +48,7 @@ const options = {
             { name: "Commerces", description: "Gestión de comercios" },
             { name: "Products", description: "Gestión de productos" },
             { name: "Reviews", description: "Reseñas de productos" },
+            { name: "Categorías", description: "Gestión de categorías de productos" },
             { name: "Users", description: "Gestión de usuarios" },
             { name: "Orders", description: "Gestión de pedidos" },
             { name: "Images", description: "Gestión de imágenes" },
@@ -66,8 +71,12 @@ const options = {
                 ...productTagSchemas,
                 ...productSchemas,
                 ...productReportSchemas,
+<<<<<<< HEAD
                 ...reviewReportSchemas,
 
+=======
+                ...categoryRequestSchemas,
+>>>>>>> 8ef8d7b16b9d4683f11fbdf669e9a7505c4b753c
                 // /session
                 ...sessionSchemas,
                 // /images
