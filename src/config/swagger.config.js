@@ -10,11 +10,8 @@ import {
     productReviewSchemas,
     productSchemas,
     productReportSchemas,
-<<<<<<< HEAD
     reviewReportSchemas,
-=======
     categoryRequestSchemas,
->>>>>>> 8ef8d7b16b9d4683f11fbdf669e9a7505c4b753c
     // /session
     sessionSchemas,
     // /admin
@@ -71,12 +68,9 @@ const options = {
                 ...productTagSchemas,
                 ...productSchemas,
                 ...productReportSchemas,
-<<<<<<< HEAD
                 ...reviewReportSchemas,
 
-=======
                 ...categoryRequestSchemas,
->>>>>>> 8ef8d7b16b9d4683f11fbdf669e9a7505c4b753c
                 // /session
                 ...sessionSchemas,
                 // /images
