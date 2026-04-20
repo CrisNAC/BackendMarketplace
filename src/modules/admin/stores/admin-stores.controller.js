@@ -1,4 +1,4 @@
-import { approveStoreService, getPendingStoresService } from "./admin-stores.service.js";
+import { approveStoreService, getPendingStoresService, rejectStoreService } from "./admin-stores.service.js";
 
 export const approveStore = async (req, res, next) => {
   try {
@@ -22,6 +22,24 @@ export const getPendingStores = async (req, res, next) => {
     const result = await getPendingStoresService(req.pagination);
     return res.status(200).json(result);
   } catch (error) {
+    next(error);
+  }
+};
+
+export const rejectStore = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const store = await rejectStoreService(id, reason);
+    return res.status(200).json({
+      success: true,
+      message: "Comercio rechazado exitosamente",
+      data: store
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
     next(error);
   }
 };

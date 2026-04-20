@@ -21,6 +21,7 @@ const STORE_RESPONSE_SELECT = {
   instagram_url: true,
   tiktok_url: true,
   status: true,
+  store_status: true,
   created_at: true,
   updated_at: true,
   user: {
