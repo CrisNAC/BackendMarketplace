@@ -6,7 +6,62 @@ import {
   getOfferProductPrice
 } from "../../../lib/product-pricing.js";
 import { PAGINATION } from "../../../utils/contants/pagination.constant.js";
- 
+
+const normalizeAdminCategoryName = (name) => {
+  if (typeof name !== "string" || name.trim().length === 0) {
+    throw new ValidationError("El nombre de la categoría no puede estar vacío");
+  }
+
+  const normalizedName = name.trim();
+  if (normalizedName.length > 100) {
+    throw new ValidationError("El nombre de la categoría no puede superar 100 caracteres");
+  }
+
+  return normalizedName;
+};
+
+export const createAdminProductCategoryService = async (name) => {
+  const normalizedName = normalizeAdminCategoryName(name);
+
+  const existingCategory = await prisma.productCategories.findFirst({
+    where: {
+      name: {
+        equals: normalizedName,
+        mode: "insensitive"
+      },
+      status: true
+    },
+    select: { id_product_category: true }
+  });
+
+  if (existingCategory) {
+    throw new ValidationError("Ya existe una categoría con ese nombre");
+  }
+
+  const createdCategory = await prisma.productCategories.create({
+    data: {
+      name: normalizedName,
+      visible: true,
+      status: true
+    },
+    select: {
+      id_product_category: true,
+      name: true,
+      visible: true,
+      status: true,
+      created_at: true
+    }
+  });
+
+  return {
+    id: createdCategory.id_product_category,
+    name: createdCategory.name,
+    visible: createdCategory.visible,
+    status: createdCategory.status,
+    createdAt: createdCategory.created_at
+  };
+};
+
 export const getAdminProductCategoryService = async (id) => {
   const category = await prisma.productCategories.findUnique({
     where: { id_product_category: id },

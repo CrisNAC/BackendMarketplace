@@ -1,4 +1,26 @@
 export const adminCategorySchemas = {
+  AdminCreateCategoryBody: {
+    type: "object",
+    required: ["name"],
+    properties: {
+      name: {
+        type: "string",
+        minLength: 1,
+        maxLength: 100,
+        example: "Electrónica"
+      }
+    }
+  },
+  AdminCreateCategoryResponse: {
+    type: "object",
+    properties: {
+      id: { type: "integer", example: 15 },
+      name: { type: "string", example: "Electrónica" },
+      visible: { type: "boolean", example: true },
+      status: { type: "boolean", example: true },
+      createdAt: { type: "string", format: "date-time" }
+    }
+  },
   AdminCategoryResponse: {
     type: "object",
     properties: {

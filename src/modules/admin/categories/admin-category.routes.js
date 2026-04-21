@@ -2,6 +2,7 @@ import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
 import {
+  createAdminProductCategory,
   getAdminProductCategory,
   getAdminCategories,
   getAdminCategoriesWithProducts,
@@ -12,6 +13,36 @@ import {
 import { ROLES } from "../../../utils/contants/roles.constant.js";
 
 const router = Router();
+
+/**
+ * @swagger
+ * /api/admin/categories:
+ *   post:
+ *     summary: Crear categoría visible (Admin)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AdminCreateCategoryBody'
+ *     responses:
+ *       201:
+ *         description: Categoría creada correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AdminCreateCategoryResponse'
+ *       400:
+ *         description: Nombre inválido o categoría activa duplicada
+ *       401:
+ *         description: No autenticado
+ *       403:
+ *         description: Sin permisos de administrador
+ */
+router.post("/", authenticate, requireRole(ROLES.ADMIN), createAdminProductCategory);
 
 /**
  * @swagger

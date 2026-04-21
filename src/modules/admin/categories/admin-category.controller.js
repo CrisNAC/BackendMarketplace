@@ -5,9 +5,19 @@ import {
   filterCategoriesWithProducts,
   deleteAdminProductCategoryService,
   updateAdminProductCategoryService,
-  processAdminCategoryRequestService
+  processAdminCategoryRequestService,
+  createAdminProductCategoryService
 } from "./admin-category.service.js";
 import { PAGINATION } from "../../../utils/contants/pagination.constant.js";
+
+export const createAdminProductCategory = async (req, res, next) => {
+  try {
+    const result = await createAdminProductCategoryService(req.body?.name);
+    return res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const getAdminProductCategory = async (req, res, next) => {
   try {
