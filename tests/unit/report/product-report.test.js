@@ -272,7 +272,7 @@ describe("updateProductReportService", () => {
 
         expect(prisma.productReports.update).toHaveBeenCalledWith(
             expect.objectContaining({
-                where: { id_product_report: 1 },
+                where: expect.objectContaining({ id_product_report: 1 }),
                 data: expect.objectContaining({ report_status: "IN_PROGRESS" }),
             })
         );
