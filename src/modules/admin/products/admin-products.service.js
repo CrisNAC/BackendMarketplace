@@ -99,7 +99,7 @@ export const getProductsAdminService = async ({ search, approvalStatus }, pagina
   };
 };
 
-export const updateProductApprovalStatusService = async (adminUserId, productId, { status, reason }) => {
+export const updateProductApprovalStatusService = async (productId, { status, reason }) => {
   const resolvedProductId = Number(productId);
   if (!Number.isInteger(resolvedProductId) || resolvedProductId <= 0) {
     throw new ValidationError("productId debe ser un entero positivo");
@@ -114,6 +114,7 @@ export const updateProductApprovalStatusService = async (adminUserId, productId,
     throw new ValidationError("reason es requerido al rechazar un producto");
   }
 
+  // Necesitamos el producto antes de la transacción para construir el mensaje de notificación
   const product = await prisma.products.findFirst({
     where: { id_product: resolvedProductId, status: true },
     select: {
@@ -124,31 +125,28 @@ export const updateProductApprovalStatusService = async (adminUserId, productId,
     },
   });
 
-  if (!product) {
-    throw new NotFoundError("Producto no encontrado");
-  }
-
-  if (product.approval_status === normalizedStatus) {
-    throw new ValidationError(
-      `El producto ya tiene el estado ${normalizedStatus}`
-    );
-  }
+  if (!product) throw new NotFoundError("Producto no encontrado");
 
   const isApproving = normalizedStatus === "ACTIVE";
+  const trimmedReason = reason?.toString().trim();
 
   const updateData = {
     approval_status: normalizedStatus,
     visible: isApproving,
-    rejection_reason: isApproving ? null : reason.toString().trim(),
+    rejection_reason: isApproving ? null : trimmedReason,
   };
 
-  const [updated] = await prisma.$transaction([
-    prisma.products.update({
-      where: { id_product: resolvedProductId },
+  // updateMany con condición sobre approval_status cierra la ventana TOCTOU:
+  // si dos admins ejecutan en paralelo, solo uno logrará el update (count > 0).
+  const [updateResult] = await prisma.$transaction([
+    prisma.products.updateMany({
+      where: {
+        id_product: resolvedProductId,
+        status: true,
+        approval_status: { not: normalizedStatus },
+      },
       data: updateData,
-      select: productSelect,
     }),
-    // Notificar al vendedor solo al rechazar
     ...(isApproving
       ? []
       : [
@@ -156,11 +154,20 @@ export const updateProductApprovalStatusService = async (adminUserId, productId,
             data: {
               fk_user: product.store.fk_user,
               title: "Producto rechazado",
-              message: `Tu producto "${product.name}" ha sido rechazado. Motivo: ${reason.toString().trim()}`,
+              message: `Tu producto "${product.name}" ha sido rechazado. Motivo: ${trimmedReason}`,
             },
           }),
         ]),
   ]);
+
+  if (updateResult.count === 0) {
+    throw new ValidationError(`El producto ya tiene el estado ${normalizedStatus}`);
+  }
+
+  const updated = await prisma.products.findUnique({
+    where: { id_product: resolvedProductId },
+    select: productSelect,
+  });
 
   return mapProductResponse(updated);
 };
