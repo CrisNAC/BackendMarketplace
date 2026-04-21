@@ -10,6 +10,7 @@ import {
     productReviewSchemas,
     productSchemas,
     productReportSchemas,
+    reviewReportSchemas,
     categoryRequestSchemas,
     // /session
     sessionSchemas,
@@ -67,6 +68,8 @@ const options = {
                 ...productTagSchemas,
                 ...productSchemas,
                 ...productReportSchemas,
+                ...reviewReportSchemas,
+
                 ...categoryRequestSchemas,
                 // /session
                 ...sessionSchemas,
