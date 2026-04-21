@@ -6,7 +6,8 @@ import {
   getAdminCategories,
   getAdminCategoriesWithProducts,
   deleteAdminProductCategory,
-  updateAdminProductCategory
+  updateAdminProductCategory,
+  processAdminCategoryRequest
 } from "./admin-category.controller.js";
 import { ROLES } from "../../../utils/contants/roles.constant.js";
 
@@ -136,6 +137,44 @@ router.get(
   requireRole(ROLES.ADMIN),
   getAdminCategoriesWithProducts
 );
+
+/**
+ * @swagger
+ * /api/admin/categories/{id}:
+ *   patch:
+ *     summary: Aprobar o rechazar solicitud de categoría (Admin)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AdminCategoryRequestDecision'
+ *     responses:
+ *       200:
+ *         description: Solicitud de categoría procesada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AdminCategoryRequestDecisionResponse'
+ *       400:
+ *         description: Solicitud inválida o ya procesada
+ *       401:
+ *         description: No autenticado
+ *       403:
+ *         description: Sin permisos de administrador
+ *       404:
+ *         description: Solicitud de categoría no encontrada
+ */
+router.patch("/:id", authenticate, requireRole(ROLES.ADMIN), processAdminCategoryRequest);
 
 /**
  * @swagger

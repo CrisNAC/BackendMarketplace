@@ -297,4 +297,95 @@ export const updateAdminProductCategoryService = async (id, payload) => {
     updatedAt: updated.updated_at
   };
 };
- 
+
+const normalizeCategoryRequestDecision = (decision) => {
+  if (typeof decision !== "string") {
+    throw new ValidationError("decision debe ser texto");
+  }
+
+  const normalizedDecision = decision.trim().toLowerCase();
+  if (!["approve", "reject"].includes(normalizedDecision)) {
+    throw new ValidationError("decision debe ser 'approve' o 'reject'");
+  }
+
+  return normalizedDecision;
+};
+
+export const processAdminCategoryRequestService = async (id, decision) => {
+  const normalizedDecision = normalizeCategoryRequestDecision(decision);
+
+  const category = await prisma.productCategories.findUnique({
+    where: { id_product_category: id },
+    select: {
+      id_product_category: true,
+      name: true,
+      visible: true,
+      status: true,
+      created_at: true,
+      updated_at: true
+    }
+  });
+
+  if (!category) {
+    throw new NotFoundError("Solicitud de categoría no encontrada");
+  }
+
+  const isPendingRequest = category.status === true && category.visible === false;
+  if (!isPendingRequest) {
+    throw new ValidationError("La solicitud ya fue procesada");
+  }
+
+  let updatedCategory;
+
+  if (normalizedDecision === "approve") {
+    updatedCategory = await prisma.productCategories.update({
+      where: { id_product_category: id },
+      data: {
+        visible: true,
+        status: true
+      },
+      select: {
+        id_product_category: true,
+        name: true,
+        visible: true,
+        status: true,
+        created_at: true,
+        updated_at: true
+      }
+    });
+  } else {
+    const [, rejectedCategory] = await prisma.$transaction([
+      prisma.products.updateMany({
+        where: { fk_product_category: id },
+        data: { fk_product_category: 1 }
+      }),
+      prisma.productCategories.update({
+        where: { id_product_category: id },
+        data: {
+          visible: false,
+          status: false
+        },
+        select: {
+          id_product_category: true,
+          name: true,
+          visible: true,
+          status: true,
+          created_at: true,
+          updated_at: true
+        }
+      })
+    ]);
+
+    updatedCategory = rejectedCategory;
+  }
+
+  return {
+    id: updatedCategory.id_product_category,
+    name: updatedCategory.name,
+    visible: updatedCategory.visible,
+    status: updatedCategory.status,
+    decision: normalizedDecision,
+    createdAt: updatedCategory.created_at,
+    updatedAt: updatedCategory.updated_at
+  };
+};

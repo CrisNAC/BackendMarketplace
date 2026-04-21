@@ -427,6 +427,187 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
   });
 });
 
+describe("PATCH /api/admin/categories/:id", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("devuelve 401 cuando no hay token", async () => {
+    const res = await request(app)
+      .patch("/api/admin/categories/2")
+      .send({ decision: "approve" });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("devuelve 403 cuando el usuario no es ADMIN", async () => {
+    const res = await asRole(
+      request(app)
+        .patch("/api/admin/categories/2")
+        .send({ decision: "approve" }),
+      "seller"
+    );
+
+    expect(res.status).toBe(403);
+  });
+
+  it("devuelve 400 cuando id es inválido", async () => {
+    const res = await asRole(
+      request(app)
+        .patch("/api/admin/categories/abc")
+        .send({ decision: "approve" }),
+      "admin"
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("devuelve 400 cuando decision es inválida", async () => {
+    prisma.productCategories.findUnique.mockResolvedValue({
+      id_product_category: 2,
+      name: "Solicitud",
+      visible: false,
+      status: true,
+      created_at: now,
+      updated_at: now
+    });
+
+    const res = await asRole(
+      request(app)
+        .patch("/api/admin/categories/2")
+        .send({ decision: "invalid" }),
+      "admin"
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("devuelve 404 cuando la solicitud no existe", async () => {
+    prisma.productCategories.findUnique.mockResolvedValue(null);
+
+    const res = await asRole(
+      request(app)
+        .patch("/api/admin/categories/999")
+        .send({ decision: "approve" }),
+      "admin"
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it("devuelve 400 cuando la solicitud ya fue procesada", async () => {
+    prisma.productCategories.findUnique.mockResolvedValue({
+      id_product_category: 2,
+      name: "Solicitud procesada",
+      visible: true,
+      status: true,
+      created_at: now,
+      updated_at: now
+    });
+
+    const res = await asRole(
+      request(app)
+        .patch("/api/admin/categories/2")
+        .send({ decision: "reject" }),
+      "admin"
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("aprueba solicitud pendiente y devuelve 200", async () => {
+    prisma.productCategories.findUnique.mockResolvedValue({
+      id_product_category: 2,
+      name: "Tecnología retro",
+      visible: false,
+      status: true,
+      created_at: now,
+      updated_at: now
+    });
+
+    prisma.productCategories.update.mockResolvedValue({
+      id_product_category: 2,
+      name: "Tecnología retro",
+      visible: true,
+      status: true,
+      created_at: now,
+      updated_at: now
+    });
+
+    const res = await asRole(
+      request(app)
+        .patch("/api/admin/categories/2")
+        .send({ decision: "approve" }),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(prisma.productCategories.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id_product_category: 2 },
+        data: expect.objectContaining({ visible: true, status: true })
+      })
+    );
+    expect(res.body.visible).toBe(true);
+    expect(res.body.status).toBe(true);
+    expect(res.body.decision).toBe("approve");
+  });
+
+  it("rechaza solicitud pendiente, la desactiva y reasigna productos a Sin categoría (id=1)", async () => {
+    prisma.productCategories.findUnique.mockResolvedValue({
+      id_product_category: 3,
+      name: "Rubro rechazado",
+      visible: false,
+      status: true,
+      created_at: now,
+      updated_at: now
+    });
+
+    prisma.products.updateMany.mockResolvedValue({ count: 4 });
+    prisma.productCategories.update.mockResolvedValue({
+      id_product_category: 3,
+      name: "Rubro rechazado",
+      visible: false,
+      status: false,
+      created_at: now,
+      updated_at: now
+    });
+    prisma.$transaction.mockResolvedValue([
+      { count: 4 },
+      {
+        id_product_category: 3,
+        name: "Rubro rechazado",
+        visible: false,
+        status: false,
+        created_at: now,
+        updated_at: now
+      }
+    ]);
+
+    const res = await asRole(
+      request(app)
+        .patch("/api/admin/categories/3")
+        .send({ decision: "reject" }),
+      "admin"
+    );
+
+    expect(res.status).toBe(200);
+    expect(prisma.products.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { fk_product_category: 3 },
+        data: { fk_product_category: 1 }
+      })
+    );
+    expect(prisma.productCategories.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id_product_category: 3 },
+        data: expect.objectContaining({ visible: false, status: false })
+      })
+    );
+    expect(res.body.visible).toBe(false);
+    expect(res.body.status).toBe(false);
+    expect(res.body.decision).toBe("reject");
+  });
+});
+
 describe("PUT /api/admin/categories/:id", () => {
   beforeEach(() => vi.resetAllMocks());
 
