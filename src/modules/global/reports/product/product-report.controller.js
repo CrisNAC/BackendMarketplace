@@ -1,4 +1,12 @@
-import { getProductsReportsService, updateProductReportService, getProductsReportsFilteredService } from "./product-report.service.js";
+import {
+  getProductsReportsService,
+  updateProductReportService,
+  getProductsReportsFilteredService,
+  getProductReportReasonsService,
+  createProductReportService,
+  checkProductReportService,
+  resolveProductReportAdminService,
+} from "./product-report.service.js";
 
 /**
  * GET /api/reports/products
@@ -69,3 +77,46 @@ export const getProductsReportsFiltered = async (req, res, next) => {
         next(error);
     }
 }
+
+export const getProductReportReasons = (_req, res) => {
+  return res.status(200).json(getProductReportReasonsService());
+};
+
+export const createProductReport = async (req, res, next) => {
+  try {
+    if (!req.user?.id_user) {
+      return res.status(401).json({ success: false, message: "Usuario autenticado requerido" });
+    }
+    const { productId, reason, description } = req.body;
+    const report = await createProductReportService(req.user.id_user, { productId, reason, description });
+    return res.status(201).json(report);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const checkProductReport = async (req, res, next) => {
+  try {
+    if (!req.user?.id_user) {
+      return res.status(401).json({ success: false, message: "Usuario autenticado requerido" });
+    }
+    const { productId } = req.query;
+    const result = await checkProductReportService(req.user.id_user, productId);
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resolveProductReport = async (req, res, next) => {
+  try {
+    if (!req.user?.id_user) {
+      return res.status(401).json({ success: false, message: "Usuario autenticado requerido" });
+    }
+    const { status, notes } = req.body;
+    const result = await resolveProductReportAdminService(req.user.id_user, req.params.reportId, { status, notes });
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};

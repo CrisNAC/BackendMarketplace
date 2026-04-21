@@ -4,8 +4,14 @@ import {
     getProductsReportsService,
     updateProductReportService,
     getProductsReportsFilteredService,
+    getProductReportReasonsService,
+    createProductReportService,
+    checkProductReportService,
+    resolveProductReportAdminService,
+    PRODUCT_REPORT_REASONS,
 } from "../../../src/modules/global/reports/product/product-report.service.js";
 import {
+    ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
@@ -21,9 +27,14 @@ vi.mock("../../../src/lib/prisma.js", () => ({
         stores: {
             findUnique: vi.fn(),
         },
+        products: {
+            findFirst: vi.fn(),
+        },
         productReports: {
             findMany: vi.fn(),
             findFirst: vi.fn(),
+            findUnique: vi.fn(),
+            create: vi.fn(),
             update: vi.fn(),
             count: vi.fn(),
         },
@@ -37,6 +48,8 @@ const mockSellerUser = { role: "SELLER" };
 const mockCustomerUser = { role: "CUSTOMER" };
 
 const mockStore = { id_store: 10 };
+
+const mockProduct = { id_product: 3 };
 
 const mockReport = {
     id_product_report: 1,
@@ -493,7 +506,6 @@ describe("getProductsReportsFilteredService", () => {
         const result = await getProductsReportsFilteredService(1, {}, mockPagination);
 
         expect(result.data).toHaveLength(1);
-        // Verifica que findMany fue llamado (el filtro de tienda se aplica internamente)
         expect(prisma.productReports.findMany).toHaveBeenCalled();
     });
 
@@ -504,7 +516,6 @@ describe("getProductsReportsFilteredService", () => {
 
         await getProductsReportsFilteredService(1, {}, mockPagination);
 
-        // Ambos deben haber sido llamados exactamente una vez
         expect(prisma.productReports.findMany).toHaveBeenCalledTimes(1);
         expect(prisma.productReports.count).toHaveBeenCalledTimes(1);
     });
@@ -513,5 +524,341 @@ describe("getProductsReportsFilteredService", () => {
         await expect(
             getProductsReportsFilteredService(-1, {}, mockPagination)
         ).rejects.toThrow(ValidationError);
+    });
+});
+
+// ─── getProductReportReasonsService ──────────────────────────────────────────
+
+describe("getProductReportReasonsService", () => {
+    it("retorna un array con al menos un elemento", () => {
+        const result = getProductReportReasonsService();
+        expect(Array.isArray(result)).toBe(true);
+        expect(result.length).toBeGreaterThan(0);
+    });
+
+    it("cada elemento tiene las propiedades value y label", () => {
+        const result = getProductReportReasonsService();
+        result.forEach((item) => {
+            expect(item).toHaveProperty("value");
+            expect(item).toHaveProperty("label");
+            expect(typeof item.value).toBe("string");
+            expect(typeof item.label).toBe("string");
+        });
+    });
+
+    it("retorna exactamente el catálogo exportado PRODUCT_REPORT_REASONS", () => {
+        const result = getProductReportReasonsService();
+        expect(result).toBe(PRODUCT_REPORT_REASONS);
+    });
+
+    it("incluye el motivo OTHER como último elemento", () => {
+        const result = getProductReportReasonsService();
+        const last = result[result.length - 1];
+        expect(last.value).toBe("OTHER");
+    });
+});
+
+// ─── createProductReportService ───────────────────────────────────────────────
+
+describe("createProductReportService", () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it("lanza ValidationError cuando productId no es un entero positivo", async () => {
+        await expect(
+            createProductReportService(1, { productId: -1, reason: "DEFECTIVE" })
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("lanza ValidationError cuando reason está vacío", async () => {
+        await expect(
+            createProductReportService(1, { productId: 3, reason: "" })
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("lanza ValidationError cuando reason no es válida", async () => {
+        await expect(
+            createProductReportService(1, { productId: 3, reason: "INVALIDA" })
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("acepta todas las razones del catálogo PRODUCT_REPORT_REASONS", async () => {
+        prisma.products.findFirst.mockResolvedValue(mockProduct);
+        prisma.productReports.findFirst.mockResolvedValue(null);
+        prisma.productReports.create.mockResolvedValue({
+            id_product_report: 1,
+            reason: "DEFECTIVE",
+            description: null,
+            report_status: "PENDING",
+            created_at: new Date(),
+        });
+
+        for (const { value } of PRODUCT_REPORT_REASONS) {
+            await expect(
+                createProductReportService(1, { productId: 3, reason: value })
+            ).resolves.toBeDefined();
+        }
+    });
+
+    it("normaliza reason a mayúsculas antes de procesar", async () => {
+        prisma.products.findFirst.mockResolvedValue(mockProduct);
+        prisma.productReports.findFirst.mockResolvedValue(null);
+        prisma.productReports.create.mockResolvedValue({
+            id_product_report: 1,
+            reason: "DEFECTIVE",
+            description: null,
+            report_status: "PENDING",
+            created_at: new Date(),
+        });
+
+        await expect(
+            createProductReportService(1, { productId: 3, reason: "defective" })
+        ).resolves.not.toThrow();
+    });
+
+    it("lanza NotFoundError cuando el producto no existe o está inactivo", async () => {
+        prisma.products.findFirst.mockResolvedValue(null);
+
+        await expect(
+            createProductReportService(1, { productId: 99, reason: "DEFECTIVE" })
+        ).rejects.toThrow(NotFoundError);
+    });
+
+    it("lanza ConflictError cuando ya existe un reporte PENDING para el mismo producto", async () => {
+        prisma.products.findFirst.mockResolvedValue(mockProduct);
+        prisma.productReports.findFirst.mockResolvedValue({ id_product_report: 1 });
+
+        await expect(
+            createProductReportService(1, { productId: 3, reason: "DEFECTIVE" })
+        ).rejects.toThrow(ConflictError);
+    });
+
+    it("crea el reporte correctamente con status PENDING por defecto", async () => {
+        prisma.products.findFirst.mockResolvedValue(mockProduct);
+        prisma.productReports.findFirst.mockResolvedValue(null);
+        const createdReport = {
+            id_product_report: 5,
+            reason: "DEFECTIVE",
+            description: "Llegó roto",
+            report_status: "PENDING",
+            created_at: new Date(),
+        };
+        prisma.productReports.create.mockResolvedValue(createdReport);
+
+        const result = await createProductReportService(1, {
+            productId: 3,
+            reason: "DEFECTIVE",
+            description: "Llegó roto",
+        });
+
+        expect(result.report_status).toBe("PENDING");
+        expect(result.reason).toBe("DEFECTIVE");
+        expect(result.description).toBe("Llegó roto");
+    });
+
+    it("crea el reporte con description null cuando no se envía", async () => {
+        prisma.products.findFirst.mockResolvedValue(mockProduct);
+        prisma.productReports.findFirst.mockResolvedValue(null);
+        prisma.productReports.create.mockResolvedValue({
+            id_product_report: 5,
+            reason: "OTHER",
+            description: null,
+            report_status: "PENDING",
+            created_at: new Date(),
+        });
+
+        const result = await createProductReportService(1, { productId: 3, reason: "OTHER" });
+
+        expect(prisma.productReports.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({ description: null }),
+            })
+        );
+        expect(result.description).toBeNull();
+    });
+
+    it("asigna fk_reporter con el userId autenticado", async () => {
+        prisma.products.findFirst.mockResolvedValue(mockProduct);
+        prisma.productReports.findFirst.mockResolvedValue(null);
+        prisma.productReports.create.mockResolvedValue({
+            id_product_report: 5,
+            reason: "DEFECTIVE",
+            description: null,
+            report_status: "PENDING",
+            created_at: new Date(),
+        });
+
+        await createProductReportService(7, { productId: 3, reason: "DEFECTIVE" });
+
+        expect(prisma.productReports.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({ fk_reporter: 7, fk_product: 3 }),
+            })
+        );
+    });
+});
+
+// ─── checkProductReportService ────────────────────────────────────────────────
+
+describe("checkProductReportService", () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it("lanza ValidationError cuando productId no es un entero positivo", async () => {
+        await expect(
+            checkProductReportService(1, -1)
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("retorna hasReport=false cuando no existe reporte PENDING", async () => {
+        prisma.productReports.findFirst.mockResolvedValue(null);
+
+        const result = await checkProductReportService(1, 3);
+
+        expect(result.hasReport).toBe(false);
+        expect(result.reportId).toBeNull();
+    });
+
+    it("retorna hasReport=true con el reportId cuando existe un reporte PENDING", async () => {
+        prisma.productReports.findFirst.mockResolvedValue({ id_product_report: 5 });
+
+        const result = await checkProductReportService(1, 3);
+
+        expect(result.hasReport).toBe(true);
+        expect(result.reportId).toBe(5);
+    });
+});
+
+// ─── resolveProductReportAdminService ─────────────────────────────────────────
+
+describe("resolveProductReportAdminService", () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it("lanza ValidationError cuando reportId no es un entero positivo", async () => {
+        await expect(
+            resolveProductReportAdminService(1, -1, { status: "RESOLVED", notes: "OK" })
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("lanza ValidationError cuando status está vacío", async () => {
+        await expect(
+            resolveProductReportAdminService(1, 1, { status: "", notes: "OK" })
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("lanza ValidationError cuando status no es RESOLVED ni REJECTED", async () => {
+        await expect(
+            resolveProductReportAdminService(1, 1, { status: "IN_PROGRESS", notes: "OK" })
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("lanza ValidationError cuando notes no se envía", async () => {
+        await expect(
+            resolveProductReportAdminService(1, 1, { status: "RESOLVED" })
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("lanza ValidationError cuando notes está vacío", async () => {
+        await expect(
+            resolveProductReportAdminService(1, 1, { status: "RESOLVED", notes: "   " })
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("lanza NotFoundError cuando el reporte no existe", async () => {
+        prisma.productReports.findFirst.mockResolvedValue(null);
+
+        await expect(
+            resolveProductReportAdminService(1, 99, { status: "RESOLVED", notes: "OK" })
+        ).rejects.toThrow(NotFoundError);
+    });
+
+    it("lanza ValidationError cuando el reporte ya está RESOLVED", async () => {
+        prisma.productReports.findFirst.mockResolvedValue({ id_product_report: 1, report_status: "RESOLVED" });
+
+        await expect(
+            resolveProductReportAdminService(1, 1, { status: "REJECTED", notes: "OK" })
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("lanza ValidationError cuando el reporte ya está REJECTED", async () => {
+        prisma.productReports.findFirst.mockResolvedValue({ id_product_report: 1, report_status: "REJECTED" });
+
+        await expect(
+            resolveProductReportAdminService(1, 1, { status: "RESOLVED", notes: "OK" })
+        ).rejects.toThrow(ValidationError);
+    });
+
+    it("resuelve el reporte correctamente con status RESOLVED", async () => {
+        prisma.productReports.findFirst.mockResolvedValue({ id_product_report: 1, report_status: "PENDING" });
+        prisma.productReports.update.mockResolvedValue({
+            id_product_report: 1,
+            report_status: "RESOLVED",
+            notes: "Verificado y resuelto",
+            resolved_at: new Date(),
+            resolver: { id_user: 1, name: "Admin" },
+        });
+
+        const result = await resolveProductReportAdminService(1, 1, {
+            status: "RESOLVED",
+            notes: "Verificado y resuelto",
+        });
+
+        expect(result.report_status).toBe("RESOLVED");
+        expect(result.notes).toBe("Verificado y resuelto");
+        expect(result.resolved_at).toBeDefined();
+    });
+
+    it("rechaza el reporte correctamente con status REJECTED", async () => {
+        prisma.productReports.findFirst.mockResolvedValue({ id_product_report: 1, report_status: "IN_PROGRESS" });
+        prisma.productReports.update.mockResolvedValue({
+            id_product_report: 1,
+            report_status: "REJECTED",
+            notes: "No procede el reclamo",
+            resolved_at: new Date(),
+            resolver: { id_user: 1, name: "Admin" },
+        });
+
+        const result = await resolveProductReportAdminService(1, 1, {
+            status: "REJECTED",
+            notes: "No procede el reclamo",
+        });
+
+        expect(result.report_status).toBe("REJECTED");
+        expect(result.notes).toBe("No procede el reclamo");
+    });
+
+    it("normaliza status a mayúsculas antes de procesar", async () => {
+        prisma.productReports.findFirst.mockResolvedValue({ id_product_report: 1, report_status: "PENDING" });
+        prisma.productReports.update.mockResolvedValue({
+            id_product_report: 1,
+            report_status: "RESOLVED",
+            notes: "OK",
+            resolved_at: new Date(),
+            resolver: { id_user: 1, name: "Admin" },
+        });
+
+        await expect(
+            resolveProductReportAdminService(1, 1, { status: "resolved", notes: "OK" })
+        ).resolves.not.toThrow();
+    });
+
+    it("asigna resolved_by con el adminUserId y resolved_at con la fecha actual", async () => {
+        prisma.productReports.findFirst.mockResolvedValue({ id_product_report: 1, report_status: "PENDING" });
+        prisma.productReports.update.mockResolvedValue({
+            id_product_report: 1,
+            report_status: "RESOLVED",
+            notes: "OK",
+            resolved_at: new Date(),
+            resolver: { id_user: 99, name: "Admin Principal" },
+        });
+
+        await resolveProductReportAdminService(99, 1, { status: "RESOLVED", notes: "OK" });
+
+        expect(prisma.productReports.update).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    resolved_by: 99,
+                    resolved_at: expect.any(Date),
+                }),
+            })
+        );
     });
 });
