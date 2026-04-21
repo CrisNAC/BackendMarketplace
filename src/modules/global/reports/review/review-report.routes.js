@@ -1,6 +1,8 @@
 import { Router } from "express";
 import authenticate from "../../../../config/jwt.config.js";
 import { reportProductReview } from "./review-report.controller.js";
+import { parsePagination } from "../../../../middlewares/pagination.middleware.js";
+import {getReviewReportsFiltered, resolveReviewReport} from "./review-report.controller.js";
 
 const router = Router({ mergeParams: true });
 
@@ -63,5 +65,6 @@ const router = Router({ mergeParams: true });
  *         description: Ya has reportado esta reseña
  */
 router.post("/reviews/:reviewId", authenticate, reportProductReview);
-
+router.get("/reviews/filtered", authenticate, parsePagination, getReviewReportsFiltered);
+router.put("/reviews/:reportId", authenticate, resolveReviewReport);
 export default router;
