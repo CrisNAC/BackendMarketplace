@@ -67,4 +67,5 @@ const router = Router({ mergeParams: true });
 router.post("/reviews/:reviewId", authenticate, reportProductReview);
 router.get("/reviews/filtered", authenticate, parsePagination, getReviewReportsFiltered);
 router.put("/reviews/:reportId", authenticate, resolveReviewReport);
+
 export default router;
