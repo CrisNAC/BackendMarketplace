@@ -14,7 +14,9 @@ vi.mock("../../../src/lib/prisma.js", () => ({
       count: vi.fn(),
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     notifications: {
       create: vi.fn(),
@@ -259,13 +261,13 @@ describe("updateProductApprovalStatusService", () => {
 
   it("lanza ValidationError cuando productId no es un entero positivo", async () => {
     await expect(
-      updateProductApprovalStatusService(1, -1, { status: "ACTIVE" })
+      updateProductApprovalStatusService(-1, { status: "ACTIVE" })
     ).rejects.toThrow(ValidationError);
   });
 
   it("lanza ValidationError cuando status no es ACTIVE ni REJECTED", async () => {
     await expect(
-      updateProductApprovalStatusService(1, 1, { status: "PENDING" })
+      updateProductApprovalStatusService(1, { status: "PENDING" })
     ).rejects.toThrow(ValidationError);
   });
 
@@ -273,13 +275,13 @@ describe("updateProductApprovalStatusService", () => {
     prisma.products.findFirst.mockResolvedValue(mockProduct);
 
     await expect(
-      updateProductApprovalStatusService(1, 1, { status: "REJECTED", reason: "" })
+      updateProductApprovalStatusService(1, { status: "REJECTED", reason: "" })
     ).rejects.toThrow(ValidationError);
   });
 
   it("lanza ValidationError cuando se rechaza sin enviar reason", async () => {
     await expect(
-      updateProductApprovalStatusService(1, 1, { status: "REJECTED" })
+      updateProductApprovalStatusService(1, { status: "REJECTED" })
     ).rejects.toThrow(ValidationError);
   });
 
@@ -289,20 +291,21 @@ describe("updateProductApprovalStatusService", () => {
     prisma.products.findFirst.mockResolvedValue(null);
 
     await expect(
-      updateProductApprovalStatusService(1, 99, { status: "ACTIVE" })
+      updateProductApprovalStatusService(99, { status: "ACTIVE" })
     ).rejects.toThrow(NotFoundError);
   });
 
-  // ── Estado ya asignado ───────────────────────────────────────────────────
+  // ── Estado ya asignado (detectado dentro de la transacción) ─────────────
 
   it("lanza ValidationError cuando el producto ya tiene el estado ACTIVE", async () => {
     prisma.products.findFirst.mockResolvedValue({
       ...mockProduct,
       approval_status: "ACTIVE",
     });
+    prisma.$transaction.mockResolvedValue([{ count: 0 }]);
 
     await expect(
-      updateProductApprovalStatusService(1, 1, { status: "ACTIVE" })
+      updateProductApprovalStatusService(1, { status: "ACTIVE" })
     ).rejects.toThrow(ValidationError);
   });
 
@@ -311,9 +314,10 @@ describe("updateProductApprovalStatusService", () => {
       ...mockProduct,
       approval_status: "REJECTED",
     });
+    prisma.$transaction.mockResolvedValue([{ count: 0 }]);
 
     await expect(
-      updateProductApprovalStatusService(1, 1, { status: "REJECTED", reason: "Motivo" })
+      updateProductApprovalStatusService(1, { status: "REJECTED", reason: "Motivo" })
     ).rejects.toThrow(ValidationError);
   });
 
@@ -321,9 +325,10 @@ describe("updateProductApprovalStatusService", () => {
 
   it("aprueba el producto correctamente: visible=true, rejection_reason=null", async () => {
     prisma.products.findFirst.mockResolvedValue(mockProduct);
-    prisma.$transaction.mockResolvedValue([mockProductApproved]);
+    prisma.$transaction.mockResolvedValue([{ count: 1 }]);
+    prisma.products.findUnique.mockResolvedValue(mockProductApproved);
 
-    const result = await updateProductApprovalStatusService(1, 1, { status: "ACTIVE" });
+    const result = await updateProductApprovalStatusService(1, { status: "ACTIVE" });
 
     expect(prisma.$transaction).toHaveBeenCalled();
     expect(result.approvalStatus).toBe("ACTIVE");
@@ -334,21 +339,23 @@ describe("updateProductApprovalStatusService", () => {
   it("al aprobar NO crea notificación", async () => {
     prisma.products.findFirst.mockResolvedValue(mockProduct);
     prisma.$transaction.mockImplementation(async (ops) => {
-      // Solo debe haber 1 operación (update), sin notificación
+      // Solo debe haber 1 operación (updateMany), sin notificación
       expect(ops).toHaveLength(1);
-      return [mockProductApproved];
+      return [{ count: 1 }];
     });
+    prisma.products.findUnique.mockResolvedValue(mockProductApproved);
 
-    await updateProductApprovalStatusService(1, 1, { status: "ACTIVE" });
+    await updateProductApprovalStatusService(1, { status: "ACTIVE" });
   });
 
   // ── Rechazo ──────────────────────────────────────────────────────────────
 
   it("rechaza el producto correctamente: visible=false, rejection_reason asignado", async () => {
     prisma.products.findFirst.mockResolvedValue(mockProduct);
-    prisma.$transaction.mockResolvedValue([mockProductRejected]);
+    prisma.$transaction.mockResolvedValue([{ count: 1 }, {}]);
+    prisma.products.findUnique.mockResolvedValue(mockProductRejected);
 
-    const result = await updateProductApprovalStatusService(1, 1, {
+    const result = await updateProductApprovalStatusService(1, {
       status: "REJECTED",
       reason: "Producto falsificado confirmado",
     });
@@ -361,12 +368,13 @@ describe("updateProductApprovalStatusService", () => {
   it("al rechazar crea notificación para el vendedor", async () => {
     prisma.products.findFirst.mockResolvedValue(mockProduct);
     prisma.$transaction.mockImplementation(async (ops) => {
-      // Debe haber 2 operaciones: update + notification
+      // Debe haber 2 operaciones: updateMany + notification
       expect(ops).toHaveLength(2);
-      return [mockProductRejected];
+      return [{ count: 1 }, {}];
     });
+    prisma.products.findUnique.mockResolvedValue(mockProductRejected);
 
-    await updateProductApprovalStatusService(1, 1, {
+    await updateProductApprovalStatusService(1, {
       status: "REJECTED",
       reason: "Producto falsificado",
     });
@@ -374,10 +382,11 @@ describe("updateProductApprovalStatusService", () => {
 
   it("normaliza status a mayúsculas antes de procesar", async () => {
     prisma.products.findFirst.mockResolvedValue(mockProduct);
-    prisma.$transaction.mockResolvedValue([mockProductApproved]);
+    prisma.$transaction.mockResolvedValue([{ count: 1 }]);
+    prisma.products.findUnique.mockResolvedValue(mockProductApproved);
 
     await expect(
-      updateProductApprovalStatusService(1, 1, { status: "active" })
+      updateProductApprovalStatusService(1, { status: "active" })
     ).resolves.not.toThrow();
   });
 });

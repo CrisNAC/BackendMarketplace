@@ -18,11 +18,7 @@ export const updateProductStatus = async (req, res, next) => {
     if (!req.user?.id_user) {
       return res.status(401).json({ success: false, message: "Usuario autenticado requerido" });
     }
-    const result = await updateProductApprovalStatusService(
-      req.user.id_user,
-      req.params.id,
-      req.body
-    );
+    const result = await updateProductApprovalStatusService(req.params.id, req.body);
     return res.status(200).json(result);
   } catch (error) {
     next(error);
