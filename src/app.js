@@ -42,9 +42,10 @@ import {
 
 // Rutas de administración
 import {
-  adminUsersRoutes, 
+  adminUsersRoutes,
   adminCategoryRoutes,
   adminStoresRoutes,
+  adminProductsRoutes,
 } from "./modules/admin/index.js";
 
 const app = express();
@@ -96,6 +97,7 @@ app.use("/api/orders", orderRouter);
 app.use("/api/admin", adminUsersRoutes);
 app.use("/api/admin/categories", adminCategoryRoutes);
 app.use("/api/admin/stores", adminStoresRoutes);
+app.use("/api/admin/products", adminProductsRoutes);
 
 // Rutas de distancias
 app.use("/api/distances", distanceRoutes);
