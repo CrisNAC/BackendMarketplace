@@ -1,11 +1,22 @@
 import { prisma } from "../../../../lib/prisma.js";
 import {
+  ConflictError,
   ForbiddenError,
   NotFoundError,
   ValidationError
 } from "../../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../../lib/validators.js";
 
+// Catálogo de motivos de reporte. Es la fuente única de verdad:
+// se usa para validar en createProductReportService y se expone vía GET /reasons para el frontend.
+export const PRODUCT_REPORT_REASONS = [
+  { value: "DEFECTIVE",        label: "Producto en mal estado" },
+  { value: "WRONG_ITEM",       label: "Producto incorrecto o no es lo que pedí" },
+  { value: "MISSING_ITEM",     label: "Producto incompleto o faltante" },
+  { value: "LATE_DELIVERY",    label: "Entrega tardía o no recibida" },
+  { value: "CUSTOMER_SERVICE", label: "Mala atención del vendedor" },
+  { value: "OTHER",            label: "Otro" },
+];
 
 const BASE_QUERY = {
   where: { status: true },
@@ -92,7 +103,7 @@ export const getProductsReportsService = async (authenticatedUserId) => {
 };
 
 
-// Solo el Seller puede actualizar el estado de un reporte de producto (IN_PROGRESS o RESOLVED) 
+// Solo el Seller puede actualizar el estado de un reporte de producto (IN_PROGRESS o RESOLVED)
 // y agregar notas explicativas. No puede modificar un reporte ya resuelto o rechazado.
 export const updateProductReportService = async (authenticatedUserId, reportId, { report_status, notes }) => {
   const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
@@ -205,7 +216,81 @@ export const updateProductReportService = async (authenticatedUserId, reportId, 
   return updatedReport;
 };
 
-// Endpoint para que Admin y Seller puedan obtener reportes de productos filtrados por estado del reporte 
+// Devuelve el catálogo de motivos válidos con sus etiquetas en español.
+export const getProductReportReasonsService = () => PRODUCT_REPORT_REASONS;
+
+// Cliente crea un reporte de producto. No puede duplicar un reporte PENDING para el mismo producto.
+export const createProductReportService = async (authenticatedUserId, { productId, reason, description }) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
+  const resolvedProductId = parsePositiveInteger(productId, "productId");
+
+  if (!reason || typeof reason !== "string" || !reason.toString().trim()) {
+    throw new ValidationError("La razón del reporte es requerida");
+  }
+
+  const normalizedReason = reason.toString().trim().toUpperCase();
+  const allowedValues = PRODUCT_REPORT_REASONS.map((r) => r.value);
+  if (!allowedValues.includes(normalizedReason)) {
+    throw new ValidationError(`Razón inválida. Los valores permitidos son: ${allowedValues.join(", ")}`);
+  }
+
+  const product = await prisma.products.findFirst({
+    where: { id_product: resolvedProductId, status: true },
+    select: { id_product: true },
+  });
+  if (!product) throw new NotFoundError("Producto no encontrado");
+
+  const existing = await prisma.productReports.findFirst({
+    where: {
+      fk_product: resolvedProductId,
+      fk_reporter: resolvedUserId,
+      report_status: "PENDING",
+      status: true,
+    },
+    select: { id_product_report: true },
+  });
+  if (existing) throw new ConflictError("Ya tenés un reporte pendiente para este producto");
+
+  const trimmedDescription = description?.toString().trim() || null;
+
+  const report = await prisma.productReports.create({
+    data: {
+      fk_product: resolvedProductId,
+      fk_reporter: resolvedUserId,
+      reason: normalizedReason,
+      description: trimmedDescription,
+    },
+    select: {
+      id_product_report: true,
+      reason: true,
+      description: true,
+      report_status: true,
+      created_at: true,
+    },
+  });
+
+  return report;
+};
+
+// Cliente verifica si ya tiene un reporte PENDING para un producto dado.
+export const checkProductReportService = async (authenticatedUserId, productId) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
+  const resolvedProductId = parsePositiveInteger(productId, "productId");
+
+  const existing = await prisma.productReports.findFirst({
+    where: {
+      fk_product: resolvedProductId,
+      fk_reporter: resolvedUserId,
+      report_status: "PENDING",
+      status: true,
+    },
+    select: { id_product_report: true },
+  });
+
+  return { hasReport: !!existing, reportId: existing?.id_product_report ?? null };
+};
+
+// Endpoint para que Admin y Seller puedan obtener reportes de productos filtrados por estado del reporte
 // y búsqueda por nombre del cliente que reportó. El Seller solo ve los reportes de su tienda.
 export const getProductsReportsFilteredService = async (authenticatedUserId, { report_status, search }, { page, limit, skip }) => {
   const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
@@ -273,4 +358,61 @@ export const getProductsReportsFilteredService = async (authenticatedUserId, { r
       total_pages: Math.ceil(total / limit),
     },
   };
+};
+
+// Admin resuelve o rechaza un reporte de producto.
+export const resolveProductReportAdminService = async (adminUserId, reportId, { status, notes }) => {
+  const resolvedAdminId = parsePositiveInteger(adminUserId, "userId");
+  const resolvedReportId = parsePositiveInteger(reportId, "reportId");
+
+  if (!status || typeof status !== "string" || !status.toString().trim()) {
+    throw new ValidationError("El estado es requerido");
+  }
+
+  const normalizedStatus = status.toString().trim().toUpperCase();
+  const allowedStatuses = ["RESOLVED", "REJECTED"];
+  if (!allowedStatuses.includes(normalizedStatus)) {
+    throw new ValidationError(`Estado inválido. Los valores permitidos son: ${allowedStatuses.join(", ")}`);
+  }
+
+  const trimmedNotes = notes?.toString().trim();
+  if (!trimmedNotes) {
+    throw new ValidationError("Las notas son obligatorias al resolver o rechazar un reporte");
+  }
+
+  const report = await prisma.productReports.findFirst({
+    where: { id_product_report: resolvedReportId, status: true },
+    select: { id_product_report: true, report_status: true },
+  });
+
+  if (!report) throw new NotFoundError("Reporte no encontrado");
+
+  if (report.report_status === "RESOLVED" || report.report_status === "REJECTED") {
+    throw new ValidationError("Este reporte ya fue cerrado y no puede modificarse");
+  }
+
+  let updated;
+  try {
+    updated = await prisma.productReports.update({
+      where: { id_product_report: resolvedReportId, status: true },
+      data: {
+        report_status: normalizedStatus,
+        notes: trimmedNotes,
+        resolved_by: resolvedAdminId,
+        resolved_at: new Date(),
+      },
+      select: {
+        id_product_report: true,
+        report_status: true,
+        notes: true,
+        resolved_at: true,
+        resolver: { select: { id_user: true, name: true } },
+      },
+    });
+  } catch (e) {
+    if (e?.code === "P2025") throw new NotFoundError("El reporte ya no está disponible o fue modificado por otro proceso");
+    throw e;
+  }
+
+  return updated;
 };
