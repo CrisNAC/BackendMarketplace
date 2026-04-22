@@ -10,12 +10,16 @@ import commerceAddressRoutes from "./modules/commerce/addresses/routes/addresses
 import storeCategoryRoutes from "./modules/commerce/store-categories/store-category.routes.js";
 import productRoutes from "./modules/commerce/products/product.routes.js";
 import categoriesRoutes from "./modules/global/categories/categories.routes.js";
+import categoryRequestRoutes from "./modules/commerce/category-requests/category-request.routes.js";
 import productTagRoutes from "./modules/commerce/product-tags/product-tag.routes.js";
 import productReviewRoutes from "./modules/commerce/product-reviews/product-review.routes.js";
 import userRoutes from "./modules/users/users/routes/users.routes.js";
 import addressRoutes from "./modules/users/addresses/routes/addresses.routes.js";
 import sessionRoutes from "./modules/session/routes/session.routes.js";
 import userProductReviewRoutes from "./modules/users/product-review/product-review.routes.js";
+
+import productReportRoutes from "./modules/global/reports/product/product-report.routes.js";
+import reviewReportRoutes from "./modules/global/reports/review/review-report.routes.js";
 
 import wishlistRoutes from "./modules/users/wishlist/wishlist.routes.js";
 import cartRoutes from "./modules/users/cart/cart.routes.js";
@@ -29,10 +33,20 @@ import { setupSwagger } from "./config/swagger.config.js";
 
 import distanceRoutes from "./modules/global/distances/routes/distance.routes.js";
 
-import productImageRoutes from './modules/images/routes/product-image.routes.js';
-import userImageRoutes from './modules/images/routes/user-image.routes.js';
-import storeImageRoutes from './modules/images/routes/store-image.routes.js';
-import adminUserRoutes from "./modules/admin/users/admin-users.routes.js";
+// Rutas de imágenes
+import { 
+  productImageRoutes, 
+  userImageRoutes, 
+  storeImageRoutes, 
+} from './modules/images/routes/index.js';
+
+// Rutas de administración
+import {
+  adminUsersRoutes,
+  adminCategoryRoutes,
+  adminStoresRoutes,
+  adminProductsRoutes,
+} from "./modules/admin/index.js";
 
 const app = express();
 
@@ -49,6 +63,7 @@ app.use(cors({
 setupSwagger(app);
 
 // Rutas de comercio
+app.use("/api/commerces/category-requests", categoryRequestRoutes);
 app.use("/api/commerces/categories", storeCategoryRoutes);
 app.use("/api/commerces", storeRoutes);
 app.use("/api/commerces", commerceAddressRoutes);
@@ -63,6 +78,10 @@ app.use("/products", productRoutes);
 // Rutas del Cliente
 app.use("/products/:id/reviews", userProductReviewRoutes);
 
+// Rutas de reportes
+app.use("/api/reports", productReportRoutes);
+app.use("/api/reports", reviewReportRoutes);
+
 // Rutas de usuarios
 app.use("/api/users", userRoutes);
 app.use("/api/users", addressRoutes);
@@ -75,7 +94,10 @@ app.use('/api/session', sessionRoutes);
 app.use("/api/orders", orderRouter);
 
 // Rutas de administración
-app.use("/api/admin", adminUserRoutes);
+app.use("/api/admin", adminUsersRoutes);
+app.use("/api/admin/categories", adminCategoryRoutes);
+app.use("/api/admin/stores", adminStoresRoutes);
+app.use("/api/admin/products", adminProductsRoutes);
 
 // Rutas de distancias
 app.use("/api/distances", distanceRoutes);

@@ -29,6 +29,7 @@ const PRODUCT_RESPONSE_SELECT = {
   fk_store: true,
   visible: true,
   is_offer: true,
+  image_url: true, 
   created_at: true,
   updated_at: true,
   product_category: {
@@ -319,6 +320,7 @@ const mapProductResponse = (product) => {
     id: product.id_product,
     name: product.name,
     description: product.description,
+    imageUrl: product.image_url ?? null,  
     price: pricing.price,
     originalPrice: pricing.originalPrice,
     offerPrice: pricing.offerPrice,
@@ -773,10 +775,12 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
         price: true,
         offer_price: true,
         is_offer: true,
+        image_url: true,
         store: {
           select: {
             id_store: true,
-            name: true
+            name: true,
+            logo: true 
           }
         }
       }
@@ -788,6 +792,7 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
       id_product: product.id_product,
       name: product.name,
       description: product.description,
+      image_url: product.image_url ?? null, 
       price: getEffectiveProductPrice(product),
       original_price: getOriginalProductPrice(product),
       offer_price: getOfferProductPrice(product),
@@ -795,7 +800,8 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
       store: product.store
         ? {
             id_store: product.store.id_store,
-            name: product.store.name
+            name: product.store.name,
+            logo: product.store.logo ?? null 
           }
         : null
     })),

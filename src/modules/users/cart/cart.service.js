@@ -36,7 +36,7 @@ const getCartWithItems = async (cartId) => {
       id_cart: true,
       fk_store: true,
       cart_status: true,
-      store: { select: { id_store: true, name: true } },
+      store: { select: { id_store: true, name: true, logo: true } },
       items: {
         where: { status: true },
         select: {
@@ -48,7 +48,8 @@ const getCartWithItems = async (cartId) => {
               name: true,
               price: true,
               offer_price: true,
-              is_offer: true
+              is_offer: true,
+              image_url: true
             }
           }
         }
@@ -64,10 +65,11 @@ const mapCartResponse = (cart) => {
     id: cart.id_cart,
     storeId: cart.fk_store,
     commerce: cart.store
-      ? { id: cart.store.id_store, name: cart.store.name }
+      ? { id: cart.store.id_store, name: cart.store.name, logo: cart.store.logo ?? null }
       : null,
     status: cart.cart_status,
     items: cart.items.map((item) => {
+      
       const pricing = getProductPricing(item.product);
       return {
         id: item.id_cart_item,
@@ -78,7 +80,8 @@ const mapCartResponse = (cart) => {
           price: pricing.price,
           originalPrice: pricing.originalPrice,
           offerPrice: pricing.offerPrice,
-          isOffer: pricing.isOffer
+          isOffer: pricing.isOffer,
+          imageUrl: item.product.image_url ?? null
         }
       };
     })

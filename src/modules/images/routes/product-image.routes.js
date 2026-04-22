@@ -20,4 +20,4 @@ router.post('/:id/image', authenticate, requireRole(ROLES.ADMIN, ROLES.SELLER), 
 router.put('/:id/image', authenticate, requireRole(ROLES.ADMIN, ROLES.SELLER), upload.single('image'), updateProductImage)
 router.delete('/:id/image', authenticate, requireRole(ROLES.ADMIN, ROLES.SELLER), deleteProductImage)
 
-export default router
+export { router as productImageRoutes }

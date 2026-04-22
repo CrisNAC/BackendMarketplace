@@ -21,6 +21,7 @@ const STORE_RESPONSE_SELECT = {
   instagram_url: true,
   tiktok_url: true,
   status: true,
+  store_status: true,
   created_at: true,
   updated_at: true,
   user: {
@@ -49,6 +50,7 @@ const STORE_RESPONSE_SELECT = {
       quantity: true,
       visible: true,
       is_offer: true,
+      image_url: true,
       product_category: {
         select: {
           id_product_category: true,
@@ -595,6 +597,7 @@ export const createStoreService = async (data) => {
           website_url,
           instagram_url,
           tiktok_url,
+          store_status: "INACTIVE", // Pendiente de aprobación del admin
         },
       });
 
@@ -945,6 +948,7 @@ export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}
           quantity: true,
           visible: true,
           is_offer: true,
+          image_url: true, 
           product_category: {
             select: { id_product_category: true, name: true }
           }
@@ -1288,6 +1292,7 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
         quantity: true,
         visible: true,
         is_offer: true,
+        image_url: true, 
         created_at: true,
         product_category: {
           select: { id_product_category: true, name: true },

@@ -194,9 +194,9 @@ describe("E2E GET /products/filter", () => {
     );
 
     expect(res.status).toBe(200);
-    const prices = res.body.content.map((p) => p.price);
-    const sorted = [...prices].sort((a, b) => a - b);
-    expect(prices).toEqual(sorted);
+    const basePrices = res.body.content.map((p) => p.original_price);
+    const sorted = [...basePrices].sort((a, b) => a - b);
+    expect(basePrices).toEqual(sorted);
   });
 
   it("ordena por price desc correctamente", async () => {
@@ -205,9 +205,9 @@ describe("E2E GET /products/filter", () => {
     );
 
     expect(res.status).toBe(200);
-    const prices = res.body.content.map((p) => p.price);
-    const sorted = [...prices].sort((a, b) => b - a);
-    expect(prices).toEqual(sorted);
+    const basePrices = res.body.content.map((p) => p.original_price);
+    const sorted = [...basePrices].sort((a, b) => b - a);
+    expect(basePrices).toEqual(sorted);
   });
 
   it("devuelve 400 cuando sortBy tiene un valor invalido", async () => {

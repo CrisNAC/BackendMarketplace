@@ -2,15 +2,20 @@ import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import {
     commonSchemas,
+    imageSchemas,
     // /commerce
     addressSchemas,
     storeSchemas,
     productTagSchemas,
     productReviewSchemas,
     productSchemas,
+    productReportSchemas,
+    reviewReportSchemas,
+    categoryRequestSchemas,
     // /session
     sessionSchemas,
-    imageSchemas
+    // /admin
+    adminCategorySchemas,
 } from "../docs/schemas/index.js";
 
 const options = {
@@ -40,9 +45,11 @@ const options = {
             { name: "Commerces", description: "Gestión de comercios" },
             { name: "Products", description: "Gestión de productos" },
             { name: "Reviews", description: "Reseñas de productos" },
+            { name: "Categorías", description: "Gestión de categorías de productos" },
             { name: "Users", description: "Gestión de usuarios" },
             { name: "Orders", description: "Gestión de pedidos" },
             { name: "Images", description: "Gestión de imágenes" },
+            { name: "Admin", description: "Gestión de administración" },
         ],
         components: {
             securitySchemes: {
@@ -60,11 +67,16 @@ const options = {
                 ...productReviewSchemas,
                 ...productTagSchemas,
                 ...productSchemas,
+                ...productReportSchemas,
+                ...reviewReportSchemas,
 
+                ...categoryRequestSchemas,
                 // /session
                 ...sessionSchemas,
                 // /images
-                ...imageSchemas
+                ...imageSchemas,
+                // /admin
+                ...adminCategorySchemas,
             }
         },
         security: [
