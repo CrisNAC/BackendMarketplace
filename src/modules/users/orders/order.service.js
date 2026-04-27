@@ -586,22 +586,36 @@ export const createDeliveryReviewService = async (
   const normalizedRating = Number(rating);
   const normalizedComment = typeof comment === "string" ? comment.trim() : "";
 
-  if (!Number.isInteger(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
+  if (
+    !Number.isInteger(normalizedRating) ||
+    normalizedRating < 1 ||
+    normalizedRating > 5
+  ) {
     throw new ValidationError("La calificación debe estar entre 1 y 5");
   }
 
   if (normalizedComment.length > 1000) {
-    throw new ValidationError("El comentario no puede superar los 1000 caracteres");
+    throw new ValidationError(
+      "El comentario no puede superar los 1000 caracteres"
+    );
   }
 
   const user = await prisma.users.findFirst({
-    where: { id_user: resolvedUserId, status: true },
-    select: { role: true }
+    where: {
+      id_user: resolvedUserId,
+      status: true
+    },
+    select: {
+      role: true
+    }
   });
 
   if (!user) throw new NotFoundError("Usuario no encontrado.");
+
   if (user.role !== "CUSTOMER") {
-    throw new ForbiddenError("Solo clientes pueden calificar deliveries.");
+    throw new ForbiddenError(
+      "Solo clientes pueden calificar deliveries."
+    );
   }
 
   const order = await prisma.orders.findFirst({
@@ -621,65 +635,72 @@ export const createDeliveryReviewService = async (
   }
 
   if (order.order_status !== "DELIVERED") {
-    throw new ValidationError("Solo se pueden calificar pedidos entregados");
+    throw new ValidationError(
+      "Solo se pueden calificar pedidos entregados"
+    );
   }
 
-  const latestAssignment = await prisma.deliveryAssignments.findFirst({
-    where: {
-      fk_order: resolvedOrderId,
-      status: true
-    },
-    orderBy: [{ assignment_sequence: "desc" }, { assigned_at: "desc" }],
-    select: {
-      fk_delivery: true
-    }
-  });
+  const latestAssignment =
+    await prisma.deliveryAssignments.findFirst({
+      where: {
+        fk_order: resolvedOrderId,
+        status: true
+      },
+      orderBy: [
+        { assignment_sequence: "desc" },
+        { assigned_at: "desc" }
+      ],
+      select: {
+        fk_delivery: true
+      }
+    });
 
   if (!latestAssignment) {
-    throw new ValidationError("El pedido no tiene delivery asignado");
+    throw new ValidationError(
+      "El pedido no tiene delivery asignado"
+    );
   }
 
-  const existingReview = await prisma.deliveryReviews.findFirst({
-    where: {
-      fk_order: resolvedOrderId,
-      status: true
-    },
-    select: {
-      id_delivery_review: true
-    }
-  });
+  try {
+    const created = await prisma.deliveryReviews.create({
+      data: {
+        fk_order: resolvedOrderId,
+        fk_user: resolvedUserId,
+        fk_delivery: latestAssignment.fk_delivery,
+        rating: normalizedRating,
+        comment: normalizedComment || null,
+        status: true
+      },
+      select: {
+        id_delivery_review: true,
+        fk_order: true,
+        fk_delivery: true,
+        rating: true,
+        comment: true,
+        created_at: true
+      }
+    });
 
-  if (existingReview) {
-    throw new ConflictError("Este pedido ya tiene una calificación de delivery");
+    return {
+      id: created.id_delivery_review,
+      orderId: created.fk_order,
+      deliveryId: created.fk_delivery,
+      rating: created.rating,
+      comment: created.comment,
+      createdAt: created.created_at
+    };
+  } catch (error) {
+    if (
+      error?.code === "P2002" &&
+      error?.meta?.target?.includes("fk_order")
+    ) {
+      throw new ConflictError(
+        "Este pedido ya tiene una calificación de delivery"
+      );
+    }
+
+    throw error;
   }
-
-  const created = await prisma.deliveryReviews.create({
-    data: {
-      fk_order: resolvedOrderId,
-      fk_user: resolvedUserId,
-      fk_delivery: latestAssignment.fk_delivery,
-      rating: normalizedRating,
-      comment: normalizedComment || null,
-      status: true
-    },
-    select: {
-      id_delivery_review: true,
-      fk_order: true,
-      fk_delivery: true,
-      rating: true,
-      comment: true,
-      created_at: true
-    }
-  });
-
-  return {
-    id: created.id_delivery_review,
-    orderId: created.fk_order,
-    deliveryId: created.fk_delivery,
-    rating: created.rating,
-    comment: created.comment,
-    createdAt: created.created_at
-  };
 };
 
 
