@@ -1,8 +1,10 @@
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import {
+	createDeliveryReview,
 	createOrder,
 	getOrderShippingQuote,
+	getPendingDeliveryReviews,
 	getOrders,
 	getStoreOrders,
 	updateOrderStatus
@@ -19,6 +21,12 @@ orderRouter.post("/shipping-quote", authenticate, getOrderShippingQuote);
 
 // GET /api/users/:customerId/orders — historial de pedidos del usuario
 userOrderRouter.get("/:customerId/orders", authenticate, getOrders);
+
+// GET /api/orders/pending-delivery-reviews — pedidos entregados sin calificación al delivery
+orderRouter.get("/pending-delivery-reviews", authenticate, getPendingDeliveryReviews);
+
+// POST /api/orders/:orderId/delivery-review — calificar delivery del pedido entregado
+orderRouter.post("/:orderId/delivery-review", authenticate, createDeliveryReview);
 
 // GET  /api/orders/store/:storeId — pedidos del comercio
 orderRouter.get("/store/:storeId", authenticate, getStoreOrders);

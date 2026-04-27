@@ -40,6 +40,7 @@ model Users {
   reviewsResolved   ReviewReports[] @relation("ReviewResolver") //Usuario admin puede resolver multiples reportes de reseñas
   product_reports    ProductReports[] @relation("ProductReporter") //Usuario puede reportar multiples productos
   productsResolved   ProductReports[] @relation("ProductReportResolver") //Usuario seller puede resolver multiples reportes de productos
+  delivery_reviews DeliveryReviews[]
 }
 
 //------------------------------------NOTIFICACIONES----------------------------------------
@@ -359,6 +360,7 @@ model Deliveries {
   store            Stores          @relation(fields: [fk_store], references: [id_store])
   user             Users           @relation(fields: [fk_user], references: [id_user])
   delivery_assignments  DeliveryAssignments[]
+  delivery_reviews DeliveryReviews[]
 }
 
 model DeliveryAssignments  {
@@ -375,6 +377,21 @@ model DeliveryAssignments  {
   order   Orders   @relation("OrderDeliveryAssignments", fields: [fk_order], references: [id_order])
   delivery Deliveries @relation(fields: [fk_delivery], references: [id_delivery])
   @@unique([fk_order, assignment_sequence]) 
+}
+
+model DeliveryReviews {
+  id_delivery_review   Int       @id @default(autoincrement())
+  fk_order             Int       @unique
+  fk_user              Int
+  fk_delivery          Int
+  rating               Int       @db.SmallInt   // 1 a 5 estrellas
+  comment              String?   @db.Text
+  status               Boolean   @default(true)
+  created_at           DateTime  @default(now()) @db.Timestamptz
+  updated_at           DateTime  @updatedAt @db.Timestamptz
+  order      Orders       @relation(fields: [fk_order], references: [id_order])
+  user       Users        @relation(fields: [fk_user], references: [id_user])
+  delivery   Deliveries   @relation(fields: [fk_delivery], references: [id_delivery])
 }
 
 enum AssignmentStatus {
@@ -406,6 +423,7 @@ model Orders {
   order_items          OrderItems[]
   delivery_assignments  DeliveryAssignments[]  @relation("OrderDeliveryAssignments")
   product_reports       ProductReports[]
+  delivery_review      DeliveryReviews?
 }
 
 model OrderItems {
