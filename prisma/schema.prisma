@@ -363,13 +363,24 @@ model Deliveries {
 
 model DeliveryAssignments  {
   id_delivery_assignment    Int      @id @default(autoincrement())
-  fk_order                  Int      @unique
+  fk_order                  Int      // 
   fk_delivery               Int
+  assignment_status         AssignmentStatus @default(PENDING)  
+  assignment_sequence       Int      @default(1)  
   assigned_at               DateTime @default(now()) @db.Timestamptz
   status                    Boolean  @default(true)
+  created_at                DateTime @default(now()) @db.Timestamptz  
+  updated_at                DateTime @updatedAt @db.Timestamptz 
 
-  order   Orders   @relation(fields: [fk_order], references: [id_order])
+  order   Orders   @relation("OrderDeliveryAssignments", fields: [fk_order], references: [id_order])
   delivery Deliveries @relation(fields: [fk_delivery], references: [id_delivery])
+  @@unique([fk_order, assignment_sequence]) 
+}
+
+enum AssignmentStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
 
 //------------------------------------PEDIDOS----------------------------------------
@@ -393,7 +404,7 @@ model Orders {
   store                Stores              @relation(fields: [fk_store], references: [id_store])
   address              Addresses?           @relation(fields: [fk_address], references: [id_address])
   order_items          OrderItems[]
-  delivery_assignment  DeliveryAssignments?
+  delivery_assignments  DeliveryAssignments[]  @relation("OrderDeliveryAssignments")
   product_reports       ProductReports[]
 }
 
