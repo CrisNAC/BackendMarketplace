@@ -374,6 +374,7 @@ model DeliveryAssignments  {
 
   order   Orders   @relation("OrderDeliveryAssignments", fields: [fk_order], references: [id_order])
   delivery Deliveries @relation(fields: [fk_delivery], references: [id_delivery])
+  @@unique([fk_order, assignment_sequence]) 
 }
 
 enum AssignmentStatus {
