@@ -1,3 +1,4 @@
+//delivery.routes.js
 import { Router } from "express";
 import authenticate from "../../../../config/jwt.config.js";
 import {
@@ -17,7 +18,7 @@ import {
 
 const router = Router();
 
-// Rutas publicas
+// Rutas públicas
 router.post("/register", registerDelivery);
 router.post("/login", loginDelivery);
 

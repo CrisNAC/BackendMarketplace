@@ -24,6 +24,10 @@ export const updateDeliveryStatusSchema = z.object({
   delivery_status: z.enum(["AVAILABLE", "ON_THE_WAY", "ASSIGNED", "DELIVERED", "INACTIVE"])
 });
 
+export const updateDeliveryStatusSchema = z.object({
+  delivery_status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"])
+});
+
 export const updateDeliverySchema = z.object({
   name: z.string().min(2, "Nombre debe tener mínimo 2 caracteres").optional(),
   email: z.string().email("Email inválido").optional(),
