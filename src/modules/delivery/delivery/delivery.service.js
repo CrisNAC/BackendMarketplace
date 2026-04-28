@@ -98,7 +98,6 @@ export const updateDeliveryStatusService = async (authenticatedUserId, id_delive
     throw { status: 404, message: "Delivery no encontrado" };
   }
 
-  // validar que el delivery pertenezca al usuario autenticado
   if (delivery.fk_user !== authenticatedUserId) {
     throw { status: 403, message: "No tienes permiso para actualizar este delivery" };
   }

@@ -60,6 +60,7 @@ export const updateDeliveryStatus = async (req, res) => {
     const { id } = req.params;
     const { delivery_status } = req.body;
 
+    // delivery_status requerido
     if (!delivery_status || !String(delivery_status).trim()) {
       return res.status(400).json({
         error: {
@@ -69,8 +70,8 @@ export const updateDeliveryStatus = async (req, res) => {
       });
     }
 
+    // validar enum antes de parsear
     const validData = updateDeliveryStatusSchema.parse(req.body);
-    // pasar req.user.id_user
     const result = await updateDeliveryStatusService(
       req.user.id_user, 
       parseInt(id), 
@@ -82,10 +83,25 @@ export const updateDeliveryStatus = async (req, res) => {
       data: result
     });
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    // capturar errores de Zod y retornar 400
+    if (error.name === 'ZodError') {
+      return res.status(400).json({
+        error: {
+          code: 400,
+          message: "delivery_status debe ser ACTIVE o INACTIVE"
+        }
+      });
+    }
+    
+    // retornar error.message en la estructura correcta
+    return res.status(error.status || 500).json({
+      error: {
+        code: error.status || 500,
+        message: error.message
+      }
+    });
   }
 };
-
 // Obtener asignaciones pendientes del delivery
 export const getPendingAssignments = async (req, res) => {
   try {
