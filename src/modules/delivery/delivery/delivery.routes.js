@@ -25,7 +25,7 @@ router.post("/login", loginDelivery);
 
 // Rutas protegidas
 router.post("/", authenticate, createDelivery);
-router.put("/:id/status", authenticate, updateDeliveryStatus);
+router.patch("/:id/status", authenticate, updateDeliveryStatus);
 router.get("/:id/assignments", authenticate, getPendingAssignments);
 router.put("/:id", authenticate, updateDelivery);
 router.get("/:id", authenticate, getDeliveryById);
