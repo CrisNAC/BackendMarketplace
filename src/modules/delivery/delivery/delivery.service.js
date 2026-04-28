@@ -89,13 +89,18 @@ export const createDeliveryService = async (data) => {
 };
 
 // Actualizar status del delivery
-export const updateDeliveryStatusService = async (id_delivery, nuevoStatus) => {
+export const updateDeliveryStatusService = async (authenticatedUserId, id_delivery, nuevoStatus) => {
   const delivery = await prisma.deliveries.findUnique({
     where: { id_delivery }
   });
   
   if (!delivery) {
     throw { status: 404, message: "Delivery no encontrado" };
+  }
+
+  // validar que el delivery pertenezca al usuario autenticado
+  if (delivery.fk_user !== authenticatedUserId) {
+    throw { status: 403, message: "No tienes permiso para actualizar este delivery" };
   }
   
   const updated = await prisma.deliveries.update({

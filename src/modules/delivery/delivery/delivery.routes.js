@@ -1,7 +1,7 @@
 //delivery.routes.js
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
-
+import { ROLES } from "../../../utils/contants/roles.constant.js";
 import {
   registerDelivery,
   loginDelivery,
@@ -25,7 +25,7 @@ router.post("/login", loginDelivery);
 
 // Rutas protegidas
 router.post("/", authenticate, createDelivery);
-router.patch("/:id/status", authenticate, updateDeliveryStatus);
+router.patch("/:id/status", authenticate, requireRole(ROLES.DELIVERY), updateDeliveryStatus);
 router.get("/:id/assignments", authenticate, getPendingAssignments);
 router.put("/:id", authenticate, updateDelivery);
 router.get("/:id", authenticate, getDeliveryById);

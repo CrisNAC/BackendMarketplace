@@ -58,9 +58,29 @@ export const createDelivery = async (req, res) => {
 export const updateDeliveryStatus = async (req, res) => {
   try {
     const { id } = req.params;
+    const { delivery_status } = req.body;
+
+    if (!delivery_status || !String(delivery_status).trim()) {
+      return res.status(400).json({
+        error: {
+          code: 400,
+          message: "delivery_status es requerido"
+        }
+      });
+    }
+
     const validData = updateDeliveryStatusSchema.parse(req.body);
-    const result = await updateDeliveryStatusService(parseInt(id), validData.delivery_status);
-    res.json(result);
+    // pasar req.user.id_user
+    const result = await updateDeliveryStatusService(
+      req.user.id_user, 
+      parseInt(id), 
+      validData.delivery_status
+    );
+    
+    return res.status(200).json({
+      message: "Estado del delivery actualizado exitosamente",
+      data: result
+    });
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message });
   }
