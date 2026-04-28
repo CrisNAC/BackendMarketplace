@@ -1,6 +1,8 @@
 import {
+  createDeliveryReviewService,
   createOrderService,
   getOrderShippingQuoteService,
+  getPendingDeliveryReviewsService,
   getOrdersService,
   getStoreOrdersService,
   updateOrderStatusService
@@ -56,6 +58,25 @@ export const getOrderShippingQuote = async (req, res, next) => {
   try {
     const quote = await getOrderShippingQuoteService(req.user.id_user, req.body);
     return res.status(200).json(quote);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPendingDeliveryReviews = async (req, res, next) => {
+  try {
+    const pendingReviews = await getPendingDeliveryReviewsService(req.user.id_user);
+    return res.status(200).json(pendingReviews);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createDeliveryReview = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const review = await createDeliveryReviewService(req.user.id_user, orderId, req.body);
+    return res.status(201).json(review);
   } catch (error) {
     next(error);
   }
