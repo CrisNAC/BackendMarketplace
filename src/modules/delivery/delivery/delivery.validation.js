@@ -11,7 +11,7 @@ export const registerDeliverySchema = z.object({
 export const createDeliverySchema = z.object({
   fk_user: z.number().int().positive("Debe ser un número entero positivo"),
   fk_store: z.number().int().positive("Debe ser un número entero positivo"),
-  delivery_status: z.enum(["AVAILABLE", "ON_THE_WAY", "ASSIGNED", "DELIVERED", "INACTIVE"]).default("AVAILABLE").optional(),
+  delivery_status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"]).default("ACTIVE").optional(),
   status: z.boolean().default(true).optional()
 });
 
@@ -20,9 +20,6 @@ export const loginDeliverySchema = z.object({
   password: z.string().min(1, "Password requerido")
 });
 
-export const updateDeliveryStatusSchema = z.object({
-  delivery_status: z.enum(["AVAILABLE", "ON_THE_WAY", "ASSIGNED", "DELIVERED", "INACTIVE"])
-});
 
 export const updateDeliveryStatusSchema = z.object({
   delivery_status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"])

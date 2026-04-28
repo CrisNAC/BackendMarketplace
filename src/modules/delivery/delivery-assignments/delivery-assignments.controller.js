@@ -9,7 +9,9 @@ import {
   getDeliveryAssignmentsService,
   getDeliveryPendingAssignmentsService,
   getAcceptedAssignmentService,
-  getAssignmentHistoryService
+  getAssignmentHistoryService,
+  deleteAssignmentService,    
+  completeAssignmentService 
 } from './delivery-assignments.service.js';
 
 // crear asignación

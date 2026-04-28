@@ -1,6 +1,6 @@
 //delivery-review.routes.js
 import { Router } from "express";
-import authenticate from "../../../../config/jwt.config.js";
+import authenticate from "../../../config/jwt.config.js";
 import {
   createDeliveryReview,
   getDeliveryReviewById,

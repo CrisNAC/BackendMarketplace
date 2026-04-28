@@ -18,9 +18,9 @@ import userRoutes from "./modules/users/users/routes/users.routes.js";
 import addressRoutes from "./modules/users/addresses/routes/addresses.routes.js";
 import sessionRoutes from "./modules/session/routes/session.routes.js";
 import userProductReviewRoutes from "./modules/users/product-review/product-review.routes.js";
-import deliveryRoutes from "./modules/deliveries/delivery.routes.js";
-import assignmentRoutes from "./modules/delivery-assignments/delivery-assignments.routes.js";
-import deliveryReviewRoutes from "./modules/delivery-reviews/delivery-review.routes.js";
+import deliveryRoutes from "./modules/delivery/delivery/delivery.routes.js";
+import assignmentRoutes from "./modules/delivery/delivery-assignments/delivery-assignments.routes.js";
+import deliveryReviewRoutes from "./modules/delivery/delivery-review/delivery-review.routes.js";
 
 import productReportRoutes from "./modules/global/reports/product/product-report.routes.js";
 import reviewReportRoutes from "./modules/global/reports/review/review-report.routes.js";
