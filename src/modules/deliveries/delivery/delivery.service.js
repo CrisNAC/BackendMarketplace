@@ -88,17 +88,17 @@ export const createDeliveryService = async (data) => {
 };
 
 // FUNCIÓN 4: Aceptar asignación
-export const acceptAssignment = async (assignmentId) => {
-  // Tu lógica aquí
+export const acceptAssignmentService = async (assignmentId) => {
+
 };
 
 // FUNCIÓN 5: Rechazar asignación
-export const rejectAssignment = async (assignmentId) => {
+export const rejectAssignmentService = async (assignmentId) => {
   // Tu lógica aquí
 };
 
 // FUNCIÓN 6: Actualizar status
-export const updateDeliveryStatus = async (deliveryId, nuevoStatus) => {
+export const updateDeliveryStatusService = async (deliveryId, nuevoStatus) => {
   // Tu lógica aquí
 };
 

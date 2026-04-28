@@ -17,24 +17,9 @@ export const loginDeliverySchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(1, "Password requerido")
 });
-export const acceptAssignmentSchema = z.object({
-  id_delivery_assignment: z.number().int().positive("ID debe ser número positivo")
-});
-
-// Para rechazar asignación
-export const rejectAssignmentSchema = z.object({
-  id_delivery_assignment: z.number().int().positive("ID debe ser número positivo")
-});
 
 // Para actualizar status del delivery
 export const updateDeliveryStatusSchema = z.object({
   delivery_status: z.enum(["AVAILABLE", "ON_THE_WAY", "ASSIGNED", "DELIVERED", "INACTIVE"])
 });
 
-// Para crear reseña de delivery (después de entrega)
-export const createDeliveryReviewSchema = z.object({
-  fk_order: z.number().int().positive("Order ID requerido"),
-  fk_delivery: z.number().int().positive("Delivery ID requerido"),
-  rating: z.number().int().min(1, "Rating mínimo 1").max(5, "Rating máximo 5"),
-  comment: z.string().max(500, "Comentario máximo 500 caracteres").optional()
-});
