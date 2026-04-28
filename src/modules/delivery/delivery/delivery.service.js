@@ -168,3 +168,64 @@ export const updateDeliveryService = async (id_user, data) => {
   
   return updatedUser;
 };
+//obtener datos completos del delivery 
+export const getDeliveryByIdService = async (id_delivery) => {
+  const delivery = await prisma.deliveries.findUnique({
+    where: { id_delivery },
+    include: {
+      user: {
+        select: {
+          id_user: true,
+          name: true,
+          email: true,
+          phone: true,
+          avatar_url: true
+        }
+      },
+      store: {
+        select: {
+          id_store: true,
+          name: true
+        }
+      },
+      delivery_assignments: {
+        select: {
+          id_delivery_assignment: true,
+          assignment_status: true,
+          assignment_sequence: true,
+          created_at: true
+        },
+        orderBy: { created_at: 'desc' },
+        take: 10  // ultimas 10 asignaciones
+      }
+    }
+  });
+  
+  if (!delivery) {
+    throw { status: 404, message: "Delivery no encontrado" };
+  }
+  
+  return delivery;
+};
+//obtener todos los deliveries de una tienda
+export const getStoreDeliveriesService = async (id_store) => {
+  const store = await prisma.stores.findUnique({
+    where: { id_store }
+  });
+  
+  if (!store) {
+    throw { status: 404, message: "Tienda no encontrada" };
+  }
+  
+  const deliveries = await prisma.deliveries.findMany({
+    where: { fk_store: id_store },
+    include: {
+      user: {
+        select: { id_user: true, name: true, email: true, phone: true }
+      }
+    },
+    orderBy: { created_at: 'desc' }
+  });
+  
+  return deliveries;
+};

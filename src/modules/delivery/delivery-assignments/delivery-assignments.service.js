@@ -4,25 +4,239 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { id } from 'zod/locales';
 
+export const createAssignmentService = async (data) => {
+  const {fk_order, fk_delivery, status} = data;
+  //verificar que la orden existe
+  const order = await prisma.orders.findUnique({
+    where: {id_order: fk_order}
+  });
+  if(!order) {throw{
+    status: 404, message: "pedido no encontrado"
+  };}
+    
+  //verificar que el delivery existe
+  const delivery = await prisma.deliveries.findUnique({
+    where: {id_delivery: fk_delivery}
+  });
+  if(!delivery) { throw {
+    status: 404, message : "delivery no encontrado"
+  };}
+  // Obtener el último intento del pedido
+  const lastAssignment = await prisma.deliveryAssignments.findFirst({
+    where: { fk_order },
+    orderBy: { assignment_sequence: 'desc' },
+    select: { assignment_sequence: true }
+  });
+  const nextSequence = (lastAssignment?.assignment_sequence || 0) + 1;
+
+  //verificar que no hay un intento PENDING activo
+  const pendingAssignment = await prisma.deliveryAssignments.findFirst({
+    where: {
+      fk_order,
+      assignment_status: "PENDING"
+    }
+  });
+  
+  if (pendingAssignment) {
+    throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
+  }
+  //crear el delivery assignment
+  const newDeliveryAssignment = await prisma.deliveryAssignments.create({
+    data: {fk_order, fk_delivery, assignment_status: "PENDING", assignment_sequence: nextSequence, status: status !== false}
+  });
+  return newDeliveryAssignment;
+}
+
+
+
 
 // aceptar asignación
 export const acceptAssignmentService = async (id_delivery_assignment) => {
-    const deliveryAssigment = await prisma.deliveryAssignments.findUnique({where: {id_delivery_assignment:id_delivery_assignment}})
-    if (!deliveryAssigment) {throw {status: 404, message: "Delivery Assignment no existe"};}
-    const updated = await prisma.deliveryAssignments.update({
-      where :{id_delivery_assignment: id_delivery_assignment},
-      data: {assignment_status: "ACCEPTED"}
-    });
-    return updated;
+  const assignment = await prisma.deliveryAssignments.findUnique({
+    where: { id_delivery_assignment }
+  });
+  //caso en que no exista el assignment
+  if (!assignment) {
+    throw { status: 404, message: "Asignación no encontrada" };
+  }
+  // Solo puedes aceptar si está PENDING
+  if (assignment.assignment_status !== "PENDING") {
+    throw { status: 409, message: "Esta asignación ya fue respondida" };
+  }
+  //se aprueba la asignacion
+  const updated = await prisma.deliveryAssignments.update({
+    where: { id_delivery_assignment },
+    data: { assignment_status: "ACCEPTED" }
+  });
+  return updated;
 };
 
 // rechazar asignación
 export const rejectAssignmentService = async (id_delivery_assignment) => {
-    const deliveryAssigment = await prisma.deliveryAssignments.findUnique({where: {id_delivery_assignment:id_delivery_assignment}})
-    if (!deliveryAssigment) {throw {status: 404, message: "Delivery Assignment no existe"};}
-    const updated = await prisma.deliveryAssignments.update({
-      where :{id_delivery_assignment: id_delivery_assignment},
-      data: {assignment_status: "REJECTED"}
-    });
+  const assignment = await prisma.deliveryAssignments.findUnique({
+    where: { id_delivery_assignment }
+  });
+  //caso en que no exista el assignment
+  if (!assignment) {
+    throw { status: 404, message: "Asignación no encontrada" };
+  }
+  // Solo puedes rechazar si está PENDING
+  if (assignment.assignment_status !== "PENDING") {
+    throw { status: 409, message: "Esta asignación ya fue respondida" };
+  }
+  //se rechaza la asignacion
+  const updated = await prisma.deliveryAssignments.update({
+    where: { id_delivery_assignment },
+    data: { assignment_status: "REJECTED" }
+  });
     return updated;
+};
+
+export const getAssignmentByIdService = async (id_delivery_assignment) => {
+  const assignment = await prisma.deliveryAssignments.findUnique({
+    where: { id_delivery_assignment },
+    include: {
+      order: {
+        select: { id_order: true, total: true, created_at: true }
+      },
+      delivery: {
+        select: { id_delivery: true, delivery_status: true }
+      }
+    }
+  });
+  
+  if (!assignment) {
+    throw { status: 404, message: "Asignación no encontrada" };
+  }
+  
+  return assignment;
+};
+export const getOrderAssignmentsService = async (id_order) => {
+  const order = await prisma.orders.findUnique({
+    where: { id_order }
+  });
+  
+  if (!order) {
+    throw { status: 404, message: "Pedido no encontrado" };
+  }
+  
+  const assignments = await prisma.deliveryAssignments.findMany({
+    where: { fk_order: id_order },
+    include: {
+      delivery: {
+        select: { id_delivery: true, delivery_status: true }
+      }
+    },
+    orderBy: { assignment_sequence: 'asc' }
+  });
+  
+  return assignments;
+};
+export const getDeliveryAssignmentsService = async (id_delivery, status = null) => {
+  const delivery = await prisma.deliveries.findUnique({
+    where: { id_delivery }
+  });
+  
+  if (!delivery) {
+    throw { status: 404, message: "Delivery no encontrado" };
+  }
+  
+  const where = { fk_delivery: id_delivery };
+  if (status) {
+    where.assignment_status = status;  // "PENDING", "ACCEPTED", "REJECTED"
+  }
+  
+  const assignments = await prisma.deliveryAssignments.findMany({
+    where,
+    include: {
+      order: {
+        select: { id_order: true, total: true, fk_address: true, created_at: true }
+      }
+    },
+    orderBy: { created_at: 'desc' }
+  });
+  
+  return assignments;
+};
+
+export const getDeliveryPendingAssignmentsService = async (id_delivery) => {
+  const delivery = await prisma.deliveries.findUnique({
+    where: { id_delivery }
+  });
+  
+  if (!delivery) {
+    throw { status: 404, message: "Delivery no encontrado" };
+  }
+  
+  const pendingAssignments = await prisma.deliveryAssignments.findMany({
+    where: {
+      fk_delivery: id_delivery,
+      assignment_status: "PENDING"
+    },
+    include: {
+      order: {
+        select: { id_order: true, total: true, fk_address: true }
+      }
+    },
+    orderBy: { created_at: 'desc' }
+  });
+  
+  return pendingAssignments;
+};
+
+export const getAcceptedAssignmentService = async (id_order) => {
+  const order = await prisma.orders.findUnique({
+    where: { id_order }
+  });
+  
+  if (!order) {
+    throw { status: 404, message: "Pedido no encontrado" };
+  }
+  
+  const acceptedAssignment = await prisma.deliveryAssignments.findFirst({
+    where: {
+      fk_order: id_order,
+      assignment_status: "ACCEPTED"
+    },
+    include: {
+      delivery: {
+        select: { id_delivery: true, delivery_status: true, user: { select: { name: true, phone: true } } }
+      }
+    }
+  });
+  
+  if (!acceptedAssignment) {
+    throw { status: 404, message: "No hay asignación aceptada para este pedido" };
+  }
+  
+  return acceptedAssignment;
+};
+export const getAssignmentHistoryService = async (id_order) => {
+  const order = await prisma.orders.findUnique({
+    where: { id_order }
+  });
+  
+  if (!order) {
+    throw { status: 404, message: "Pedido no encontrado" };
+  }
+  
+  const history = await prisma.deliveryAssignments.findMany({
+    where: { fk_order: id_order },
+    include: {
+      delivery: {
+        select: {
+          id_delivery: true,
+          delivery_status: true,
+          user: { select: { name: true, phone: true } }
+        }
+      }
+    },
+    orderBy: { assignment_sequence: 'asc' }
+  });
+  
+  return {
+    order_id: id_order,
+    total_attempts: history.length,
+    assignments: history
+  };
 };

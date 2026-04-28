@@ -71,3 +71,47 @@ export const updateDelivery = async (req, res) => {
     res.status(error.status || 500).json({ error: error.message });
   }
 };
+
+//obtener datos completos del delivery
+export const getDeliveryById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await getDeliveryByIdService(parseInt(id));
+    res.json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
+//obtener todos los deliveries de una tienda
+export const getStoreDeliveries = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const result = await getStoreDeliveriesService(parseInt(storeId));
+    res.json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
+// Obtener deliveries disponibles de una tienda
+export const getAvailableDeliveries = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const result = await getAvailableDeliveriesService(parseInt(storeId));
+    res.json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
+// Obtener estadísticas del delivery
+export const getDeliveryStats = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await getDeliveryStatsService(parseInt(id));
+    res.json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};

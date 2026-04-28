@@ -1,17 +1,34 @@
-//delivery.routes.js
 import { Router } from "express";
 import authenticate from "../../../../config/jwt.config.js";
-import { registerDelivery, loginDelivery, createDelivery, updateDeliveryStatus, getPendingAssignments,updateDelivery } from "./delivery.controller.js";
+import {
+  registerDelivery,
+  loginDelivery,
+  createDelivery,
+  updateDeliveryStatus,
+  getPendingAssignments,
+  updateDelivery,
+  getDeliveryById,
+  getStoreDeliveries,
+  getAvailableDeliveries,
+  getDeliveryStats
+} from "./delivery.controller.js";
 
 const router = Router();
 
+// Rutas publicas
 router.post("/register", registerDelivery);
 router.post("/login", loginDelivery);
 
+// Rutas protegidas
 router.post("/", authenticate, createDelivery);
 router.put("/:id/status", authenticate, updateDeliveryStatus);
 router.get("/:id/assignments", authenticate, getPendingAssignments);
-
 router.put("/:id", authenticate, updateDelivery);
+router.get("/:id", authenticate, getDeliveryById);
+router.get("/:id/stats", authenticate, getDeliveryStats);
+
+// Rutas de tienda
+router.get("/store/:storeId/deliveries", authenticate, getStoreDeliveries);
+router.get("/store/:storeId/available", authenticate, getAvailableDeliveries);
 
 export default router;
