@@ -60,7 +60,7 @@ export const updateDeliveryStatus = async (req, res) => {
     const { id } = req.params;
     const { delivery_status } = req.body;
 
-    // delivery_status requerido
+    // validar que delivery_status esté presente
     if (!delivery_status || !String(delivery_status).trim()) {
       return res.status(400).json({
         error: {
@@ -70,8 +70,20 @@ export const updateDeliveryStatus = async (req, res) => {
       });
     }
 
-    // validar enum antes de parsear
-    const validData = updateDeliveryStatusSchema.parse(req.body);
+    // VALIDAR CON ZOD PRIMERO (antes de llamar al service)
+    let validData;
+    try {
+      validData = updateDeliveryStatusSchema.parse(req.body);
+    } catch (zodError) {
+      return res.status(400).json({
+        error: {
+          code: 400,
+          message: "delivery_status debe ser ACTIVE o INACTIVE"
+        }
+      });
+    }
+
+    // ahora sí llamar al service
     const result = await updateDeliveryStatusService(
       req.user.id_user, 
       parseInt(id), 
@@ -83,17 +95,6 @@ export const updateDeliveryStatus = async (req, res) => {
       data: result
     });
   } catch (error) {
-    // capturar errores de Zod y retornar 400
-    if (error.name === 'ZodError') {
-      return res.status(400).json({
-        error: {
-          code: 400,
-          message: "delivery_status debe ser ACTIVE o INACTIVE"
-        }
-      });
-    }
-    
-    // retornar error.message en la estructura correcta
     return res.status(error.status || 500).json({
       error: {
         code: error.status || 500,
