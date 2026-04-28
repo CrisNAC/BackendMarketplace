@@ -8,8 +8,8 @@ export const registerDeliverySchema=z.object({
 })
 
 export const createDeliverySchema= z.object({
-    fk_user: z.number().int("Debe ser un numero entero"),
-    fk_store: z.number().int("Debe ser un numero entero"),
+    fk_user: z.number().int().positive("Debe ser un numero entero positivo"),
+    fk_store: z.number().int().positive("Debe ser un numero entero positivo"),
     delivery_status: z.enum(["AVAILABLE", "ON_THE_WAY", "ASSIGNED", "DELIVERED", "INACTIVE"]).default("AVAILABLE").optional(),
     status: z.boolean().default(true).optional()
 })
