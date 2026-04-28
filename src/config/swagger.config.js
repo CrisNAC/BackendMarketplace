@@ -12,6 +12,7 @@ import {
     productReportSchemas,
     reviewReportSchemas,
     categoryRequestSchemas,
+    deliverySchemas,
     // /session
     sessionSchemas,
     // /admin
@@ -48,6 +49,7 @@ const options = {
             { name: "Categorías", description: "Gestión de categorías de productos" },
             { name: "Users", description: "Gestión de usuarios" },
             { name: "Orders", description: "Gestión de pedidos" },
+            { name: "Deliveries", description: "Gestión de repartidores" },
             { name: "Images", description: "Gestión de imágenes" },
             { name: "Admin", description: "Gestión de administración" },
         ],
@@ -71,6 +73,7 @@ const options = {
                 ...reviewReportSchemas,
 
                 ...categoryRequestSchemas,
+                ...deliverySchemas,
                 // /session
                 ...sessionSchemas,
                 // /images
