@@ -90,7 +90,7 @@ export const updateDeliveryStatusService = async (id_delivery, nuevoStatus) => {
   if (!delivery) { throw { status: 404, message: "Delivery no encontrado" };}
   const updated = await prisma.deliveries.update({
     where: {id_delivery: id_delivery}, 
-    data:{status: nuevoStatus}
+    data:{delivery_status: nuevoStatus}
   });
   return updated;
 };
