@@ -57,12 +57,7 @@ export const loginDeliveryService = async (email, password) => {
   
   return {
     token,
-    user: {
-      id_user: user.id_user,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    }
+    user: {id_user: user.id_user, name: user.name, email: user.email, role: user.role }
   };
 };
 
@@ -87,22 +82,40 @@ export const createDeliveryService = async (data) => {
   
 };
 
-// FUNCIÓN 4: Aceptar asignación
-export const acceptAssignmentService = async (assignmentId) => {
 
+// actualizar status
+export const updateDeliveryStatusService = async (id_delivery, nuevoStatus) => {
+  const delivery = await prisma.deliveries.findUnique({where : {id_delivery: id_delivery}})
+  if (!delivery) { throw { status: 404, message: "Delivery no encontrado" };}
+  const updated = await prisma.deliveries.update({
+    where: {id_delivery: id_delivery}, 
+    data:{status: nuevoStatus}
+  });
+  return updated;
 };
 
-// FUNCIÓN 5: Rechazar asignación
-export const rejectAssignmentService = async (assignmentId) => {
-  // Tu lógica aquí
-};
-
-// FUNCIÓN 6: Actualizar status
-export const updateDeliveryStatusService = async (deliveryId, nuevoStatus) => {
-  // Tu lógica aquí
-};
-
-// FUNCIÓN 7: Obtener asignaciones pendientes
-export const getPendingAssignments = async (deliveryId) => {
-  // Tu lógica aquí
+// obtener asignaciones pendientes
+export const getPendingAssignmentsService = async (id_delivery) => {
+  const delivery = await prisma.deliveries.findUnique({
+    where:{id_delivery:id_delivery},
+    include: {
+      user: {select: {id_user:true, name:true, email:true}},
+      store: {select : {id_store: true, name: true}},
+      delivery_assignments: {
+        where: {assignment_status: "PENDING"},
+        include: {
+          order: {
+            select: {id_order: true, total: true, fk_address: true}
+          }
+        },
+        orderBy: { created_at: "desc" }
+      }
+    }
+  });
+  // verificar que existe
+  if (!delivery) {
+    throw { status: 404, message: "Delivery no encontrado" };
+  }
+  
+  return delivery;
 };
