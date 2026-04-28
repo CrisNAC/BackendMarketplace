@@ -10,7 +10,9 @@ import {
   getDeliveryById,
   getStoreDeliveries,
   getAvailableDeliveries,
-  getDeliveryStats
+  getDeliveryStats,
+  deleteDelivery,
+  getActiveAssignments
 } from "./delivery.controller.js";
 
 const router = Router();
@@ -26,6 +28,8 @@ router.get("/:id/assignments", authenticate, getPendingAssignments);
 router.put("/:id", authenticate, updateDelivery);
 router.get("/:id", authenticate, getDeliveryById);
 router.get("/:id/stats", authenticate, getDeliveryStats);
+router.delete("/:id", authenticate, deleteDelivery);
+router.get("/:id/active", authenticate, getActiveAssignments);
 
 // Rutas de tienda
 router.get("/store/:storeId/deliveries", authenticate, getStoreDeliveries);

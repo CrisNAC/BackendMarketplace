@@ -115,3 +115,24 @@ export const getDeliveryStats = async (req, res) => {
     res.status(error.status || 500).json({ error: error.message });
   }
 };
+// Eliminar delivery
+export const deleteDelivery = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await deleteDeliveryService(parseInt(id));
+    res.json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
+// Obtener asignaciones activas
+export const getActiveAssignments = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await getActiveAssignmentsService(parseInt(id));
+    res.json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};

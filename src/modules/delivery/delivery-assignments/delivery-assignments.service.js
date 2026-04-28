@@ -240,3 +240,56 @@ export const getAssignmentHistoryService = async (id_order) => {
     assignments: history
   };
 };
+// Eliminar asignación (borrado lógico)
+export const deleteAssignmentService = async (id_delivery_assignment) => {
+  const assignment = await prisma.deliveryAssignments.findUnique({
+    where: { id_delivery_assignment }
+  });
+  
+  if (!assignment) {
+    throw { status: 404, message: "Asignación no encontrada" };
+  }
+  
+  // No se puede eliminar si ya fue respondida
+  if (assignment.assignment_status !== "PENDING") {
+    throw { status: 409, message: "No se puede eliminar: esta asignación ya fue respondida" };
+  }
+  
+  // Borrado lógico
+  const deleted = await prisma.deliveryAssignments.update({
+    where: { id_delivery_assignment },
+    data: { status: false }
+  });
+  
+  return { message: "Asignación eliminada" };
+};
+
+// Marcar asignación como entregada
+export const completeAssignmentService = async (id_delivery_assignment) => {
+  const assignment = await prisma.deliveryAssignments.findUnique({
+    where: { id_delivery_assignment }
+  });
+  
+  if (!assignment) {
+    throw { status: 404, message: "Asignación no encontrada" };
+  }
+  
+  // Solo puedes completar si fue ACCEPTED
+  if (assignment.assignment_status !== "ACCEPTED") {
+    throw { status: 409, message: "Solo se pueden completar asignaciones aceptadas" };
+  }
+  
+  // Actualizar asignación a DELIVERED
+  const updated = await prisma.deliveryAssignments.update({
+    where: { id_delivery_assignment },
+    data: { assignment_status: "DELIVERED" }
+  });
+  
+  // Actualizar orden a DELIVERED
+  await prisma.orders.update({
+    where: { id_order: assignment.fk_order },
+    data: { order_status: "DELIVERED" }
+  });
+  
+  return updated;
+};

@@ -12,7 +12,7 @@ import {
   getAssignmentHistoryService
 } from './delivery-assignments.service.js';
 
-// Crear asignación
+// crear asignación
 export const createAssignment = async (req, res) => {
   try {
     const validData = createAssignmentSchema.parse(req.body);
@@ -106,6 +106,28 @@ export const getAssignmentHistory = async (req, res) => {
   try {
     const { orderId } = req.params;
     const result = await getAssignmentHistoryService(parseInt(orderId));
+    res.json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
+// Eliminar asignación
+export const deleteAssignment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await deleteAssignmentService(parseInt(id));
+    res.json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
+// Completar asignación (marcar como entregado)
+export const completeAssignment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await completeAssignmentService(parseInt(id));
     res.json(result);
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message });

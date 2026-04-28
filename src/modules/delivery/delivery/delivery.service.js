@@ -77,7 +77,7 @@ export const createDeliveryService = async (data) => {
   
   //crear el delivery
   const newDelivery = await prisma.deliveries.create({
-    data: {fk_user, fk_store, delivery_status: delivery_status || "AVAILABLE", status: status !== false }
+    data: {fk_user, fk_store, delivery_status: delivery_status || "ACTIVE", status: status !== false }
   });
   return newDelivery;
   
@@ -212,7 +212,7 @@ export const getStoreDeliveriesService = async (id_store) => {
   const store = await prisma.stores.findUnique({
     where: { id_store }
   });
-  
+  //se verifica que la tienda exista
   if (!store) {
     throw { status: 404, message: "Tienda no encontrada" };
   }
@@ -228,4 +228,139 @@ export const getStoreDeliveriesService = async (id_store) => {
   });
   
   return deliveries;
+};
+//obtener deliveries disponibles de una tienda
+export const getAvailableDeliveriesService = async (id_store) => {
+  const store = await prisma.stores.findUnique({
+    where: { id_store }
+  });
+  
+  if (!store) {
+    throw { status: 404, message: "Tienda no encontrada" };
+  }
+  
+  const availableDeliveries = await prisma.deliveries.findMany({
+    where: {
+      fk_store: id_store,
+      delivery_status: "ACTIVE",
+      status: true
+    },
+    include: {
+      user: {
+        select: { id_user: true, name: true, phone: true }
+      }
+    },
+    orderBy: { created_at: 'asc' }
+  });
+  
+  return availableDeliveries;
+};
+
+//estadisticas del delivery
+export const getDeliveryStatsService = async (id_delivery) => {
+  const delivery = await prisma.deliveries.findUnique({
+    where: { id_delivery }
+  });
+  
+  if (!delivery) {
+    throw { status: 404, message: "Delivery no encontrado" };
+  }
+  
+  const totalAssignments = await prisma.deliveryAssignments.count({
+    where: { fk_delivery: id_delivery }
+  });
+  //cantidad de asignaciones aceptadas
+  const acceptedAssignments = await prisma.deliveryAssignments.count({
+    where: {
+      fk_delivery: id_delivery,
+      assignment_status: "ACCEPTED"
+    }
+  });
+  //cantidad de asignaciones rechazadas
+  const rejectedAssignments = await prisma.deliveryAssignments.count({
+    where: {
+      fk_delivery: id_delivery,
+      assignment_status: "REJECTED"
+    }
+  });
+  //cantidad de asignaciones en pendiente
+  const pendingAssignments = await prisma.deliveryAssignments.count({
+    where: {
+      fk_delivery: id_delivery,
+      assignment_status: "PENDING"
+    }
+  });
+  
+  return {
+    delivery_id: id_delivery,
+    total_assignments: totalAssignments,
+    accepted: acceptedAssignments,
+    rejected: rejectedAssignments,
+    pending: pendingAssignments,
+    acceptance_rate: totalAssignments > 0 ? ((acceptedAssignments / totalAssignments) * 100).toFixed(2) + '%' : '0%' //porcentaje de asignaciones que el delivery aceptó
+  };
+};
+// Eliminar delivery (borrado lógico)
+export const deleteDeliveryService = async (id_delivery) => {
+  const delivery = await prisma.deliveries.findUnique({
+    where: { id_delivery }
+  });
+  
+  if (!delivery) {
+    throw { status: 404, message: "Delivery no encontrado" };
+  }
+  
+  // Verificar que no hay asignaciones PENDING activas
+  const pendingAssignments = await prisma.deliveryAssignments.count({
+    where: {
+      fk_delivery: id_delivery,
+      assignment_status: "PENDING"
+    }
+  });
+  
+  if (pendingAssignments > 0) {
+    throw { status: 409, message: "No se puede eliminar: hay asignaciones pendientes" };
+  }
+  
+  // Borrado lógico
+  const deleted = await prisma.deliveries.update({
+    where: { id_delivery },
+    data: { status: false }
+  });
+  
+  return { message: "Delivery eliminado" };
+};
+
+// Obtener asignaciones activas (ACCEPTED) de un delivery
+export const getActiveAssignmentsService = async (id_delivery) => {
+  const delivery = await prisma.deliveries.findUnique({
+    where: { id_delivery }
+  });
+  
+  if (!delivery) {
+    throw { status: 404, message: "Delivery no encontrado" };
+  }
+  
+  const activeAssignments = await prisma.deliveryAssignments.findMany({
+    where: {
+      fk_delivery: id_delivery,
+      assignment_status: "ACCEPTED"
+    },
+    include: {
+      order: {
+        select: {
+          id_order: true,
+          total: true,
+          fk_address: true,
+          created_at: true,
+          address: {
+            select: { address: true, city: true, region: true }
+          }
+        }
+      }
+    },
+    orderBy: { created_at: 'asc' }
+  });
+  
+  return activeAssignments;
 };

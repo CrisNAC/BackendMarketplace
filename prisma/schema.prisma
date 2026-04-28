@@ -352,7 +352,7 @@ model Deliveries {
   id_delivery     Int              @id @default(autoincrement())
   fk_store        Int
   fk_user         Int              @unique
-  delivery_status DeliveryStatus   @default(AVAILABLE)
+  delivery_status DeliveryStatus   @default(ACTIVE)
   status          Boolean          @default(true)
   created_at      DateTime         @default(now()) @db.Timestamptz
   updated_at      DateTime         @updatedAt @db.Timestamptz
@@ -398,6 +398,7 @@ enum AssignmentStatus {
   PENDING
   ACCEPTED
   REJECTED
+  DELIVERED
 }
 
 //------------------------------------PEDIDOS----------------------------------------
@@ -444,11 +445,9 @@ model OrderItems {
 }
 
 enum DeliveryStatus {
-  AVAILABLE
-  ON_THE_WAY
-  ASSIGNED
-  DELIVERED
+  ACTIVE
   INACTIVE
+  SUSPENDED
 }
 
 enum OrderStatus {
