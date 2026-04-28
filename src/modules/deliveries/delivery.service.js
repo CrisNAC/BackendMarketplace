@@ -4,8 +4,12 @@ import { ForbiddenError, NotFoundError, ValidationError } from "../../lib/errors
 const ALLOWED_DELIVERY_STATUSES = ["ACTIVE", "INACTIVE"];
 
 const parsePositiveInt = (value, fieldName) => {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
+  const normalized = typeof value === "string" ? value.trim() : value;
+  const parsed = Number(normalized);
+  const isValidString =
+    typeof normalized !== "string" || /^[1-9]\d*$/.test(normalized);
+
+  if (!isValidString || !Number.isSafeInteger(parsed) || parsed <= 0) {
     throw new ValidationError(`${fieldName} debe ser un entero positivo`);
   }
   return parsed;
