@@ -23,4 +23,13 @@ export const loginDeliverySchema = z.object({
 export const updateDeliveryStatusSchema = z.object({
   delivery_status: z.enum(["AVAILABLE", "ON_THE_WAY", "ASSIGNED", "DELIVERED", "INACTIVE"])
 });
-
+//editar delivery
+export const updateDeliverySchema = z.object({
+  name: z.string().min(2, "Nombre debe tener mínimo 2 caracteres").optional(),
+  email: z.string().email("Email inválido").optional(),
+  phone: z.string().regex(/^\d{10,}$/, "Teléfono debe tener mínimo 10 dígitos").optional(),
+  avatar_url: z.string().url("URL inválida").optional().nullable()
+}).refine(
+  (data) => Object.values(data).some(v => v !== undefined),
+  { message: "Debe enviar al menos un campo para actualizar" }
+);

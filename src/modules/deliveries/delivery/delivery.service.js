@@ -120,3 +120,51 @@ export const getPendingAssignmentsService = async (id_delivery) => {
   
   return delivery;
 };
+//editar delivery
+export const updateDeliveryService = async (id_user, data) => {
+  const { name, email, phone, avatar_url } = data;
+  
+  // Verificar que el usuario existe y es delivery
+  const user = await prisma.users.findUnique({
+    where: { id_user }
+  });
+  if (!user) {
+    throw { status: 404, message: "Usuario no encontrado" };
+  }
+  if (user.role !== "DELIVERY") {
+    throw { status: 403, message: "El usuario no es un delivery" };
+  }
+  // Si cambia email, verificar que no esté en uso
+  if (email) {
+    const existingUser = await prisma.users.findUnique({
+      where: { email }
+    });
+    
+    if (existingUser && existingUser.id_user !== id_user) {
+      throw { status: 409, message: "Email ya registrado" };
+    }
+  }
+  
+  // Construir datos a actualizar
+  const dataToUpdate = {};
+  if (name) dataToUpdate.name = name;
+  if (email) dataToUpdate.email = email;
+  if (phone) dataToUpdate.phone = phone;
+  if (avatar_url !== undefined) dataToUpdate.avatar_url = avatar_url;
+  
+  // Actualizar usuario
+  const updatedUser = await prisma.users.update({
+    where: { id_user },
+    data: dataToUpdate,
+    select: {
+      id_user: true,
+      name: true,
+      email: true,
+      phone: true,
+      avatar_url: true,
+      role: true
+    }
+  });
+  
+  return updatedUser;
+};

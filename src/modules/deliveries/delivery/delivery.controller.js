@@ -1,6 +1,6 @@
 //delivery.controller.js
-import {registerDeliverySchema, createDeliverySchema, loginDeliverySchema, updateDeliveryStatusSchema} from './delivery.validation';
-import { registerDeliveryService, createDeliveryService, loginDeliveryService, updateDeliveryStatusService, getPendingAssignmentsService } from './delivery.service';
+import {registerDeliverySchema, createDeliverySchema, loginDeliverySchema, updateDeliveryStatusSchema,updateDeliverySchema} from './delivery.validation';
+import { registerDeliveryService, createDeliveryService, loginDeliveryService, updateDeliveryStatusService, getPendingAssignmentsService,updateDeliveryService } from './delivery.service';
 
 //registrar delivery
 export const registerDelivery = async (req, res) => {
@@ -54,6 +54,18 @@ export const getPendingAssignments = async (req, res) => {
   try {
     const { id } = req.params;
     const result = await getPendingAssignmentsService(parseInt(id));
+    res.json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+//editar delivery
+export const updateDelivery = async (req, res) => {
+  try {
+    const { id } = req.params;  
+    const validData = updateDeliverySchema.parse(req.body);
+    
+    const result = await updateDeliveryService(parseInt(id), validData);
     res.json(result);
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message });
