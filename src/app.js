@@ -8,6 +8,7 @@ import cookieParser from "cookie-parser";
 
 import storeRoutes from "./modules/commerce/commerces/store.routes.js";
 import commerceAddressRoutes from "./modules/commerce/addresses/routes/addresses.routes.js";
+import { deliveryRouter, storeDeliveryRouter } from "./modules/commerce/deliveries/delivery.routes.js";
 import storeCategoryRoutes from "./modules/commerce/store-categories/store-category.routes.js";
 import productRoutes from "./modules/commerce/products/product.routes.js";
 import categoriesRoutes from "./modules/global/categories/categories.routes.js";
@@ -70,6 +71,10 @@ app.use("/api/commerces/category-requests", categoryRequestRoutes);
 app.use("/api/commerces/categories", storeCategoryRoutes);
 app.use("/api/commerces", storeRoutes);
 app.use("/api/commerces", commerceAddressRoutes);
+
+// Rutas de delivery
+app.use("/api/deliveries", deliveryRouter);
+app.use("/api/stores", storeDeliveryRouter);
 
 //Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
 //Se encuentra indexado

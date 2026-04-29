@@ -1,7 +1,7 @@
 //delivery.service.js
 import { prisma } from '../../../lib/prisma.js';
 import bcrypt from 'bcrypt';
-import { generateToken } from '../../../config/jwt.config.js';
+
 
 const SALT_ROUNDS = 10;
 
