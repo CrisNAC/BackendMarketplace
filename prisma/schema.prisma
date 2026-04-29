@@ -398,6 +398,7 @@ enum AssignmentStatus {
   PENDING
   ACCEPTED
   REJECTED
+  DELIVERED
 }
 
 //------------------------------------PEDIDOS----------------------------------------

@@ -1,3 +1,4 @@
+//app.js
 import { validateEnv } from './config/env.config.js'
 validateEnv() // Si falta algo, el servidor no arranca
 import express from "express";
@@ -17,7 +18,8 @@ import userRoutes from "./modules/users/users/routes/users.routes.js";
 import addressRoutes from "./modules/users/addresses/routes/addresses.routes.js";
 import sessionRoutes from "./modules/session/routes/session.routes.js";
 import userProductReviewRoutes from "./modules/users/product-review/product-review.routes.js";
-import deliveryRoutes from "./modules/deliveries/delivery.routes.js";
+import deliveryRoutes from "./modules/delivery/delivery/delivery.routes.js";
+import assignmentRoutes from "./modules/delivery/delivery-assignments/delivery-assignments.routes.js";
 
 import productReportRoutes from "./modules/global/reports/product/product-report.routes.js";
 import reviewReportRoutes from "./modules/global/reports/review/review-report.routes.js";
@@ -89,8 +91,12 @@ app.use("/api/users", addressRoutes);
 app.use("/api/users", wishlistRoutes);
 app.use("/api/users", cartRoutes);
 app.use("/api/users", userOrderRouter);
-app.use("/api/deliveries", deliveryRoutes);
 app.use('/api/session', sessionRoutes);
+
+// Rutas de deliveries
+app.use("/api/deliveries", deliveryRoutes);
+app.use("/api/assignments", assignmentRoutes);
+
 
 // Rutas de pedidos
 app.use("/api/orders", orderRouter);
