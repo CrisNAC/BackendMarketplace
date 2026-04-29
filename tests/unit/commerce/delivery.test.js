@@ -8,6 +8,7 @@ vi.mock("../../../src/lib/prisma.js", () => ({
         users: {
             findMany: vi.fn(),
             findUnique: vi.fn(),
+            findFirst: vi.fn(),
         },
         stores: {
             findUnique: vi.fn(),
@@ -96,7 +97,7 @@ describe("Delivery Endpoints", () => {
                 status: true,
                 user: { id_user: 1, status: true }
             });
-            prisma.users.findUnique.mockResolvedValue(null);
+            prisma.users.findFirst.mockResolvedValue(null);
 
             const res = await request(app)
                 .post("/api/stores/1/deliveries")
@@ -114,7 +115,7 @@ describe("Delivery Endpoints", () => {
                 status: true,
                 user: { id_user: 1, status: true }
             });
-            prisma.users.findUnique.mockResolvedValue({ id_user: 2, role: "DELIVERY", status: true });
+            prisma.users.findFirst.mockResolvedValue({ id_user: 2, role: "DELIVERY", status: true });
             prisma.deliveries.findUnique.mockResolvedValue({ fk_store: 1, fk_user: 2 });
 
             const res = await request(app)
@@ -133,7 +134,7 @@ describe("Delivery Endpoints", () => {
                 status: true,
                 user: { id_user: 1, status: true }
             });
-            prisma.users.findUnique.mockResolvedValue({ id_user: 2, role: "DELIVERY", status: true });
+            prisma.users.findFirst.mockResolvedValue({ id_user: 2, role: "DELIVERY", status: true });
             prisma.deliveries.findUnique.mockResolvedValue(null);
             
             const mockDelivery = { id_delivery: 10, fk_store: 1, fk_user: 2, delivery_status: "INACTIVE" };
