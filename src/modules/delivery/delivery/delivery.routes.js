@@ -34,7 +34,6 @@ router.get("/:id/stats", authenticate, requireRole(ROLES.DELIVERY), getDeliveryS
 router.delete("/:id", authenticate, requireRole(ROLES.DELIVERY), deleteDelivery);
 router.get("/:id/active", authenticate, requireRole(ROLES.DELIVERY), getActiveAssignments);
 
-
 // Rutas de tienda
 router.get("/store/:storeId/deliveries", authenticate, requireRole(ROLES.SELLER), getStoreDeliveries);
 router.get("/store/:storeId/available", authenticate, requireRole(ROLES.SELLER), getAvailableDeliveries);

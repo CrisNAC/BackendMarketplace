@@ -44,11 +44,10 @@ router.get("/orders/:orderId/accepted", authenticate, getAcceptedAssignment);
 // Obtener historial de asignaciones de un pedido
 router.get("/orders/:orderId/history", authenticate, getAssignmentHistory);
 
-// Borrar asignacion
+// Borrar asignación
 router.delete("/:id", authenticate, deleteAssignment);
 
-//marcar asignacion de delivery como completado
+// Marcar asignación de delivery como completado
 router.post("/:id/complete", authenticate, completeAssignment);
-
 
 export default router;

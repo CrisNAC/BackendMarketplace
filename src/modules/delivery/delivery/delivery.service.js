@@ -12,17 +12,24 @@ export const registerDeliveryService = async (data) => {
   const existingUser = await prisma.users.findUnique({
     where: { email }
   });
-  
+
   if (existingUser) {
     throw { status: 409, message: "Email ya registrado" };
   }
-  
+
   const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
-  
+
   const newUser = await prisma.users.create({
-    data: {name, email, password_hash, phone, role: "DELIVERY" }
+    data: { name, email, password_hash, phone, role: "DELIVERY" },
+    select: {
+      id_user: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true
+    }
   });
-  
+
   return newUser;
 };
 
@@ -31,22 +38,22 @@ export const loginDeliveryService = async (email, password) => {
   const user = await prisma.users.findUnique({
     where: { email }
   });
-  
+
   if (!user) {
     throw { status: 404, message: "Usuario no encontrado" };
   }
-  
+
   const passwordMatch = await bcrypt.compare(password, user.password_hash);
-  
+
   if (!passwordMatch) {
     throw { status: 401, message: "Contraseña incorrecta" };
   }
-  
+
   const token = generateToken({
     id_user: user.id_user,
     role: user.role
   });
-  
+
   return {
     token,
     user: { id_user: user.id_user, name: user.name, email: user.email, role: user.role }
@@ -56,38 +63,40 @@ export const loginDeliveryService = async (email, password) => {
 // Crear delivery (asignar a tienda)
 export const createDeliveryService = async (data) => {
   const { fk_user, fk_store, delivery_status, status } = data;
-  
+
   // Verificar que el usuario existe
-  const user = await prisma.users.findUnique({ 
-    where: { id_user: fk_user } 
+  const user = await prisma.users.findUnique({
+    where: { id_user: fk_user }
   });
-  
+
   if (!user) {
     throw { status: 404, message: "Usuario no encontrado" };
   }
-  // validar rol
+
+  // Validar rol
   if (user.role !== "DELIVERY") {
     throw { status: 400, message: "El usuario debe tener rol DELIVERY" };
   }
+
   // Verificar que la tienda existe
-  const store = await prisma.stores.findUnique({ 
-    where: { id_store: fk_store } 
+  const store = await prisma.stores.findUnique({
+    where: { id_store: fk_store }
   });
-  
+
   if (!store) {
     throw { status: 404, message: "Tienda no encontrada" };
   }
-  
+
   // Crear el delivery
   const newDelivery = await prisma.deliveries.create({
     data: {
       fk_user,
       fk_store,
-      delivery_status: delivery_status || "ACTIVE", 
+      delivery_status: delivery_status || "ACTIVE",
       status: status !== false
     }
   });
-  
+
   return newDelivery;
 };
 
@@ -96,7 +105,7 @@ export const updateDeliveryStatusService = async (authenticatedUserId, id_delive
   const delivery = await prisma.deliveries.findUnique({
     where: { id_delivery }
   });
-  
+
   if (!delivery) {
     throw { status: 404, message: "Delivery no encontrado" };
   }
@@ -104,12 +113,12 @@ export const updateDeliveryStatusService = async (authenticatedUserId, id_delive
   if (delivery.fk_user !== authenticatedUserId) {
     throw { status: 403, message: "No tienes permiso para actualizar este delivery" };
   }
-  
+
   const updated = await prisma.deliveries.update({
     where: { id_delivery },
     data: { delivery_status: nuevoStatus }
   });
-  
+
   return updated;
 };
 
@@ -131,49 +140,49 @@ export const getPendingAssignmentsService = async (id_delivery) => {
       }
     }
   });
-  
+
   if (!delivery) {
     throw { status: 404, message: "Delivery no encontrado" };
   }
-  
+
   return delivery;
 };
 
 // Editar delivery
 export const updateDeliveryService = async (id_user, data) => {
   const { name, email, phone, avatar_url } = data;
-  
+
   // Verificar que el usuario existe y es delivery
   const user = await prisma.users.findUnique({
     where: { id_user }
   });
-  
+
   if (!user) {
     throw { status: 404, message: "Usuario no encontrado" };
   }
-  
+
   if (user.role !== "DELIVERY") {
     throw { status: 403, message: "El usuario no es un delivery" };
   }
-  
+
   // Si cambia email, verificar que no esté en uso
   if (email) {
     const existingUser = await prisma.users.findUnique({
       where: { email }
     });
-    
+
     if (existingUser && existingUser.id_user !== id_user) {
       throw { status: 409, message: "Email ya registrado" };
     }
   }
-  
+
   // Construir datos a actualizar
   const dataToUpdate = {};
   if (name) dataToUpdate.name = name;
   if (email) dataToUpdate.email = email;
   if (phone) dataToUpdate.phone = phone;
   if (avatar_url !== undefined) dataToUpdate.avatar_url = avatar_url;
-  
+
   // Actualizar usuario
   const updatedUser = await prisma.users.update({
     where: { id_user },
@@ -187,7 +196,7 @@ export const updateDeliveryService = async (id_user, data) => {
       role: true
     }
   });
-  
+
   return updatedUser;
 };
 
@@ -219,15 +228,15 @@ export const getDeliveryByIdService = async (id_delivery) => {
           created_at: true
         },
         orderBy: { created_at: 'desc' },
-        take: 10  // Últimas 10 asignaciones
+        take: 10
       }
     }
   });
-  
+
   if (!delivery) {
     throw { status: 404, message: "Delivery no encontrado" };
   }
-  
+
   return delivery;
 };
 
@@ -236,11 +245,11 @@ export const getStoreDeliveriesService = async (id_store) => {
   const store = await prisma.stores.findUnique({
     where: { id_store }
   });
-  
+
   if (!store) {
     throw { status: 404, message: "Tienda no encontrada" };
   }
-  
+
   const deliveries = await prisma.deliveries.findMany({
     where: { fk_store: id_store },
     include: {
@@ -250,7 +259,7 @@ export const getStoreDeliveriesService = async (id_store) => {
     },
     orderBy: { created_at: 'desc' }
   });
-  
+
   return deliveries;
 };
 
@@ -259,15 +268,15 @@ export const getAvailableDeliveriesService = async (id_store) => {
   const store = await prisma.stores.findUnique({
     where: { id_store }
   });
-  
+
   if (!store) {
     throw { status: 404, message: "Tienda no encontrada" };
   }
-  
+
   const availableDeliveries = await prisma.deliveries.findMany({
     where: {
       fk_store: id_store,
-      delivery_status: "ACTIVE", // ✅ ACTUALIZADO
+      delivery_status: "ACTIVE",
       status: true
     },
     include: {
@@ -277,7 +286,7 @@ export const getAvailableDeliveriesService = async (id_store) => {
     },
     orderBy: { created_at: 'asc' }
   });
-  
+
   return availableDeliveries;
 };
 
@@ -286,46 +295,43 @@ export const getDeliveryStatsService = async (id_delivery) => {
   const delivery = await prisma.deliveries.findUnique({
     where: { id_delivery }
   });
-  
+
   if (!delivery) {
     throw { status: 404, message: "Delivery no encontrado" };
   }
-  
+
   const totalAssignments = await prisma.deliveryAssignments.count({
     where: { fk_delivery: id_delivery }
   });
-  
-  // Cantidad de asignaciones aceptadas
+
   const acceptedAssignments = await prisma.deliveryAssignments.count({
     where: {
       fk_delivery: id_delivery,
       assignment_status: "ACCEPTED"
     }
   });
-  
-  // Cantidad de asignaciones rechazadas
+
   const rejectedAssignments = await prisma.deliveryAssignments.count({
     where: {
       fk_delivery: id_delivery,
       assignment_status: "REJECTED"
     }
   });
-  
-  // Cantidad de asignaciones en pendiente
+
   const pendingAssignments = await prisma.deliveryAssignments.count({
     where: {
       fk_delivery: id_delivery,
       assignment_status: "PENDING"
     }
   });
-  
+
   return {
     delivery_id: id_delivery,
     total_assignments: totalAssignments,
     accepted: acceptedAssignments,
     rejected: rejectedAssignments,
     pending: pendingAssignments,
-    acceptance_rate: totalAssignments > 0 ? ((acceptedAssignments / totalAssignments) * 100).toFixed(2) + '%' : '0%' // Porcentaje de asignaciones que el delivery aceptó
+    acceptance_rate: totalAssignments > 0 ? ((acceptedAssignments / totalAssignments) * 100).toFixed(2) + '%' : '0%'
   };
 };
 
@@ -334,11 +340,11 @@ export const deleteDeliveryService = async (id_delivery) => {
   const delivery = await prisma.deliveries.findUnique({
     where: { id_delivery }
   });
-  
+
   if (!delivery) {
     throw { status: 404, message: "Delivery no encontrado" };
   }
-  
+
   // Verificar que no hay asignaciones PENDING activas
   const pendingAssignments = await prisma.deliveryAssignments.count({
     where: {
@@ -346,17 +352,17 @@ export const deleteDeliveryService = async (id_delivery) => {
       assignment_status: { in: ["PENDING", "ACCEPTED"] }
     }
   });
-  
+
   if (pendingAssignments > 0) {
     throw { status: 409, message: "No se puede eliminar: hay asignaciones pendientes" };
   }
-  
+
   // Borrado lógico
-  const deleted = await prisma.deliveries.update({
+  await prisma.deliveries.update({
     where: { id_delivery },
     data: { status: false }
   });
-  
+
   return { message: "Delivery eliminado" };
 };
 
@@ -365,11 +371,11 @@ export const getActiveAssignmentsService = async (id_delivery) => {
   const delivery = await prisma.deliveries.findUnique({
     where: { id_delivery }
   });
-  
+
   if (!delivery) {
     throw { status: 404, message: "Delivery no encontrado" };
   }
-  
+
   const activeAssignments = await prisma.deliveryAssignments.findMany({
     where: {
       fk_delivery: id_delivery,
@@ -390,6 +396,6 @@ export const getActiveAssignmentsService = async (id_delivery) => {
     },
     orderBy: { created_at: 'asc' }
   });
-  
+
   return activeAssignments;
 };

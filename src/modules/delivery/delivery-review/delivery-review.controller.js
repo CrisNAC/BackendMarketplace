@@ -1,4 +1,5 @@
 //delivery-review.controller.js
+import { ZodError } from 'zod';
 import {
   createDeliveryReviewSchema,
   updateDeliveryReviewSchema
@@ -17,10 +18,18 @@ import {
 export const createDeliveryReview = async (req, res) => {
   try {
     const validData = createDeliveryReviewSchema.parse(req.body);
-    const result = await createDeliveryReviewService(validData);
+    // Pasar id_user autenticado al service
+    const result = await createDeliveryReviewService(validData, req.user.id_user);
     res.status(201).json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        error: { code: 400, message: "Datos inválidos", details: error.issues }
+      });
+    }
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
 
@@ -28,10 +37,20 @@ export const createDeliveryReview = async (req, res) => {
 export const getDeliveryReviewById = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await getDeliveryReviewByIdService(parseInt(id));
+
+    const reviewId = Number.parseInt(id, 10);
+    if (Number.isNaN(reviewId)) {
+      return res.status(400).json({
+        error: { code: 400, message: "ID inválido" }
+      });
+    }
+
+    const result = await getDeliveryReviewByIdService(reviewId);
     res.json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
 
@@ -39,10 +58,20 @@ export const getDeliveryReviewById = async (req, res) => {
 export const getDeliveryReviews = async (req, res) => {
   try {
     const { deliveryId } = req.params;
-    const result = await getDeliveryReviewsService(parseInt(deliveryId));
+
+    const deliveryIdNum = Number.parseInt(deliveryId, 10);
+    if (Number.isNaN(deliveryIdNum)) {
+      return res.status(400).json({
+        error: { code: 400, message: "ID inválido" }
+      });
+    }
+
+    const result = await getDeliveryReviewsService(deliveryIdNum);
     res.json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
 
@@ -50,10 +79,20 @@ export const getDeliveryReviews = async (req, res) => {
 export const getOrderDeliveryReview = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const result = await getOrderDeliveryReviewService(parseInt(orderId));
+
+    const orderIdNum = Number.parseInt(orderId, 10);
+    if (Number.isNaN(orderIdNum)) {
+      return res.status(400).json({
+        error: { code: 400, message: "ID inválido" }
+      });
+    }
+
+    const result = await getOrderDeliveryReviewService(orderIdNum);
     res.json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
 
@@ -61,11 +100,27 @@ export const getOrderDeliveryReview = async (req, res) => {
 export const updateDeliveryReview = async (req, res) => {
   try {
     const { id } = req.params;
+
+    const reviewId = Number.parseInt(id, 10);
+    if (Number.isNaN(reviewId)) {
+      return res.status(400).json({
+        error: { code: 400, message: "ID inválido" }
+      });
+    }
+
     const validData = updateDeliveryReviewSchema.parse(req.body);
-    const result = await updateDeliveryReviewService(parseInt(id), validData);
+    // Pasar id_user autenticado al service
+    const result = await updateDeliveryReviewService(reviewId, validData, req.user.id_user);
     res.json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        error: { code: 400, message: "Datos inválidos", details: error.issues }
+      });
+    }
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
 
@@ -73,10 +128,21 @@ export const updateDeliveryReview = async (req, res) => {
 export const deleteDeliveryReview = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await deleteDeliveryReviewService(parseInt(id));
+
+    const reviewId = Number.parseInt(id, 10);
+    if (Number.isNaN(reviewId)) {
+      return res.status(400).json({
+        error: { code: 400, message: "ID inválido" }
+      });
+    }
+
+    // Pasar id_user autenticado al service
+    const result = await deleteDeliveryReviewService(reviewId, req.user.id_user);
     res.json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
 
@@ -84,9 +150,19 @@ export const deleteDeliveryReview = async (req, res) => {
 export const getDeliveryReviewStats = async (req, res) => {
   try {
     const { deliveryId } = req.params;
-    const result = await getDeliveryReviewStatsService(parseInt(deliveryId));
+
+    const deliveryIdNum = Number.parseInt(deliveryId, 10);
+    if (Number.isNaN(deliveryIdNum)) {
+      return res.status(400).json({
+        error: { code: 400, message: "ID inválido" }
+      });
+    }
+
+    const result = await getDeliveryReviewStatsService(deliveryIdNum);
     res.json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
