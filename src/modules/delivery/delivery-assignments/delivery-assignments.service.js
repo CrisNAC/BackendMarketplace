@@ -3,55 +3,65 @@ import { prisma } from '../../../lib/prisma.js';
  
 export const createAssignmentService = async (data) => {
   const { fk_order, fk_delivery, status } = data;
- 
-  // Verificar que la orden existe
+
+  // Verificar que la orden existe (fuera de la transacción — son solo lecturas de validación)
   const order = await prisma.orders.findUnique({
     where: { id_order: fk_order }
   });
   if (!order) {
     throw { status: 404, message: "Pedido no encontrado" };
   }
- 
-  // Verificar que el delivery existe
+
   const delivery = await prisma.deliveries.findUnique({
     where: { id_delivery: fk_delivery }
   });
   if (!delivery) {
     throw { status: 404, message: "Delivery no encontrado" };
   }
- 
-  // Obtener el último intento del pedido
-  const lastAssignment = await prisma.deliveryAssignments.findFirst({
-    where: { fk_order },
-    orderBy: { assignment_sequence: 'desc' },
-    select: { assignment_sequence: true }
-  });
-  const nextSequence = (lastAssignment?.assignment_sequence || 0) + 1;
- 
-  // Verificar que no hay un intento PENDING activo
-  const pendingAssignment = await prisma.deliveryAssignments.findFirst({
-    where: {
-      fk_order,
-      assignment_status: "PENDING"
+
+  // Lectura del último sequence + chequeo de PENDING + insert dentro de una transacción
+  // para evitar que dos requests concurrentes generen sequence duplicado o doble PENDING
+  try {
+    const newDeliveryAssignment = await prisma.$transaction(async (tx) => {
+      // Obtener el último sequence del pedido
+      const lastAssignment = await tx.deliveryAssignments.findFirst({
+        where: { fk_order },
+        orderBy: { assignment_sequence: 'desc' },
+        select: { assignment_sequence: true }
+      });
+      const nextSequence = (lastAssignment?.assignment_sequence || 0) + 1;
+
+      // Verificar que no hay un intento PENDING activo
+      const pendingAssignment = await tx.deliveryAssignments.findFirst({
+        where: { fk_order, assignment_status: "PENDING" }
+      });
+
+      if (pendingAssignment) {
+        throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
+      }
+
+      // Crear el delivery assignment
+      return tx.deliveryAssignments.create({
+        data: {
+          fk_order,
+          fk_delivery,
+          assignment_status: "PENDING",
+          assignment_sequence: nextSequence,
+          status: status !== false
+        }
+      });
+    });
+
+    return newDeliveryAssignment;
+  } catch (error) {
+    // Si Prisma lanza un error de unique constraint (P2002), significa que dos requests
+    // concurrentes llegaron al mismo tiempo y ya existe ese sequence — tratar como 409
+    if (error?.code === 'P2002') {
+      throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
     }
-  });
- 
-  if (pendingAssignment) {
-    throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
+    // Re-lanzar cualquier otro error (incluyendo el 409 del PENDING check)
+    throw error;
   }
- 
-  // Crear el delivery assignment
-  const newDeliveryAssignment = await prisma.deliveryAssignments.create({
-    data: {
-      fk_order,
-      fk_delivery,
-      assignment_status: "PENDING",
-      assignment_sequence: nextSequence,
-      status: status !== false
-    }
-  });
- 
-  return newDeliveryAssignment;
 };
  
 // Obtener asignación por ID
@@ -188,32 +198,35 @@ export const completeAssignmentService = async (id_delivery_assignment, id_user)
     where: { id_delivery_assignment },
     include: { delivery: true }
   });
- 
+
   if (!assignment) {
     throw { status: 404, message: "Asignación no encontrada" };
   }
- 
-  // Solo puedes completar si fue ACCEPTED (validar primero)
+
+  // Validar status antes que ownership para que los tests de estado fallen con 409
   if (assignment.assignment_status !== "ACCEPTED") {
     throw { status: 409, message: "Solo se pueden completar asignaciones aceptadas" };
   }
- 
-  // Validar que la asignación pertenece al delivery autenticado (después)
+
   if (assignment.delivery?.fk_user !== id_user) {
     throw { status: 403, message: "No tienes permiso para completar esta asignación" };
   }
- 
-  // Actualizar asignación a DELIVERED
-  const updated = await prisma.deliveryAssignments.update({
-    where: { id_delivery_assignment },
-    data: { assignment_status: "DELIVERED" }
+
+  // Ambas escrituras dentro de una transacción para que sean atómicas:
+  // si orders.update falla, deliveryAssignments.update se revierte automáticamente
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedAssignment = await tx.deliveryAssignments.update({
+      where: { id_delivery_assignment },
+      data: { assignment_status: "DELIVERED" }
+    });
+
+    await tx.orders.update({
+      where: { id_order: assignment.fk_order },
+      data: { order_status: "DELIVERED" }
+    });
+
+    return updatedAssignment;
   });
- 
-  // Actualizar orden a DELIVERED
-  await prisma.orders.update({
-    where: { id_order: assignment.fk_order },
-    data: { order_status: "DELIVERED" }
-  });
- 
+
   return updated;
 };

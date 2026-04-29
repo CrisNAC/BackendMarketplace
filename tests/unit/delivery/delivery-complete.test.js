@@ -4,6 +4,10 @@ import request from "supertest";
 import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
 
+// Creamos los fns mockeados fuera para poder acceder a ellos en los tests
+const mockAssignmentsUpdate = vi.fn();
+const mockOrdersUpdate = vi.fn();
+
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
     orders: {
@@ -16,6 +20,13 @@ vi.mock("../../../src/lib/prisma.js", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    // $transaction recibe el callback y le pasa un tx con los mismos fns mockeados
+    $transaction: vi.fn((callback) =>
+      callback({
+        deliveryAssignments: { update: mockAssignmentsUpdate },
+        orders: { update: mockOrdersUpdate },
+      })
+    ),
   },
 }));
 
@@ -47,7 +58,11 @@ const mockAssignmentAccepted = {
 };
 
 describe("POST /api/assignments/:id/complete", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAssignmentsUpdate.mockReset();
+    mockOrdersUpdate.mockReset();
+  });
 
   it("devuelve 400 cuando el ID no es numérico", async () => {
     const res = await request(app)
@@ -115,11 +130,11 @@ describe("POST /api/assignments/:id/complete", () => {
 
   it("devuelve 200 y marca la asignación como DELIVERED", async () => {
     prisma.deliveryAssignments.findUnique.mockResolvedValue(mockAssignmentAccepted);
-    prisma.deliveryAssignments.update.mockResolvedValue({
+    mockAssignmentsUpdate.mockResolvedValue({
       ...mockAssignmentAccepted,
       assignment_status: "DELIVERED",
     });
-    prisma.orders.update.mockResolvedValue({
+    mockOrdersUpdate.mockResolvedValue({
       id_order: 1,
       order_status: "DELIVERED",
     });
@@ -135,11 +150,11 @@ describe("POST /api/assignments/:id/complete", () => {
 
   it("también actualiza el order_status a DELIVERED al completar", async () => {
     prisma.deliveryAssignments.findUnique.mockResolvedValue(mockAssignmentAccepted);
-    prisma.deliveryAssignments.update.mockResolvedValue({
+    mockAssignmentsUpdate.mockResolvedValue({
       ...mockAssignmentAccepted,
       assignment_status: "DELIVERED",
     });
-    prisma.orders.update.mockResolvedValue({
+    mockOrdersUpdate.mockResolvedValue({
       id_order: 1,
       order_status: "DELIVERED",
     });
@@ -149,8 +164,8 @@ describe("POST /api/assignments/:id/complete", () => {
       .set("Cookie", authCookie)
       .send({});
 
-    // Verificar que se actualizó el pedido también
-    expect(prisma.orders.update).toHaveBeenCalledWith({
+    // Verificar que se actualizó el pedido dentro de la transacción
+    expect(mockOrdersUpdate).toHaveBeenCalledWith({
       where: { id_order: 1 },
       data: { order_status: "DELIVERED" },
     });
