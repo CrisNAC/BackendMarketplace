@@ -25,17 +25,18 @@ router.post("/register", registerDelivery);
 router.post("/login", loginDelivery);
 
 // Rutas protegidas
-router.post("/", authenticate, createDelivery);
+router.post("/", authenticate, requireRole(ROLES.DELIVERY), createDelivery);
 router.patch("/:id/status", authenticate, requireRole(ROLES.DELIVERY), updateDeliveryStatus);
-router.get("/:id/assignments", authenticate, getPendingAssignments);
-router.put("/:id", authenticate, updateDelivery);
-router.get("/:id", authenticate, getDeliveryById);
-router.get("/:id/stats", authenticate, getDeliveryStats);
-router.delete("/:id", authenticate, deleteDelivery);
-router.get("/:id/active", authenticate, getActiveAssignments);
+router.get("/:id/assignments", authenticate, requireRole(ROLES.DELIVERY), getPendingAssignments);
+router.put("/:id", authenticate, requireRole(ROLES.DELIVERY), updateDelivery);
+router.get("/:id", authenticate, requireRole(ROLES.DELIVERY), getDeliveryById);
+router.get("/:id/stats", authenticate, requireRole(ROLES.DELIVERY), getDeliveryStats);
+router.delete("/:id", authenticate, requireRole(ROLES.DELIVERY), deleteDelivery);
+router.get("/:id/active", authenticate, requireRole(ROLES.DELIVERY), getActiveAssignments);
+
 
 // Rutas de tienda
-router.get("/store/:storeId/deliveries", authenticate, getStoreDeliveries);
-router.get("/store/:storeId/available", authenticate, getAvailableDeliveries);
+router.get("/store/:storeId/deliveries", authenticate, requireRole(ROLES.SELLER), getStoreDeliveries);
+router.get("/store/:storeId/available", authenticate, requireRole(ROLES.SELLER), getAvailableDeliveries);
 
 export default router;

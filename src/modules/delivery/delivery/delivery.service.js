@@ -20,7 +20,7 @@ export const registerDeliveryService = async (data) => {
   const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
   
   const newUser = await prisma.users.create({
-    data: { name, email, password_hash, phone, role: "DELIVERY" }
+    data: { id_user, name, email, phone, role: "DELIVERY" }
   });
   
   return newUser;
@@ -65,7 +65,10 @@ export const createDeliveryService = async (data) => {
   if (!user) {
     throw { status: 404, message: "Usuario no encontrado" };
   }
-
+  // validar rol
+  if (user.role !== "DELIVERY") {
+    throw { status: 400, message: "El usuario debe tener rol DELIVERY" };
+  }
   // Verificar que la tienda existe
   const store = await prisma.stores.findUnique({ 
     where: { id_store: fk_store } 
@@ -340,7 +343,7 @@ export const deleteDeliveryService = async (id_delivery) => {
   const pendingAssignments = await prisma.deliveryAssignments.count({
     where: {
       fk_delivery: id_delivery,
-      assignment_status: "PENDING"
+      assignment_status: { in: ["PENDING", "ACCEPTED"] }
     }
   });
   

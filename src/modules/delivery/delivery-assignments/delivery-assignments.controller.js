@@ -29,13 +29,23 @@ export const createAssignment = async (req, res) => {
 export const acceptAssignment = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await acceptAssignmentService(parseInt(id));
+    
+    // validar que id es numérico
+    const assignmentId = parseInt(id);
+    if (isNaN(assignmentId)) {
+      return res.status(400).json({
+        error: { code: 400, message: "ID inválido" }
+      });
+    }
+    
+    const result = await acceptAssignmentService(assignmentId);
     res.json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
-
 // Rechazar asignación
 export const rejectAssignment = async (req, res) => {
   try {
@@ -73,11 +83,29 @@ export const getOrderAssignments = async (req, res) => {
 export const getDeliveryAssignments = async (req, res) => {
   try {
     const { deliveryId } = req.params;
-    const { status } = req.query;  // status = "PENDING", "ACCEPTED", "REJECTED"
-    const result = await getDeliveryAssignmentsService(parseInt(deliveryId), status || null);
+    const { status } = req.query;
+    
+    const deliveryIdNum = parseInt(deliveryId);
+    if (isNaN(deliveryIdNum)) {
+      return res.status(400).json({
+        error: { code: 400, message: "ID inválido" }
+      });
+    }
+    
+    // validar status contra enum
+    const validStatuses = ["PENDING", "ACCEPTED", "REJECTED", "DELIVERED"];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({
+        error: { code: 400, message: `Status inválido. Debe ser uno de: ${validStatuses.join(", ")}` }
+      });
+    }
+    
+    const result = await getDeliveryAssignmentsService(deliveryIdNum, status || null);
     res.json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
 

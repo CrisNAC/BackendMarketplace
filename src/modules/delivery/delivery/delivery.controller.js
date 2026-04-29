@@ -28,7 +28,14 @@ export const registerDelivery = async (req, res) => {
     const result = await registerDeliveryService(validData);
     res.status(201).json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    if (error.name === 'ZodError') {
+      return res.status(400).json({
+        error: { code: 400, message: "Datos inválidos" }
+      });
+    }
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
 
@@ -119,10 +126,18 @@ export const updateDelivery = async (req, res) => {
   try {
     const { id } = req.params;
     const validData = updateDeliverySchema.parse(req.body);
-    const result = await updateDeliveryService(parseInt(id), validData);
+    // pasar req.user.id_user para validar ownership
+    const result = await updateDeliveryService(req.user.id_user, parseInt(id), validData);
     res.json(result);
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    if (error.name === 'ZodError') {
+      return res.status(400).json({
+        error: { code: 400, message: "Datos inválidos" }
+      });
+    }
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
   }
 };
 
