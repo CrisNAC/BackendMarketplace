@@ -3,15 +3,11 @@ import { ZodError } from 'zod';
 import { createAssignmentSchema } from './delivery-assignments.validation.js';
 import {
   createAssignmentService,
-  acceptAssignmentService,
-  rejectAssignmentService,
   getAssignmentByIdService,
   getOrderAssignmentsService,
   getDeliveryAssignmentsService,
   getDeliveryPendingAssignmentsService,
   getAcceptedAssignmentService,
-  getAssignmentHistoryService,
-  deleteAssignmentService,
   completeAssignmentService
 } from './delivery-assignments.service.js';
 
@@ -27,52 +23,6 @@ export const createAssignment = async (req, res) => {
         error: { code: 400, message: "Datos inválidos", details: error.issues }
       });
     }
-    return res.status(error.status || 500).json({
-      error: { code: error.status || 500, message: error.message }
-    });
-  }
-};
-
-// Aceptar asignación
-export const acceptAssignment = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Validar que id es numérico
-    const assignmentId = Number.parseInt(id, 10);
-    if (Number.isNaN(assignmentId)) {
-      return res.status(400).json({
-        error: { code: 400, message: "ID inválido" }
-      });
-    }
-
-    // Pasar id_user autenticado al service
-    const result = await acceptAssignmentService(assignmentId, req.user.id_user);
-    res.json(result);
-  } catch (error) {
-    return res.status(error.status || 500).json({
-      error: { code: error.status || 500, message: error.message }
-    });
-  }
-};
-
-// Rechazar asignación
-export const rejectAssignment = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Validar que id es numérico
-    const assignmentId = Number.parseInt(id, 10);
-    if (Number.isNaN(assignmentId)) {
-      return res.status(400).json({
-        error: { code: 400, message: "ID inválido" }
-      });
-    }
-
-    // Pasar id_user autenticado al service
-    const result = await rejectAssignmentService(assignmentId, req.user.id_user);
-    res.json(result);
-  } catch (error) {
     return res.status(error.status || 500).json({
       error: { code: error.status || 500, message: error.message }
     });
@@ -185,49 +135,6 @@ export const getAcceptedAssignment = async (req, res) => {
     }
 
     const result = await getAcceptedAssignmentService(orderIdNum);
-    res.json(result);
-  } catch (error) {
-    return res.status(error.status || 500).json({
-      error: { code: error.status || 500, message: error.message }
-    });
-  }
-};
-
-// Obtener historial de asignaciones de un pedido
-export const getAssignmentHistory = async (req, res) => {
-  try {
-    const { orderId } = req.params;
-
-    const orderIdNum = Number.parseInt(orderId, 10);
-    if (Number.isNaN(orderIdNum)) {
-      return res.status(400).json({
-        error: { code: 400, message: "ID inválido" }
-      });
-    }
-
-    const result = await getAssignmentHistoryService(orderIdNum);
-    res.json(result);
-  } catch (error) {
-    return res.status(error.status || 500).json({
-      error: { code: error.status || 500, message: error.message }
-    });
-  }
-};
-
-// Eliminar asignación
-export const deleteAssignment = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const assignmentId = Number.parseInt(id, 10);
-    if (Number.isNaN(assignmentId)) {
-      return res.status(400).json({
-        error: { code: 400, message: "ID inválido" }
-      });
-    }
-
-    // Pasar id_user autenticado al service
-    const result = await deleteAssignmentService(assignmentId, req.user.id_user);
     res.json(result);
   } catch (error) {
     return res.status(error.status || 500).json({

@@ -54,68 +54,7 @@ export const createAssignmentService = async (data) => {
   return newDeliveryAssignment;
 };
  
-// Aceptar asignación
-export const acceptAssignmentService = async (id_delivery_assignment, id_user) => {
-  const assignment = await prisma.deliveryAssignments.findUnique({
-    where: { id_delivery_assignment },
-    include: { delivery: true }
-  });
- 
-  // Caso en que no exista el assignment
-  if (!assignment) {
-    throw { status: 404, message: "Asignación no encontrada" };
-  }
- 
-  // Solo puedes aceptar si está PENDING (validar primero)
-  if (assignment.assignment_status !== "PENDING") {
-    throw { status: 409, message: "Esta asignación ya fue respondida" };
-  }
- 
-  // compara fk_user del delivery con id_user
-  if (assignment.delivery?.fk_user !== id_user) {
-    throw { status: 403, message: "No tienes permiso para aceptar esta asignación" };
-  }
- 
-  // Se aprueba la asignación
-  const updated = await prisma.deliveryAssignments.update({
-    where: { id_delivery_assignment },
-    data: { assignment_status: "ACCEPTED" }
-  });
- 
-  return updated;
-};
- 
-// Rechazar asignación
-export const rejectAssignmentService = async (id_delivery_assignment, id_user) => {
-  const assignment = await prisma.deliveryAssignments.findUnique({
-    where: { id_delivery_assignment },
-    include: { delivery: true }
-  });
- 
-  // Caso en que no exista el assignment
-  if (!assignment) {
-    throw { status: 404, message: "Asignación no encontrada" };
-  }
- 
-  // Solo puedes rechazar si está PENDING (validar primero)
-  if (assignment.assignment_status !== "PENDING") {
-    throw { status: 409, message: "Esta asignación ya fue respondida" };
-  }
- 
-  // Validar que la asignación pertenece al delivery autenticado (después)
-  if (assignment.delivery?.fk_user !== id_user) {
-    throw { status: 403, message: "No tienes permiso para rechazar esta asignación" };
-  }
- 
-  // Se rechaza la asignación
-  const updated = await prisma.deliveryAssignments.update({
-    where: { id_delivery_assignment },
-    data: { assignment_status: "REJECTED" }
-  });
- 
-  return updated;
-};
- 
+// Obtener asignación por ID
 export const getAssignmentByIdService = async (id_delivery_assignment) => {
   const assignment = await prisma.deliveryAssignments.findUnique({
     where: { id_delivery_assignment },
@@ -135,7 +74,7 @@ export const getAssignmentByIdService = async (id_delivery_assignment) => {
  
   return assignment;
 };
- 
+ // Obtener asignaciones de un pedido
 export const getOrderAssignmentsService = async (id_order) => {
   const order = await prisma.orders.findUnique({
     where: { id_order }
@@ -157,7 +96,7 @@ export const getOrderAssignmentsService = async (id_order) => {
  
   return assignments;
 };
- 
+// Obtener asignaciones de un delivery 
 export const getDeliveryAssignmentsService = async (id_delivery, status = null) => {
   const delivery = await prisma.deliveries.findUnique({
     where: { id_delivery }
@@ -184,7 +123,7 @@ export const getDeliveryAssignmentsService = async (id_delivery, status = null) 
  
   return assignments;
 };
- 
+ // Obtener asignaciones PENDING de un delivery
 export const getDeliveryPendingAssignmentsService = async (id_delivery) => {
   const delivery = await prisma.deliveries.findUnique({
     where: { id_delivery }
@@ -209,7 +148,7 @@ export const getDeliveryPendingAssignmentsService = async (id_delivery) => {
  
   return pendingAssignments;
 };
- 
+ // Obtener la asignación aceptada de un pedido
 export const getAcceptedAssignmentService = async (id_order) => {
   const order = await prisma.orders.findUnique({
     where: { id_order }
@@ -241,66 +180,7 @@ export const getAcceptedAssignmentService = async (id_order) => {
  
   return acceptedAssignment;
 };
- 
-export const getAssignmentHistoryService = async (id_order) => {
-  const order = await prisma.orders.findUnique({
-    where: { id_order }
-  });
- 
-  if (!order) {
-    throw { status: 404, message: "Pedido no encontrado" };
-  }
- 
-  const history = await prisma.deliveryAssignments.findMany({
-    where: { fk_order: id_order },
-    include: {
-      delivery: {
-        select: {
-          id_delivery: true,
-          delivery_status: true,
-          user: { select: { name: true, phone: true } }
-        }
-      }
-    },
-    orderBy: { assignment_sequence: 'asc' }
-  });
- 
-  return {
-    order_id: id_order,
-    total_attempts: history.length,
-    assignments: history
-  };
-};
- 
-// Eliminar asignación (borrado lógico)
-export const deleteAssignmentService = async (id_delivery_assignment, id_user) => {
-  const assignment = await prisma.deliveryAssignments.findUnique({
-    where: { id_delivery_assignment },
-    include: { delivery: true }
-  });
- 
-  if (!assignment) {
-    throw { status: 404, message: "Asignación no encontrada" };
-  }
- 
-  // No se puede eliminar si ya fue respondida (validar primero)
-  if (assignment.assignment_status !== "PENDING") {
-    throw { status: 409, message: "No se puede eliminar: esta asignación ya fue respondida" };
-  }
- 
-  // Validar que la asignación pertenece al delivery autenticado (después)
-  if (assignment.delivery?.fk_user !== id_user) {
-    throw { status: 403, message: "No tienes permiso para eliminar esta asignación" };
-  }
- 
-  // Borrado lógico
-  const deleted = await prisma.deliveryAssignments.update({
-    where: { id_delivery_assignment },
-    data: { status: false }
-  });
- 
-  return { message: "Asignación eliminada" };
-};
+
  
 // Marcar asignación como entregada
 export const completeAssignmentService = async (id_delivery_assignment, id_user) => {

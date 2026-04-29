@@ -8,17 +8,8 @@ export const registerDeliverySchema = z.object({
   phone: z.string().regex(/^\d{10,}$/, "Teléfono debe tener mínimo 10 dígitos")
 });
  
-export const createDeliverySchema = z.object({
-  fk_user: z.number().int().positive("Debe ser un número entero positivo"),
-  fk_store: z.number().int().positive("Debe ser un número entero positivo"),
-  delivery_status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE").optional(),
-  status: z.boolean().default(true).optional()
-});
- 
-export const loginDeliverySchema = z.object({
-  email: z.string().email("Email inválido"),
-  password: z.string().min(1, "Password requerido")
-});
+
+
  
 export const updateDeliveryStatusSchema = z.object({
   delivery_status: z.string().optional()
@@ -34,14 +25,4 @@ export const updateDeliveryStatusSchema = z.object({
     message: "delivery_status debe ser ACTIVE o INACTIVE",
     path: ["delivery_status"]
   }
-);
-
-export const updateDeliverySchema = z.object({
-  name: z.string().min(2, "Nombre debe tener mínimo 2 caracteres").optional(),
-  email: z.string().email("Email inválido").optional(),
-  phone: z.string().regex(/^\d{10,}$/, "Teléfono debe tener mínimo 10 dígitos").optional(),
-  avatar_url: z.string().url("URL inválida").optional().nullable()
-}).refine(
-  (data) => Object.values(data).some(v => v !== undefined),
-  { message: "Debe enviar al menos un campo para actualizar" }
 );
