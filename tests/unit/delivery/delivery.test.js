@@ -288,6 +288,11 @@ describe("PUT /api/deliveries/:id", () => {
   });
 
   it("devuelve 400 cuando no hay campos para actualizar", async () => {
+    prisma.deliveries.findUnique.mockResolvedValueOnce({
+      id_delivery: 1,
+      fk_user: 10,
+    });
+
     const res = await request(app)
       .put("/api/deliveries/1")
       .set("Cookie", authCookie)
@@ -296,7 +301,24 @@ describe("PUT /api/deliveries/:id", () => {
     expect(res.status).toBe(400);
   });
 
+  it("devuelve 404 cuando delivery no existe", async () => {
+    prisma.deliveries.findUnique.mockResolvedValueOnce(null);
+
+    const res = await request(app)
+      .put("/api/deliveries/1")
+      .set("Cookie", authCookie)
+      .send({ name: "Juan Actualizado" });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.message).toMatch(/delivery no encontrado/i);
+  });
+
   it("devuelve 404 cuando usuario no existe", async () => {
+    prisma.deliveries.findUnique.mockResolvedValueOnce({
+      id_delivery: 1,
+      fk_user: 10,
+    });
+
     prisma.users.findUnique.mockResolvedValueOnce(null);
 
     const res = await request(app)
@@ -309,6 +331,11 @@ describe("PUT /api/deliveries/:id", () => {
   });
 
   it("devuelve 403 cuando usuario no es DELIVERY", async () => {
+    prisma.deliveries.findUnique.mockResolvedValueOnce({
+      id_delivery: 1,
+      fk_user: 10,
+    });
+
     prisma.users.findUnique.mockResolvedValueOnce({
       id_user: 10,
       role: "CUSTOMER",
@@ -324,16 +351,20 @@ describe("PUT /api/deliveries/:id", () => {
   });
 
   it("devuelve 409 cuando email ya está en uso", async () => {
-    // Mock 1: user exists and is DELIVERY
-    prisma.users.findUnique.mockResolvedValueOnce({
-      id_user: 10,
-      role: "DELIVERY",
+    prisma.deliveries.findUnique.mockResolvedValueOnce({
+      id_delivery: 1,
+      fk_user: 10,
     });
-    // Mock 2: email already exists (different user)
-    prisma.users.findUnique.mockResolvedValueOnce({
-      id_user: 99,
-      email: "otro@test.com",
-    });
+
+    prisma.users.findUnique
+      .mockResolvedValueOnce({
+        id_user: 10,
+        role: "DELIVERY",
+      })
+      .mockResolvedValueOnce({
+        id_user: 99,
+        email: "otro@test.com",
+      });
 
     const res = await request(app)
       .put("/api/deliveries/1")
@@ -345,14 +376,18 @@ describe("PUT /api/deliveries/:id", () => {
   });
 
   it("devuelve 200 y actualiza datos correctamente", async () => {
-    // Mock 1: user exists and is DELIVERY
-    prisma.users.findUnique.mockResolvedValueOnce({
-      id_user: 10,
-      role: "DELIVERY",
+    prisma.deliveries.findUnique.mockResolvedValueOnce({
+      id_delivery: 1,
+      fk_user: 10,
     });
-    // Mock 2: email doesn't exist
-    prisma.users.findUnique.mockResolvedValueOnce(null);
-    // Mock 3: update succeeds
+
+    prisma.users.findUnique
+      .mockResolvedValueOnce({
+        id_user: 10,
+        role: "DELIVERY",
+      })
+      .mockResolvedValueOnce(null);
+
     prisma.users.update.mockResolvedValueOnce({
       id_user: 10,
       name: "Juan Actualizado",

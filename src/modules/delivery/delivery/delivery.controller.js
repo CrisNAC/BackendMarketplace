@@ -140,9 +140,32 @@ export const getPendingAssignments = async (req, res) => {
 // Editar delivery
 export const updateDelivery = async (req, res) => {
   try {
+    const { id } = req.params;
+
+    const deliveryId = Number.parseInt(id, 10);
+    if (Number.isNaN(deliveryId)) {
+      return res.status(400).json({
+        error: { code: 400, message: "ID inválido" }
+      });
+    }
+
+    //buscar el delivery primero
+    const delivery = await getDeliveryByIdService(deliveryId);
+
+    //validar que exista
+    if (!delivery) {
+      return res.status(404).json({
+        error: { code: 404, message: "Delivery no encontrado" }
+      });
+    }
+
     const validData = updateDeliverySchema.parse(req.body);
-    const result = await updateDeliveryService(req.user.id_user, validData);
-    res.json(result);
+    const result = await updateDeliveryService(
+      delivery.fk_user,
+      validData
+    );
+
+    return res.status(200).json(result);
   } catch (error) {
     if (error instanceof ZodError) {
       return res.status(400).json({
