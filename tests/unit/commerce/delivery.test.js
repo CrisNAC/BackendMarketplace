@@ -116,6 +116,10 @@ describe("Delivery Endpoints", () => {
                 user: { id_user: 1, status: true }
             });
             prisma.users.findFirst.mockResolvedValue({ id_user: 2, role: "DELIVERY", status: true });
+            
+            const prismaError = new Error("Unique constraint failed");
+            prismaError.code = "P2002";
+            prisma.deliveries.create.mockRejectedValue(prismaError);
             prisma.deliveries.findUnique.mockResolvedValue({ fk_store: 1, fk_user: 2 });
 
             const res = await request(app)

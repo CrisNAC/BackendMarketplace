@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
-import { ConflictError, NotFoundError } from "../../../lib/errors.js";
+import { ConflictError, NotFoundError, ValidationError } from "../../../lib/errors.js";
 import { getAuthorizedStoreOwnerService } from "../commerces/store.service.js";
 
 export const searchDeliveryCandidatesService = async (query) => {
@@ -29,6 +29,10 @@ export const searchDeliveryCandidatesService = async (query) => {
 export const createDeliveryService = async (authenticatedUserId, storeIdStr, deliveryUserIdStr) => {
   const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
   const deliveryUserId = Number(deliveryUserIdStr);
+  
+  if (!Number.isInteger(deliveryUserId) || deliveryUserId <= 0) {
+    throw new ValidationError("El ID del candidato a delivery debe ser un número entero positivo");
+  }
 
   const user = await prisma.users.findFirst({
     where: { id_user: deliveryUserId, role: 'DELIVERY', status: true }
@@ -38,24 +42,27 @@ export const createDeliveryService = async (authenticatedUserId, storeIdStr, del
     throw new NotFoundError("Candidato a delivery no encontrado o no válido");
   }
 
-  const existing = await prisma.deliveries.findUnique({
-    where: { fk_user: deliveryUserId }
-  });
+  try {
+    const delivery = await prisma.deliveries.create({
+      data: {
+        fk_store: store.id_store,
+        fk_user: deliveryUserId,
+        delivery_status: 'INACTIVE'
+      }
+    });
 
-  if (existing) {
-    if (existing.fk_store === store.id_store) {
-      throw new ConflictError("El delivery ya está vinculado a este comercio");
+    return delivery;
+  } catch (error) {
+    if (error.code === 'P2002') {
+      const existing = await prisma.deliveries.findUnique({
+        where: { fk_user: deliveryUserId }
+      });
+      
+      if (existing && existing.fk_store === store.id_store) {
+        throw new ConflictError("El delivery ya está vinculado a este comercio");
+      }
+      throw new ConflictError("El delivery ya está vinculado a un comercio");
     }
-    throw new ConflictError("El delivery ya está vinculado a un comercio");
+    throw error;
   }
-
-  const delivery = await prisma.deliveries.create({
-    data: {
-      fk_store: store.id_store,
-      fk_user: deliveryUserId,
-      delivery_status: 'INACTIVE'
-    }
-  });
-
-  return delivery;
 };
