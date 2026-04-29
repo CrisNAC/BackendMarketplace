@@ -71,8 +71,8 @@ export const acceptAssignmentService = async (id_delivery_assignment, id_user) =
     throw { status: 409, message: "Esta asignación ya fue respondida" };
   }
  
-  // Validar que la asignación pertenece al delivery autenticado (después)
-  if (assignment.fk_delivery !== id_user) {
+  // compara fk_user del delivery con id_user
+  if (assignment.delivery?.fk_user !== id_user) {
     throw { status: 403, message: "No tienes permiso para aceptar esta asignación" };
   }
  
@@ -103,7 +103,7 @@ export const rejectAssignmentService = async (id_delivery_assignment, id_user) =
   }
  
   // Validar que la asignación pertenece al delivery autenticado (después)
-  if (assignment.fk_delivery !== id_user) {
+  if (assignment.delivery?.fk_user !== id_user) {
     throw { status: 403, message: "No tienes permiso para rechazar esta asignación" };
   }
  
@@ -289,7 +289,7 @@ export const deleteAssignmentService = async (id_delivery_assignment, id_user) =
   }
  
   // Validar que la asignación pertenece al delivery autenticado (después)
-  if (assignment.fk_delivery !== id_user) {
+  if (assignment.delivery?.fk_user !== id_user) {
     throw { status: 403, message: "No tienes permiso para eliminar esta asignación" };
   }
  
@@ -319,7 +319,7 @@ export const completeAssignmentService = async (id_delivery_assignment, id_user)
   }
  
   // Validar que la asignación pertenece al delivery autenticado (después)
-  if (assignment.fk_delivery !== id_user) {
+  if (assignment.delivery?.fk_user !== id_user) {
     throw { status: 403, message: "No tienes permiso para completar esta asignación" };
   }
  

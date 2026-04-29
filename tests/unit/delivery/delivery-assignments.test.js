@@ -177,7 +177,10 @@ describe("POST /api/assignments/:id/accept", () => {
   });
 
   it("devuelve 200 y acepta asignación", async () => {
-    prisma.deliveryAssignments.findUnique.mockResolvedValue(mockAssignment);
+    prisma.deliveryAssignments.findUnique.mockResolvedValue({
+      ...mockAssignment,
+      delivery: { fk_user: 10 },
+    });
     prisma.deliveryAssignments.update.mockResolvedValue({
       ...mockAssignment,
       assignment_status: "ACCEPTED",
@@ -209,7 +212,10 @@ describe("POST /api/assignments/:id/reject", () => {
   });
 
   it("devuelve 200 y rechaza asignación", async () => {
-    prisma.deliveryAssignments.findUnique.mockResolvedValue(mockAssignment);
+    prisma.deliveryAssignments.findUnique.mockResolvedValue({
+      ...mockAssignment,
+      delivery: { fk_user: 10 },
+    });
     prisma.deliveryAssignments.update.mockResolvedValue({
       ...mockAssignment,
       assignment_status: "REJECTED",
@@ -353,7 +359,10 @@ describe("POST /api/assignments/:id/complete", () => {
       fk_order: 1,
     };
 
-    prisma.deliveryAssignments.findUnique.mockResolvedValue(acceptedAssignment);
+    prisma.deliveryAssignments.findUnique.mockResolvedValue({
+      ...acceptedAssignment,
+      delivery: { fk_user: 10 },
+    });
     prisma.deliveryAssignments.update.mockResolvedValue({
       ...acceptedAssignment,
       assignment_status: "DELIVERED",
@@ -402,7 +411,10 @@ describe("DELETE /api/assignments/:id", () => {
   });
 
   it("devuelve 200 y elimina asignación", async () => {
-    prisma.deliveryAssignments.findUnique.mockResolvedValue(mockAssignment);
+    prisma.deliveryAssignments.findUnique.mockResolvedValue({
+      ...mockAssignment,
+      delivery: { fk_user: 10 },
+    });
     prisma.deliveryAssignments.update.mockResolvedValue({
       ...mockAssignment,
       status: false,

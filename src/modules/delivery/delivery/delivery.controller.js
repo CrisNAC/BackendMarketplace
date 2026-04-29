@@ -103,7 +103,11 @@ export const updateDeliveryStatus = async (req, res) => {
   } catch (error) {
     if (error instanceof ZodError) {
       return res.status(400).json({
-        error: { code: 400, message: "Datos inválidos", details: error.issues }
+        error: {
+          code: 400,
+          message: error.issues[0].message,
+          details: error.issues
+        }
       });
     }
     return res.status(error.status || 500).json({

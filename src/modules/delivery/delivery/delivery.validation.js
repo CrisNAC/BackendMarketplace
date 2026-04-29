@@ -21,9 +21,21 @@ export const loginDeliverySchema = z.object({
 });
  
 export const updateDeliveryStatusSchema = z.object({
-  delivery_status: z.enum(["ACTIVE", "INACTIVE"])
-});
- 
+  delivery_status: z.string().optional()
+}).refine(
+  (data) => data.delivery_status !== undefined,
+  {
+    message: "delivery_status es requerido",
+    path: ["delivery_status"]
+  }
+).refine(
+  (data) => ["ACTIVE", "INACTIVE"].includes(data.delivery_status),
+  {
+    message: "delivery_status debe ser ACTIVE o INACTIVE",
+    path: ["delivery_status"]
+  }
+);
+
 export const updateDeliverySchema = z.object({
   name: z.string().min(2, "Nombre debe tener mínimo 2 caracteres").optional(),
   email: z.string().email("Email inválido").optional(),
