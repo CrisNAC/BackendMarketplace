@@ -24,7 +24,12 @@ export const createDelivery = async (req, res) => {
       return res.status(400).json({ message: "fk_user es requerido" });
     }
 
-    const delivery = await createDeliveryService(req.user?.id_user, id, fk_user);
+    const fkUser = Number(fk_user);
+    if (!Number.isInteger(fkUser) || fkUser <= 0) {
+      return res.status(400).json({ message: "fk_user debe ser un id numérico válido" });
+    }
+
+    const delivery = await createDeliveryService(req.user?.id_user, id, fkUser);
     res.status(201).json(delivery);
   } catch (error) {
     return res.status(error.status || error.statusCode || 500).json({

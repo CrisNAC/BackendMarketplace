@@ -30,7 +30,7 @@ export const createDeliveryService = async (authenticatedUserId, storeIdStr, del
   const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
   const deliveryUserId = Number(deliveryUserIdStr);
 
-  const user = await prisma.users.findUnique({
+  const user = await prisma.users.findFirst({
     where: { id_user: deliveryUserId, role: 'DELIVERY', status: true }
   });
 
