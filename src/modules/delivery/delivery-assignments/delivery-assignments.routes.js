@@ -14,7 +14,7 @@ import {
 const router = Router();
 
 // Crear asignación (comercio)
-router.post("/", authenticate, createAssignment);
+router.post("/", authenticate, requireRole(ROLES.SELLER), createAssignment);
 
 
 // Obtener asignación por ID
@@ -33,6 +33,6 @@ router.get("/deliveries/:deliveryId/pending", authenticate, getDeliveryPendingAs
 router.get("/orders/:orderId/accepted", authenticate, getAcceptedAssignment);
 
 // Marcar asignación de delivery como completado
-router.post("/:id/complete", authenticate, completeAssignment);
+router.post("/:id/complete", authenticate, requireRole(ROLES.DELIVERY), completeAssignment);
 
 export default router;
