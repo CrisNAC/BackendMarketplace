@@ -83,7 +83,7 @@ export const createDeliveryService = async (data) => {
     data: {
       fk_user,
       fk_store,
-      delivery_status: delivery_status || "ACTIVE", // ✅ ACTUALIZADO
+      delivery_status: delivery_status || "ACTIVE", 
       status: status !== false
     }
   });
