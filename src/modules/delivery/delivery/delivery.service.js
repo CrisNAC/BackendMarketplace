@@ -20,7 +20,7 @@ export const registerDeliveryService = async (data) => {
   const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
   
   const newUser = await prisma.users.create({
-    data: { id_user, name, email, phone, role: "DELIVERY" }
+    data: {name, email, password_hash, phone, role: "DELIVERY" }
   });
   
   return newUser;
