@@ -5,6 +5,7 @@ import express from "express";
 import morgan from "morgan";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 
 import storeRoutes from "./modules/commerce/commerces/store.routes.js";
 import commerceAddressRoutes from "./modules/commerce/addresses/routes/addresses.routes.js";
@@ -53,6 +54,9 @@ import {
 } from "./modules/admin/index.js";
 
 const app = express();
+
+// Seguridad HTTP con Helmet
+app.use(helmet());
 
 //Para debug en consola de las peticiones
 app.use(morgan('dev'));
