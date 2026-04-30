@@ -9,6 +9,12 @@ export const registerDeliverySchema = z.object({
 });
  
 
+export const updateDeliveryProfileSchema = z.object({
+  name: z.string().min(2, "Nombre debe tener mínimo 2 caracteres").optional(),
+  phone: z.string().regex(/^\d{10,}$/, "Teléfono debe tener mínimo 10 dígitos").optional(),
+  vehicleType: z.string().min(1, "Tipo de vehículo no puede estar vacío").max(50, "Tipo de vehículo no puede exceder 50 caracteres").optional()
+});
+
 
  
 export const updateDeliveryStatusSchema = z.object({
