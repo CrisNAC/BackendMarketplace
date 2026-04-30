@@ -5,8 +5,8 @@ import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
 
 // Mock de prisma
-vi.mock("../../../src/lib/prisma.js", () => ({
-  prisma: {
+vi.mock("../../../src/lib/prisma.js", () => {
+  const mockPrisma = {
     deliveries: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -15,8 +15,10 @@ vi.mock("../../../src/lib/prisma.js", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
-  },
-}));
+    $transaction: vi.fn((callback) => callback(mockPrisma)),
+  };
+  return { prisma: mockPrisma };
+});
 
 // Mock de JWT: usuario autenticado con rol DELIVERY y id_user = 10
 vi.mock("jsonwebtoken", async () => {
@@ -75,6 +77,19 @@ const mockUpdatedDelivery = {
 describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  // Helper: ejecuta PUT /api/deliveries/:id con cookie de auth
+  const putDelivery = (id, body) =>
+    request(app).put(`/api/deliveries/${id}`).set("Cookie", authCookie).send(body);
+
+  // Helper: configura mocks de findUnique para el flujo de éxito (verificación + respuesta final)
+  const setupProfileMocks = (updatedOverride = {}) => {
+    prisma.deliveries.findUnique
+      .mockResolvedValueOnce(mockDelivery)
+      .mockResolvedValueOnce({ ...mockUpdatedDelivery, ...updatedOverride });
+    prisma.users.update.mockResolvedValue({});
+    prisma.deliveries.update.mockResolvedValue({});
+  };
+
   // --- Validación de parámetros ---
 
   it("devuelve 400 cuando el ID no es numérico", async () => {
@@ -90,9 +105,7 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Autenticación y autorización ---
 
   it("devuelve 401 cuando no hay autenticación", async () => {
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .send({ name: "Nombre" });
+    const res = await request(app).put("/api/deliveries/1").send({ name: "Nombre" });
 
     expect(res.status).toBe(401);
   });
@@ -103,10 +116,7 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
       callback(null, { id_user: 10, email: "customer@test.com", role: "CUSTOMER" });
     });
 
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({ name: "Nombre" });
+    const res = await putDelivery(1, { name: "Nombre" });
 
     expect(res.status).toBe(403);
     expect(res.body.error.message).toMatch(/permisos/i);
@@ -117,10 +127,7 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   it("devuelve 404 cuando el delivery no existe", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .put("/api/deliveries/999")
-      .set("Cookie", authCookie)
-      .send({ name: "Nombre" });
+    const res = await putDelivery(999, { name: "Nombre" });
 
     expect(res.status).toBe(404);
     expect(res.body.error.message).toMatch(/delivery no encontrado/i);
@@ -129,15 +136,9 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Propiedad (403 si no es dueño) ---
 
   it("devuelve 403 cuando intenta actualizar perfil de otro delivery", async () => {
-    prisma.deliveries.findUnique.mockResolvedValueOnce({
-      ...mockDelivery,
-      fk_user: 99, // fk_user diferente al autenticado (10)
-    });
+    prisma.deliveries.findUnique.mockResolvedValueOnce({ ...mockDelivery, fk_user: 99 });
 
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({ name: "Nombre Intruso" });
+    const res = await putDelivery(1, { name: "Nombre Intruso" });
 
     expect(res.status).toBe(403);
     expect(res.body.error.message).toMatch(/no tienes permiso/i);
@@ -146,15 +147,9 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Actualización exitosa: solo nombre ---
 
   it("devuelve 200 al actualizar solo el nombre", async () => {
-    prisma.deliveries.findUnique
-      .mockResolvedValueOnce(mockDelivery) // primera llamada: verificación
-      .mockResolvedValueOnce({ ...mockUpdatedDelivery, user: { ...mockUpdatedDelivery.user, name: "Nuevo Nombre" } }); // segunda llamada: respuesta
-    prisma.users.update.mockResolvedValue({});
+    setupProfileMocks({ user: { ...mockUpdatedDelivery.user, name: "Nuevo Nombre" } });
 
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({ name: "Nuevo Nombre" });
+    const res = await putDelivery(1, { name: "Nuevo Nombre" });
 
     expect(res.status).toBe(200);
     expect(prisma.users.update).toHaveBeenCalledWith({
@@ -166,15 +161,9 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Actualización exitosa: solo teléfono ---
 
   it("devuelve 200 al actualizar solo el teléfono", async () => {
-    prisma.deliveries.findUnique
-      .mockResolvedValueOnce(mockDelivery)
-      .mockResolvedValueOnce({ ...mockUpdatedDelivery, user: { ...mockUpdatedDelivery.user, phone: "0987654321" } });
-    prisma.users.update.mockResolvedValue({});
+    setupProfileMocks({ user: { ...mockUpdatedDelivery.user, phone: "0987654321" } });
 
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({ phone: "0987654321" });
+    const res = await putDelivery(1, { phone: "0987654321" });
 
     expect(res.status).toBe(200);
     expect(prisma.users.update).toHaveBeenCalledWith({
@@ -186,15 +175,9 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Actualización exitosa: vehicleType ---
 
   it("devuelve 200 al actualizar vehicleType", async () => {
-    prisma.deliveries.findUnique
-      .mockResolvedValueOnce(mockDelivery)
-      .mockResolvedValueOnce({ ...mockUpdatedDelivery, vehicle_type: "BICICLETA" });
-    prisma.deliveries.update.mockResolvedValue({});
+    setupProfileMocks({ vehicle_type: "BICICLETA" });
 
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({ vehicleType: "BICICLETA" });
+    const res = await putDelivery(1, { vehicleType: "BICICLETA" });
 
     expect(res.status).toBe(200);
     expect(prisma.deliveries.update).toHaveBeenCalledWith({
@@ -206,16 +189,13 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Actualización exitosa: múltiples campos ---
 
   it("devuelve 200 al actualizar nombre, teléfono y vehicleType juntos", async () => {
-    prisma.deliveries.findUnique
-      .mockResolvedValueOnce(mockDelivery)
-      .mockResolvedValueOnce(mockUpdatedDelivery);
-    prisma.users.update.mockResolvedValue({});
-    prisma.deliveries.update.mockResolvedValue({});
+    setupProfileMocks();
 
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({ name: "Juan Actualizado", phone: "0987654321", vehicleType: "BICICLETA" });
+    const res = await putDelivery(1, {
+      name: "Juan Actualizado",
+      phone: "0987654321",
+      vehicleType: "BICICLETA",
+    });
 
     expect(res.status).toBe(200);
     expect(prisma.users.update).toHaveBeenCalledWith({
@@ -231,29 +211,17 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Validación de campos ---
 
   it("devuelve 400 cuando el nombre es muy corto", async () => {
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({ name: "A" });
-
+    const res = await putDelivery(1, { name: "A" });
     expect(res.status).toBe(400);
   });
 
   it("devuelve 400 cuando el teléfono tiene formato inválido", async () => {
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({ phone: "123" });
-
+    const res = await putDelivery(1, { phone: "123" });
     expect(res.status).toBe(400);
   });
 
   it("devuelve 400 cuando vehicleType es un string vacío", async () => {
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({ vehicleType: "" });
-
+    const res = await putDelivery(1, { vehicleType: "" });
     expect(res.status).toBe(400);
   });
 
@@ -262,13 +230,9 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   it("devuelve 200 al subir imagen con perfil", async () => {
     const { upsertUserImage } = await import("../../../src/modules/images/services/user-image.service.js");
 
-    prisma.deliveries.findUnique
-      .mockResolvedValueOnce(mockDelivery)
-      .mockResolvedValueOnce({
-        ...mockUpdatedDelivery,
-        user: { ...mockUpdatedDelivery.user, avatar_url: "https://storage.example.com/avatar.jpg" },
-      });
-    prisma.users.update.mockResolvedValue({});
+    setupProfileMocks({
+      user: { ...mockUpdatedDelivery.user, avatar_url: "https://storage.example.com/avatar.jpg" },
+    });
 
     const res = await request(app)
       .put("/api/deliveries/1")
@@ -286,17 +250,11 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Sin cambios (body vacío) ---
 
   it("devuelve 200 cuando se envía body vacío (sin cambios)", async () => {
-    prisma.deliveries.findUnique
-      .mockResolvedValueOnce(mockDelivery)
-      .mockResolvedValueOnce(mockUpdatedDelivery);
+    setupProfileMocks();
 
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({});
+    const res = await putDelivery(1, {});
 
     expect(res.status).toBe(200);
-    // No se debe llamar a update de users ni deliveries
     expect(prisma.users.update).not.toHaveBeenCalled();
     expect(prisma.deliveries.update).not.toHaveBeenCalled();
   });
@@ -306,10 +264,7 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   it("devuelve 500 cuando prisma falla inesperadamente", async () => {
     prisma.deliveries.findUnique.mockRejectedValue(new Error("Database error"));
 
-    const res = await request(app)
-      .put("/api/deliveries/1")
-      .set("Cookie", authCookie)
-      .send({ name: "Nombre" });
+    const res = await putDelivery(1, { name: "Nombre" });
 
     expect(res.status).toBe(500);
   });

@@ -157,22 +157,28 @@ export const updateDeliveryProfileService = async (id_delivery, authUser, data, 
     }
   }
 
-  // Actualizar Users (name, phone)
-  if (name || phone) {
-    await prisma.users.update({
-      where: { id_user: delivery.fk_user },
-      data: {
-        ...(name && { name }),
-        ...(phone && { phone })
-      }
-    });
-  }
+  // Actualizar Users y Deliveries en una sola transacción para evitar estados parciales
+  const hasUserChanges = name || phone;
+  const hasDeliveryChanges = vehicleType !== undefined;
 
-  // Actualizar Deliveries (vehicle_type)
-  if (vehicleType !== undefined) {
-    await prisma.deliveries.update({
-      where: { id_delivery: deliveryId },
-      data: { vehicle_type: vehicleType }
+  if (hasUserChanges || hasDeliveryChanges) {
+    await prisma.$transaction(async (tx) => {
+      if (hasUserChanges) {
+        await tx.users.update({
+          where: { id_user: delivery.fk_user },
+          data: {
+            ...(name && { name }),
+            ...(phone && { phone })
+          }
+        });
+      }
+
+      if (hasDeliveryChanges) {
+        await tx.deliveries.update({
+          where: { id_delivery: deliveryId },
+          data: { vehicle_type: vehicleType }
+        });
+      }
     });
   }
 
