@@ -1,6 +1,7 @@
 //delivery.service.js
 import { prisma } from '../../../lib/prisma.js';
 import bcrypt from 'bcrypt';
+import { upsertUserImage } from '../../images/services/user-image.service.js';
 
 
 const SALT_ROUNDS = 10;
@@ -124,3 +125,72 @@ export const getDeliveryByIdService = async (id_delivery) => {
   return delivery;
 };
 
+
+// Actualizar perfil de delivery (nombre, teléfono, tipo de vehículo y avatar)
+export const updateDeliveryProfileService = async (id_delivery, authUser, data, file) => {
+  const deliveryId = Number(id_delivery);
+  
+  const delivery = await prisma.deliveries.findUnique({
+    where: { id_delivery: deliveryId },
+    include: { user: true }
+  });
+
+  if (!delivery) {
+    throw { status: 404, message: "Delivery no encontrado" };
+  }
+
+  // Verificar que sea el dueño
+  if (delivery.fk_user !== authUser.id_user && authUser.role !== 'ADMIN') {
+    throw { status: 403, message: "No tienes permiso para actualizar este perfil de delivery" };
+  }
+
+  const { name, phone, vehicleType } = data;
+  let avatarUrl = delivery.user.avatar_url;
+
+  // Si envían un archivo de imagen, usar upsertUserImage
+  if (file) {
+    try {
+      avatarUrl = await upsertUserImage(delivery.fk_user, file, authUser);
+    } catch (error) {
+      if (error.statusCode) throw { status: error.statusCode, message: error.message };
+      throw { status: 500, message: `Error al subir imagen: ${error.message}` };
+    }
+  }
+
+  // Actualizar Users y Deliveries en una sola transacción para evitar estados parciales
+  const hasUserChanges = name || phone;
+  const hasDeliveryChanges = vehicleType !== undefined;
+
+  if (hasUserChanges || hasDeliveryChanges) {
+    await prisma.$transaction(async (tx) => {
+      if (hasUserChanges) {
+        await tx.users.update({
+          where: { id_user: delivery.fk_user },
+          data: {
+            ...(name && { name }),
+            ...(phone && { phone })
+          }
+        });
+      }
+
+      if (hasDeliveryChanges) {
+        await tx.deliveries.update({
+          where: { id_delivery: deliveryId },
+          data: { vehicle_type: vehicleType }
+        });
+      }
+    });
+  }
+
+  // Obtener delivery actualizado para devolverlo
+  const updatedDelivery = await prisma.deliveries.findUnique({
+    where: { id_delivery: deliveryId },
+    include: {
+      user: {
+        select: { name: true, phone: true, avatar_url: true, email: true }
+      }
+    }
+  });
+
+  return updatedDelivery;
+};
