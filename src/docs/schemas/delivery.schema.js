@@ -163,5 +163,54 @@ export const deliverySchemas = {
         }
       }
     }
+  },
+  DeliveryOrderHistoryResponse: {
+    type: "object",
+    properties: {
+      content: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id_delivery_assignment: { type: "integer", example: 1 },
+            assignment_status: {
+              type: "string",
+              enum: ["PENDING", "ACCEPTED", "REJECTED", "DELIVERED"],
+              example: "DELIVERED"
+            },
+            assignment_sequence: { type: "integer", example: 1 },
+            created_at: { type: "string", format: "date-time" },
+            order: {
+              type: "object",
+              properties: {
+                id_order: { type: "integer", example: 100 },
+                order_status: { type: "string", example: "DELIVERED" },
+                total: { type: "number", example: 150000 },
+                shipping_cost: { type: "number", example: 10000 },
+                created_at: { type: "string", format: "date-time" },
+                user: {
+                  type: "object",
+                  properties: {
+                    id_user: { type: "integer", example: 1 },
+                    name: { type: "string", example: "Juan Pérez" }
+                  }
+                },
+                store: {
+                  type: "object",
+                  properties: {
+                    id_store: { type: "integer", example: 1 },
+                    name: { type: "string", example: "Mi Comercio" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      total_elements: { type: "integer", example: 50 },
+      total_pages: { type: "integer", example: 3 },
+      page: { type: "integer", example: 1 },
+      size: { type: "integer", example: 20 }
+    }
   }
 };
