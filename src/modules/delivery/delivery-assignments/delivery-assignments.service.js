@@ -2,9 +2,8 @@
 import { prisma } from '../../../lib/prisma.js';
  
 export const createAssignmentService = async (data) => {
-  const { fk_order, fk_delivery, status } = data;
+  const { fk_order, fk_delivery: fk_delivery_input, status } = data;
 
-  // Verificar que la orden existe (fuera de la transacción — son solo lecturas de validación)
   const order = await prisma.orders.findUnique({
     where: { id_order: fk_order }
   });
@@ -12,11 +11,32 @@ export const createAssignmentService = async (data) => {
     throw { status: 404, message: "Pedido no encontrado" };
   }
 
-  const delivery = await prisma.deliveries.findUnique({
-    where: { id_delivery: fk_delivery }
-  });
-  if (!delivery) {
-    throw { status: 404, message: "Delivery no encontrado" };
+  let fk_delivery = fk_delivery_input;
+
+  if (!fk_delivery) {
+    const delivery = await prisma.deliveries.findFirst({
+      where: {
+        fk_store: order.fk_store,
+        delivery_status: "ACTIVE",
+        status: true,
+        delivery_assignments: {
+          none: { assignment_status: "PENDING" }
+        }
+      }
+    });
+
+    if (!delivery) {
+      throw { status: 404, message: "No hay deliveries disponibles para este comercio" };
+    }
+
+    fk_delivery = delivery.id_delivery;
+  } else {
+    const delivery = await prisma.deliveries.findUnique({
+      where: { id_delivery: fk_delivery }
+    });
+    if (!delivery) {
+      throw { status: 404, message: "Delivery no encontrado" };
+    }
   }
 
   // Lectura del último sequence + chequeo de PENDING + insert dentro de una transacción
@@ -229,4 +249,91 @@ export const completeAssignmentService = async (id_delivery_assignment, id_user)
   });
 
   return updated;
+};
+
+export const respondToAssignmentService = async (orderId, userId, action) => {
+  const parsedOrderId = Number(orderId);
+  if (!Number.isInteger(parsedOrderId) || parsedOrderId <= 0) {
+    throw { status: 400, message: "ID de orden inválido" };
+  }
+
+  const assignment = await prisma.deliveryAssignments.findFirst({
+    where: {
+      fk_order: parsedOrderId,
+      assignment_status: "PENDING",
+      status: true
+    },
+    include: {
+      delivery: true,
+      order: true
+    }
+  });
+
+  if (!assignment) {
+    throw { status: 404, message: "No hay asignación pendiente para este pedido" };
+  }
+
+  if (assignment.delivery.fk_user !== userId) {
+    throw { status: 403, message: "No tienes permiso para responder esta asignación" };
+  }
+
+  if (action === "ACCEPT") {
+    return await prisma.$transaction(async (tx) => {
+      const updated = await tx.deliveryAssignments.update({
+        where: { id_delivery_assignment: assignment.id_delivery_assignment },
+        data: { assignment_status: "ACCEPTED" }
+      });
+
+      await tx.orders.update({
+        where: { id_order: parsedOrderId },
+        data: { order_status: "SHIPPED" }
+      });
+
+      return updated;
+    });
+  }
+
+  // REJECT
+  return await prisma.$transaction(async (tx) => {
+    await tx.deliveryAssignments.update({
+      where: { id_delivery_assignment: assignment.id_delivery_assignment },
+      data: { assignment_status: "REJECTED" }
+    });
+
+    const nextDelivery = await tx.deliveries.findFirst({
+      where: {
+        fk_store: assignment.order.fk_store,
+        delivery_status: "ACTIVE",
+        status: true,
+        id_delivery: { not: assignment.fk_delivery },
+        delivery_assignments: {
+          none: { assignment_status: "PENDING" }
+        }
+      }
+    });
+
+    if (!nextDelivery) {
+      await tx.orders.update({
+        where: { id_order: parsedOrderId },
+        data: { order_status: "PENDING" }
+      });
+      throw { status: 404, message: "No hay deliveries disponibles, el pedido vuelve a pendiente" };
+    }
+
+    const lastAssignment = await tx.deliveryAssignments.findFirst({
+      where: { fk_order: parsedOrderId },
+      orderBy: { assignment_sequence: "desc" },
+      select: { assignment_sequence: true }
+    });
+
+    return tx.deliveryAssignments.create({
+      data: {
+        fk_order: parsedOrderId,
+        fk_delivery: nextDelivery.id_delivery,
+        assignment_status: "PENDING",
+        assignment_sequence: (lastAssignment?.assignment_sequence || 0) + 1,
+        status: true
+      }
+    });
+  });
 };

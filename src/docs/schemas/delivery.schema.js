@@ -85,5 +85,83 @@ export const deliverySchemas = {
         }
       }
     }
+  },
+  DeliveryAssignmentResponse: {
+    type: "object",
+    properties: {
+      id_delivery_assignment: { type: "integer", example: 1 },
+      fk_order: { type: "integer", example: 100 },
+      fk_delivery: { type: "integer", example: 1 },
+      assignment_status: {
+        type: "string",
+        enum: ["PENDING", "ACCEPTED", "REJECTED", "DELIVERED"],
+        example: "PENDING"
+      },
+      assignment_sequence: { type: "integer", example: 1 },
+      status: { type: "boolean", example: true },
+      created_at: { type: "string", format: "date-time" }
+    }
+  },
+  DeliveryResponseBody: {
+    type: "object",
+    required: ["action"],
+    properties: {
+      action: {
+        type: "string",
+        enum: ["ACCEPT", "REJECT"],
+        example: "ACCEPT",
+        description: "Acción del delivery sobre el pedido asignado"
+      }
+    }
+  },
+  DeliveryResponseSuccess: {
+    type: "object",
+    properties: {
+      id_delivery_assignment: { type: "integer", example: 1 },
+      fk_order: { type: "integer", example: 100 },
+      fk_delivery: { type: "integer", example: 1 },
+      assignment_status: {
+        type: "string",
+        enum: ["ACCEPTED", "REJECTED"],
+        example: "ACCEPTED"
+      },
+      assignment_sequence: { type: "integer", example: 1 }
+    }
+  },
+  DeliveryResponseNotFound: {
+    type: "object",
+    properties: {
+      error: {
+        type: "object",
+        properties: {
+          code: { type: "integer", example: 404 },
+          message: { type: "string", example: "No hay asignación pendiente para este pedido" }
+        }
+      }
+    }
+  },
+  DeliveryResponseForbidden: {
+    type: "object",
+    properties: {
+      error: {
+        type: "object",
+        properties: {
+          code: { type: "integer", example: 403 },
+          message: { type: "string", example: "No tienes permiso para responder esta asignación" }
+        }
+      }
+    }
+  },
+  DeliveryResponseNoAvailable: {
+    type: "object",
+    properties: {
+      error: {
+        type: "object",
+        properties: {
+          code: { type: "integer", example: 404 },
+          message: { type: "string", example: "No hay deliveries disponibles, el pedido vuelve a pendiente" }
+        }
+      }
+    }
   }
 };
