@@ -3,144 +3,142 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
 import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
-import bcrypt from "bcrypt";
 
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
     users: {
       findUnique: vi.fn(),
+      update: vi.fn(),
+    },
+    deliveries: {
       create: vi.fn(),
     },
-  },
-}));
-
-vi.mock("bcrypt", () => ({
-  default: {
-    hash: vi.fn().mockResolvedValue("hashed-password"),
-    compare: vi.fn().mockResolvedValue(true),
+    $transaction: vi.fn((operations) => Promise.all(operations)),
   },
 }));
 
 vi.mock("../../../src/config/jwt.config.js", () => ({
   default: vi.fn((req, res, next) => {
-    req.user = { id_user: 10, email: "delivery@test.com", role: "DELIVERY" };
+    if (!req.cookies?.userToken) {
+      return res.status(401).json({
+        errors: { auth: { message: "No autenticado" } },
+      });
+    }
+
+    req.user = { id_user: 10, email: "customer@test.com", role: "CUSTOMER" };
     next();
   }),
-  generateToken: vi.fn(() => "mock-token-12345"),
 }));
+
+const authCookie = "userToken=mock-token";
 
 describe("POST /api/deliveries/register", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("devuelve 400 cuando faltan campos obligatorios", async () => {
+  it("devuelve 401 cuando no hay autenticación", async () => {
     const res = await request(app)
       .post("/api/deliveries/register")
-      .send({ name: "Juan", email: "juan@test.com" }); // Falta password y phone
+      .send({ vehicleType: "MOTORCYCLE" });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("devuelve 400 cuando vehicleType no se envía", async () => {
+    const res = await request(app)
+      .post("/api/deliveries/register")
+      .set("Cookie", authCookie)
+      .send({});
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe(400);
   });
 
-  it("devuelve 400 cuando email tiene formato inválido", async () => {
+  it("devuelve 400 cuando vehicleType es inválido", async () => {
     const res = await request(app)
       .post("/api/deliveries/register")
-      .send({
-        name: "Juan",
-        email: "no-es-un-email",
-        password: "123456",
-        phone: "1234567890",
-      });
+      .set("Cookie", authCookie)
+      .send({ vehicleType: "PLANE" });
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe(400);
   });
 
-  it("devuelve 400 cuando el nombre tiene menos de 2 caracteres", async () => {
+  it("devuelve 404 cuando el usuario no existe", async () => {
+    prisma.users.findUnique.mockResolvedValue(null);
+
     const res = await request(app)
       .post("/api/deliveries/register")
-      .send({
-        name: "J",
-        email: "juan@test.com",
-        password: "123456",
-        phone: "1234567890",
-      });
+      .set("Cookie", authCookie)
+      .send({ vehicleType: "CAR" });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
+    expect(res.status).toBe(404);
+    expect(res.body.error.message).toMatch(/usuario no encontrado/i);
   });
 
-  it("devuelve 400 cuando la contraseña tiene menos de 6 caracteres", async () => {
-    const res = await request(app)
-      .post("/api/deliveries/register")
-      .send({
-        name: "Juan",
-        email: "juan@test.com",
-        password: "123",
-        phone: "1234567890",
-      });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
-  });
-
-  it("devuelve 400 cuando el teléfono tiene menos de 10 dígitos", async () => {
-    const res = await request(app)
-      .post("/api/deliveries/register")
-      .send({
-        name: "Juan",
-        email: "juan@test.com",
-        password: "123456",
-        phone: "123",
-      });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
-  });
-
-  it("devuelve 409 cuando el email ya está registrado", async () => {
+  it("devuelve 403 cuando el usuario no es CUSTOMER", async () => {
     prisma.users.findUnique.mockResolvedValue({
-      id_user: 1,
-      email: "juan@test.com",
+      id_user: 10,
+      role: "SELLER",
+      delivery: null,
     });
 
     const res = await request(app)
       .post("/api/deliveries/register")
-      .send({
-        name: "Juan",
-        email: "juan@test.com",
-        password: "123456",
-        phone: "1234567890",
-      });
+      .set("Cookie", authCookie)
+      .send({ vehicleType: "CAR" });
 
-    expect(res.status).toBe(409);
-    expect(res.body.error.message).toMatch(/email ya registrado/i);
+    expect(res.status).toBe(403);
+    expect(res.body.error.message).toMatch(/solo un usuario customer/i);
   });
 
-  it("devuelve 201 y crea el delivery sin exponer password_hash", async () => {
-    prisma.users.findUnique.mockResolvedValue(null);
-    bcrypt.hash.mockResolvedValueOnce("hashed-password");
-    prisma.users.create.mockResolvedValue({
-      id_user: 1,
+  it("devuelve 409 cuando el usuario ya es delivery", async () => {
+    prisma.users.findUnique.mockResolvedValue({
+      id_user: 10,
+      role: "DELIVERY",
+      delivery: { id_delivery: 5 },
+    });
+
+    const res = await request(app)
+      .post("/api/deliveries/register")
+      .set("Cookie", authCookie)
+      .send({ vehicleType: "BICYCLE" });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toMatch(/ya está registrado como delivery/i);
+  });
+
+  it("devuelve 200 y actualiza el rol a DELIVERY", async () => {
+    prisma.users.findUnique.mockResolvedValue({
+      id_user: 10,
+      role: "CUSTOMER",
+      delivery: null,
+    });
+
+    prisma.users.update.mockResolvedValue({
+      id_user: 10,
       name: "Juan",
-      email: "juan@test.com",
+      email: "customer@test.com",
       phone: "1234567890",
       role: "DELIVERY",
     });
 
+    prisma.deliveries.create.mockResolvedValue({
+      id_delivery: 1,
+      fk_user: 10,
+      fk_store: null,
+      delivery_status: "INACTIVE",
+      vehicle_type: "MOTORCYCLE",
+      status: true,
+    });
+
     const res = await request(app)
       .post("/api/deliveries/register")
-      .send({
-        name: "Juan",
-        email: "juan@test.com",
-        password: "123456",
-        phone: "1234567890",
-      });
+      .set("Cookie", authCookie)
+      .send({ vehicleType: "MOTORCYCLE" });
 
-    expect(res.status).toBe(201);
-    expect(res.body.name).toBe("Juan");
-    expect(res.body.email).toBe("juan@test.com");
-    expect(res.body.role).toBe("DELIVERY");
-    // No debe exponer el hash de la contraseña
-    expect(res.body.password_hash).toBeUndefined();
+    expect(res.status).toBe(200);
+    expect(res.body.user.role).toBe("DELIVERY");
+    expect(res.body.delivery.delivery_status).toBe("INACTIVE");
+    expect(res.body.delivery.fk_store).toBe(null);
   });
 });

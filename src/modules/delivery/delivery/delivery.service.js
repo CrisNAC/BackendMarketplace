@@ -1,37 +1,59 @@
 //delivery.service.js
 import { prisma } from '../../../lib/prisma.js';
-import bcrypt from 'bcrypt';
 import { upsertUserImage } from '../../images/services/user-image.service.js';
 
+// Registrar delivery con usuario autenticado
+export const registerDeliveryService = async (authUser, data) => {
+  const { vehicleType } = data;
 
-const SALT_ROUNDS = 10;
-
-// Registrar delivery
-export const registerDeliveryService = async (data) => {
-  const { name, email, password, phone } = data;
-
-  const existingUser = await prisma.users.findUnique({
-    where: { email }
+  const user = await prisma.users.findUnique({
+    where: { id_user: authUser.id_user },
+    include: { delivery: true }
   });
 
-  if (existingUser) {
-    throw { status: 409, message: "Email ya registrado" };
+  if (!user) {
+    throw { status: 404, message: "Usuario no encontrado" };
   }
 
-  const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+  if (user.role === 'DELIVERY' || user.delivery) {
+    throw { status: 409, message: "El usuario ya está registrado como delivery" };
+  }
 
-  const newUser = await prisma.users.create({
-    data: { name, email, password_hash, phone, role: "DELIVERY" },
-    select: {
-      id_user: true,
-      name: true,
-      email: true,
-      phone: true,
-      role: true
-    }
-  });
+  if (user.role !== 'CUSTOMER') {
+    throw { status: 403, message: "Solo un usuario CUSTOMER puede registrarse como delivery" };
+  }
 
-  return newUser;
+  const [updatedUser, delivery] = await prisma.$transaction([
+    prisma.users.update({
+      where: { id_user: user.id_user },
+      data: { role: "DELIVERY" },
+      select: {
+        id_user: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true
+      }
+    }),
+    prisma.deliveries.create({
+      data: {
+        fk_user: user.id_user,
+        fk_store: null,
+        delivery_status: "INACTIVE",
+        vehicle_type: vehicleType
+      },
+      select: {
+        id_delivery: true,
+        fk_user: true,
+        fk_store: true,
+        delivery_status: true,
+        vehicle_type: true,
+        status: true
+      }
+    })
+  ]);
+
+  return { user: updatedUser, delivery };
 };
 
 
