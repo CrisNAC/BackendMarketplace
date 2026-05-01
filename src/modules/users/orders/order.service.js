@@ -351,10 +351,10 @@ export const createOrderService = async (
         },
         ...(finalAddressId
           ? {
-              address: {
-                connect: { id_address: finalAddressId }
-              }
+            address: {
+              connect: { id_address: finalAddressId }
             }
+          }
           : {}),
         total,
         shipping_cost: shippingCost,
@@ -520,10 +520,10 @@ export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
       order_status: "DELIVERED",
       ...(reviewedOrderIds.length > 0
         ? {
-            id_order: {
-              notIn: reviewedOrderIds
-            }
+          id_order: {
+            notIn: reviewedOrderIds
           }
+        }
         : {}),
       delivery_assignments: {
         some: { status: true }
@@ -875,33 +875,72 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
 
   if (!allowed.includes(order_status)) throw new ValidationError(`Transicion invalida: ${order.order_status} a ${order_status}`);
 
-  const updated = await prisma.orders.update({
-    where: { id_order: resolvedOrderId },
-    data: { order_status },
-    select: {
-      id_order: true,
-      order_status: true,
-      total: true,
-      shipping_cost: true,
-      shipping_distance_km: true,
-      notes: true,
-      created_at: true,
-      updated_at: true,
-      address: {
-        select: { id_address: true, address: true, city: true, region: true }
-      },
-      order_items: {
-        where: { status: true },
-        select: {
-          id_order_item: true,
-          quantity: true,
-          price: true,
-          original_price: true,
-          is_offer_applied: true,
-          subtotal: true
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await tx.orders.update({
+      where: { id_order: resolvedOrderId },
+      data: { order_status },
+      select: {
+        id_order: true,
+        order_status: true,
+        fk_store: true,
+        total: true,
+        shipping_cost: true,
+        shipping_distance_km: true,
+        notes: true,
+        created_at: true,
+        updated_at: true,
+        address: {
+          select: { id_address: true, address: true, city: true, region: true }
+        },
+        order_items: {
+          where: { status: true },
+          select: {
+            id_order_item: true,
+            quantity: true,
+            price: true,
+            original_price: true,
+            is_offer_applied: true,
+            subtotal: true
+          }
         }
       }
+    });
+
+    if (order_status === "PROCESSING") {
+      const delivery = await tx.deliveries.findFirst({
+        where: {
+          fk_store: order.fk_store,
+          delivery_status: "ACTIVE",
+          status: true,
+          delivery_assignments: {
+            none: { assignment_status: "PENDING" }
+          }
+        }
+      });
+
+      if (!delivery) {
+        throw new ValidationError("No hay deliveries disponibles para este comercio");
+      }
+
+      const lastAssignment = await tx.deliveryAssignments.findFirst({
+        where: { fk_order: resolvedOrderId },
+        orderBy: { assignment_sequence: "desc" },
+        select: { assignment_sequence: true }
+      });
+
+      await tx.deliveryAssignments.create({
+        data: {
+          fk_order: resolvedOrderId,
+          fk_delivery: delivery.id_delivery,
+          assignment_status: "PENDING",
+          assignment_sequence: (lastAssignment?.assignment_sequence || 0) + 1,
+          status: true
+        }
+      });
     }
+
+    return updatedOrder;
   });
+
   return mapOrderResponse(updated);
 };
