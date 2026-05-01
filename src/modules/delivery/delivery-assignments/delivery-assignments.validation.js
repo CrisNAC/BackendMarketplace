@@ -7,4 +7,8 @@ export const createAssignmentSchema = z.object({
   status: z.boolean().default(true).optional()
 });
 
-
+export const respondToAssignmentSchema = z.object({
+  action: z.enum(["ACCEPT", "REJECT"], {
+    error: "action debe ser ACCEPT o REJECT"
+  })
+});

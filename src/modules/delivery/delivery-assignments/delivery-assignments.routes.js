@@ -10,7 +10,8 @@ import {
   getDeliveryAssignments,
   getDeliveryPendingAssignments,
   getAcceptedAssignment,
-  completeAssignment
+  completeAssignment,
+  respondToAssignment,
 } from "./delivery-assignments.controller.js";
 
 const router = Router();
@@ -36,5 +37,7 @@ router.get("/orders/:orderId/accepted", authenticate, getAcceptedAssignment);
 
 // Marcar asignación de delivery como completado
 router.post("/:id/complete", authenticate, requireRole(ROLES.DELIVERY), completeAssignment);
+
+router.post("/orders/:orderId/delivery-response", authenticate, requireRole(ROLES.DELIVERY), respondToAssignment);
 
 export default router;
