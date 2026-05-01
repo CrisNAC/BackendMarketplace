@@ -17,8 +17,8 @@ import {
 export const registerDelivery = async (req, res) => {
   try {
     const validData = registerDeliverySchema.parse(req.body);
-    const result = await registerDeliveryService(validData);
-    res.status(201).json(result);
+    const result = await registerDeliveryService(req.user, validData);
+    res.status(200).json(result);
   } catch (error) {
     if (error instanceof ZodError) {
       return res.status(400).json({
