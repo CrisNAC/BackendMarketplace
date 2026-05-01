@@ -45,14 +45,14 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     users: {
       findFirst: vi.fn(),
     },
+    deliveries: {
+      findFirst: vi.fn(),
+    },
+    deliveryAssignments: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+    },
     $transaction: vi.fn(),
-  },
-  deliveries: {
-    findFirst: vi.fn(),
-  },
-  deliveryAssignments: {
-    findFirst: vi.fn(),
-    create: vi.fn(),
   },
 }));
 

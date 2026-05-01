@@ -871,13 +871,16 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
 
   const allowed = roleTransitions[order.order_status];
 
-  if (!allowed) throw new ValidationError(`No se puede modificar un pedido en estado ${order.order_status}`)
+  if (!allowed) throw new ValidationError(`No se puede modificar un pedido en estado ${order.order_status}`);
 
   if (!allowed.includes(order_status)) throw new ValidationError(`Transicion invalida: ${order.order_status} a ${order_status}`);
 
   const updated = await prisma.$transaction(async (tx) => {
     const updatedOrder = await tx.orders.update({
-      where: { id_order: resolvedOrderId },
+      where: {
+        id_order: resolvedOrderId,
+        order_status: order.order_status  // condicional atómico — falla si otro request ya cambió el status
+      },
       data: { order_status },
       select: {
         id_order: true,
@@ -906,7 +909,19 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
       }
     });
 
+    if (!updatedOrder) {
+      throw new ConflictError("El pedido fue modificado por otra solicitud, intente nuevamente");
+    }
+
     if (order_status === "PROCESSING") {
+      const existingPending = await tx.deliveryAssignments.findFirst({
+        where: { fk_order: resolvedOrderId, assignment_status: "PENDING", status: true }
+      });
+
+      if (existingPending) {
+        throw new ConflictError("Ya hay una asignación pendiente para este pedido");
+      }
+
       const delivery = await tx.deliveries.findFirst({
         where: {
           fk_store: order.fk_store,
