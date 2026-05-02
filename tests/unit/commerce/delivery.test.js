@@ -16,6 +16,9 @@ vi.mock("../../../src/lib/prisma.js", () => ({
         deliveries: {
             findUnique: vi.fn(),
             create: vi.fn(),
+        },
+        deliveryReviews: {
+            findMany: vi.fn(),
         }
     }
 }));
@@ -151,6 +154,91 @@ describe("Delivery Endpoints", () => {
             
             expect(res.status).toBe(201);
             expect(res.body).toEqual(mockDelivery);
+        });
+    });
+
+    describe("GET /api/stores/:storeId/deliveries/:deliveryId/reviews", () => {
+        it("returns 400 when search is not numeric", async () => {
+            prisma.stores.findUnique.mockResolvedValue({
+                id_store: 1,
+                fk_user: 1,
+                status: true,
+                user: { id_user: 1, status: true }
+            });
+            prisma.deliveries.findUnique.mockResolvedValue({ id_delivery: 2, fk_store: 1 });
+
+            const res = await request(app)
+                .get("/api/stores/1/deliveries/2/reviews?search=abc")
+                .set("Cookie", authCookie);
+
+            expect(res.status).toBe(400);
+            expect(res.body.message).toMatch(/ID de pedido/i);
+        });
+
+        it("returns 400 when rating range is invalid", async () => {
+            prisma.stores.findUnique.mockResolvedValue({
+                id_store: 1,
+                fk_user: 1,
+                status: true,
+                user: { id_user: 1, status: true }
+            });
+            prisma.deliveries.findUnique.mockResolvedValue({ id_delivery: 2, fk_store: 1 });
+
+            const res = await request(app)
+                .get("/api/stores/1/deliveries/2/reviews?minRating=6")
+                .set("Cookie", authCookie);
+
+            expect(res.status).toBe(400);
+            expect(res.body.message).toMatch(/minRating/i);
+        });
+
+        it("returns 404 when delivery is not linked to the store", async () => {
+            prisma.stores.findUnique.mockResolvedValue({
+                id_store: 1,
+                fk_user: 1,
+                status: true,
+                user: { id_user: 1, status: true }
+            });
+            prisma.deliveries.findUnique.mockResolvedValue(null);
+
+            const res = await request(app)
+                .get("/api/stores/1/deliveries/2/reviews")
+                .set("Cookie", authCookie);
+
+            expect(res.status).toBe(404);
+            expect(res.body.message).toMatch(/delivery no encontrado/i);
+        });
+
+        it("returns 200 with reviews", async () => {
+            prisma.stores.findUnique.mockResolvedValue({
+                id_store: 1,
+                fk_user: 1,
+                status: true,
+                user: { id_user: 1, status: true }
+            });
+            prisma.deliveries.findUnique.mockResolvedValue({ id_delivery: 2, fk_store: 1 });
+            prisma.deliveryReviews.findMany.mockResolvedValue([
+                {
+                    id_delivery_review: 5,
+                    fk_order: 120,
+                    rating: 5,
+                    comment: "Entrega rápida",
+                    created_at: new Date("2026-04-28T00:00:00.000Z"),
+                    user: { name: "Juan" }
+                }
+            ]);
+
+            const res = await request(app)
+                .get("/api/stores/1/deliveries/2/reviews?minRating=4&maxRating=5")
+                .set("Cookie", authCookie);
+
+            expect(res.status).toBe(200);
+            expect(res.body.total).toBe(1);
+            expect(res.body.reviews[0]).toMatchObject({
+                orderId: 120,
+                customerName: "Juan",
+                rating: 5
+            });
         });
     });
 });
