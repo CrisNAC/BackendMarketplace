@@ -12,7 +12,9 @@ import {
   getAcceptedAssignment,
   completeAssignment,
   respondToAssignment,
+  getDeliveryOrderHistory,
 } from "./delivery-assignments.controller.js";
+import { parsePagination } from "../../../middlewares/pagination.middleware.js";
 
 const router = Router();
 
@@ -95,5 +97,89 @@ router.post("/:id/complete", authenticate, requireRole(ROLES.DELIVERY), complete
  *                 - $ref: '#/components/schemas/DeliveryResponseNoAvailable'
  */
 router.post("/orders/:orderId/delivery-response", authenticate, requireRole(ROLES.DELIVERY), respondToAssignment);
+
+/**
+ * @swagger
+ * /api/assignments/{id}/orders:
+ *   get:
+ *     summary: Historial de pedidos del delivery
+ *     description: Retorna el historial de pedidos asignados al delivery con filtros opcionales de período, estado, ID de pedido y nombre de usuario.
+ *     tags: [Deliveries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del delivery
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [7d, 15d, 1m, all]
+ *         description: Período de tiempo a filtrar
+ *       - in: query
+ *         name: assignment_status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, ACCEPTED, REJECTED, DELIVERED]
+ *         description: Estado de la asignación
+ *       - in: query
+ *         name: orderId
+ *         schema:
+ *           type: integer
+ *         description: ID del pedido a buscar
+ *       - in: query
+ *         name: userName
+ *         schema:
+ *           type: string
+ *         description: Nombre del usuario que realizó el pedido
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Página actual
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Resultados por página (máximo 100)
+ *     responses:
+ *       200:
+ *         description: Historial de pedidos obtenido correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DeliveryOrderHistoryResponse'
+ *       400:
+ *         description: Parámetros inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/QueryValidationErrorResponse'
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
+ *       403:
+ *         description: No tiene permisos para ver este historial
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DeliveryResponseForbidden'
+ *       404:
+ *         description: Delivery no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DeliveryStatusNotFoundResponse'
+ */
+router.get("/:id/orders", authenticate, requireRole(ROLES.DELIVERY), parsePagination, getDeliveryOrderHistory);
 
 export default router;

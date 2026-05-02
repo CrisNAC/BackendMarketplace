@@ -12,3 +12,14 @@ export const respondToAssignmentSchema = z.object({
     error: "action debe ser ACCEPT o REJECT"
   })
 });
+
+export const deliveryOrderHistoryQuerySchema = z.object({
+  period: z.enum(["7d", "15d", "1m", "all"]).optional(),
+  assignment_status: z.enum(["PENDING", "ACCEPTED", "REJECTED", "DELIVERED"]).optional(),
+  orderId: z
+    .string()
+    .regex(/^\d+$/, "orderId debe ser un número")
+    .transform(Number)
+    .optional(),
+  userName: z.string().min(1).optional()
+});

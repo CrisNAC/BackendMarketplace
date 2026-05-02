@@ -1,6 +1,6 @@
 //delivery.assignments.controller.js
 import { ZodError } from 'zod';
-import { createAssignmentSchema, respondToAssignmentSchema } from './delivery-assignments.validation.js';
+import { createAssignmentSchema, respondToAssignmentSchema, deliveryOrderHistoryQuerySchema } from './delivery-assignments.validation.js';
 import {
   createAssignmentService,
   getAssignmentByIdService,
@@ -10,6 +10,7 @@ import {
   getAcceptedAssignmentService,
   completeAssignmentService,
   respondToAssignmentService,
+  getDeliveryOrderHistoryService,
 } from './delivery-assignments.service.js';
 
 // Crear asignación
@@ -171,6 +172,29 @@ export const respondToAssignment = async (req, res) => {
     const { orderId } = req.params;
     const validData = respondToAssignmentSchema.parse(req.body);
     const result = await respondToAssignmentService(orderId, req.user.id_user, validData.action);
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        error: { code: 400, message: "Datos inválidos", details: error.issues }
+      });
+    }
+    return res.status(error.status || 500).json({
+      error: { code: error.status || 500, message: error.message }
+    });
+  }
+};
+
+export const getDeliveryOrderHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validFilters = deliveryOrderHistoryQuerySchema.parse(req.query);
+    const result = await getDeliveryOrderHistoryService(
+      id,
+      req.user.id_user,
+      validFilters,
+      req.pagination
+    );
     return res.status(200).json(result);
   } catch (error) {
     if (error instanceof ZodError) {
