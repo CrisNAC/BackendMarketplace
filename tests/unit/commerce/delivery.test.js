@@ -16,6 +16,7 @@ vi.mock("../../../src/lib/prisma.js", () => ({
         deliveries: {
             findUnique: vi.fn(),
             create: vi.fn(),
+            update: vi.fn(),
         }
     }
 }));
@@ -38,12 +39,31 @@ describe("Delivery Endpoints", () => {
     beforeEach(() => vi.clearAllMocks());
 
     describe("GET /api/deliveries/search", () => {
-        it("returns empty array if no query provided", async () => {
+        it("returns all available candidates when no query provided", async () => {
+            const mockAll = [
+                { id_user: 2, name: "Ana", email: "ana@test.com", phone: "111" },
+                { id_user: 3, name: "Ben", email: "ben@test.com", phone: "222" }
+            ];
+            prisma.users.findMany.mockResolvedValue(mockAll);
+
             const res = await request(app)
                 .get("/api/deliveries/search")
                 .set("Cookie", authCookie);
+
             expect(res.status).toBe(200);
-            expect(res.body).toEqual([]);
+            expect(res.body).toEqual(mockAll);
+            expect(prisma.users.findMany).toHaveBeenCalledTimes(1);
+            const callArg = prisma.users.findMany.mock.calls[0][0];
+            expect(callArg.where).toMatchObject({
+                role: "DELIVERY",
+                status: true
+            });
+            expect(callArg.where.OR).toEqual(
+                expect.arrayContaining([
+                    { delivery: null },
+                    { delivery: { fk_store: null } }
+                ])
+            );
         });
 
         it("returns candidates correctly", async () => {
@@ -116,10 +136,6 @@ describe("Delivery Endpoints", () => {
                 user: { id_user: 1, status: true }
             });
             prisma.users.findFirst.mockResolvedValue({ id_user: 2, role: "DELIVERY", status: true });
-            
-            const prismaError = new Error("Unique constraint failed");
-            prismaError.code = "P2002";
-            prisma.deliveries.create.mockRejectedValue(prismaError);
             prisma.deliveries.findUnique.mockResolvedValue({ fk_store: 1, fk_user: 2 });
 
             const res = await request(app)
@@ -129,6 +145,7 @@ describe("Delivery Endpoints", () => {
             
             expect(res.status).toBe(409);
             expect(res.body.message).toMatch(/ya está vinculado/i);
+            expect(prisma.deliveries.create).not.toHaveBeenCalled();
         });
 
         it("returns 201 on success", async () => {
@@ -151,6 +168,34 @@ describe("Delivery Endpoints", () => {
             
             expect(res.status).toBe(201);
             expect(res.body).toEqual(mockDelivery);
+        });
+
+        it("returns 201 updating row when delivery exists without store", async () => {
+            prisma.stores.findUnique.mockResolvedValue({
+                id_store: 1,
+                fk_user: 1,
+                status: true,
+                user: { id_user: 1, status: true }
+            });
+            prisma.users.findFirst.mockResolvedValue({ id_user: 2, role: "DELIVERY", status: true });
+            prisma.deliveries.findUnique.mockResolvedValue({
+                id_delivery: 10,
+                fk_user: 2,
+                fk_store: null,
+                delivery_status: "ACTIVE"
+            });
+            const updated = { id_delivery: 10, fk_store: 1, fk_user: 2, delivery_status: "ACTIVE" };
+            prisma.deliveries.update.mockResolvedValue(updated);
+
+            const res = await request(app)
+                .post("/api/stores/1/deliveries")
+                .set("Cookie", authCookie)
+                .send({ fk_user: 2 });
+
+            expect(res.status).toBe(201);
+            expect(res.body).toEqual(updated);
+            expect(prisma.deliveries.update).toHaveBeenCalledTimes(1);
+            expect(prisma.deliveries.create).not.toHaveBeenCalled();
         });
     });
 });

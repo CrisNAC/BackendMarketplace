@@ -2,28 +2,54 @@ import { prisma } from "../../../lib/prisma.js";
 import { ConflictError, NotFoundError, ValidationError } from "../../../lib/errors.js";
 import { getAuthorizedStoreOwnerService } from "../commerces/store.service.js";
 
-export const searchDeliveryCandidatesService = async (query) => {
-  if (!query) return [];
+const deliveryCandidateSelect = {
+  id_user: true,
+  name: true,
+  email: true,
+  phone: true
+};
 
-  const candidates = await prisma.users.findMany({
+/** Disponible para vincular a un comercio: sin fila Deliveries, o con fila pero sin tienda (fk_store null). */
+const deliveryCandidateAvailability = {
+  OR: [{ delivery: null }, { delivery: { fk_store: null } }]
+};
+
+/**
+ * Sin `q`: todos los repartidores disponibles para vincular.
+ * Con `q`: filtro por correo o teléfono (insensible a mayúsculas).
+ */
+export const searchDeliveryCandidatesService = async (query) => {
+  const trimmed = typeof query === 'string' ? query.trim() : '';
+
+  if (!trimmed) {
+    return prisma.users.findMany({
+      where: {
+        role: 'DELIVERY',
+        status: true,
+        ...deliveryCandidateAvailability
+      },
+      select: deliveryCandidateSelect,
+      orderBy: { name: 'asc' }
+    });
+  }
+
+  return prisma.users.findMany({
     where: {
       role: 'DELIVERY',
       status: true,
-      OR: [
-        { email: { contains: query, mode: 'insensitive' } },
-        { phone: { contains: query, mode: 'insensitive' } }
-      ],
-      delivery: null
+      AND: [
+        deliveryCandidateAvailability,
+        {
+          OR: [
+            { email: { contains: trimmed, mode: 'insensitive' } },
+            { phone: { contains: trimmed, mode: 'insensitive' } }
+          ]
+        }
+      ]
     },
-    select: {
-      id_user: true,
-      name: true,
-      email: true,
-      phone: true
-    }
+    select: deliveryCandidateSelect,
+    orderBy: { name: 'asc' }
   });
-
-  return candidates;
 };
 
 export const createDeliveryService = async (authenticatedUserId, storeIdStr, deliveryUserIdStr) => {
@@ -42,23 +68,39 @@ export const createDeliveryService = async (authenticatedUserId, storeIdStr, del
     throw new NotFoundError("Candidato a delivery no encontrado o no válido");
   }
 
+  const existing = await prisma.deliveries.findUnique({
+    where: { fk_user: deliveryUserId }
+  });
+
+  if (existing) {
+    if (existing.fk_store === store.id_store) {
+      throw new ConflictError("El delivery ya está vinculado a este comercio");
+    }
+    if (existing.fk_store != null) {
+      throw new ConflictError("El delivery ya está vinculado a un comercio");
+    }
+
+    return prisma.deliveries.update({
+      where: { fk_user: deliveryUserId },
+      data: { fk_store: store.id_store }
+    });
+  }
+
   try {
-    const delivery = await prisma.deliveries.create({
+    return await prisma.deliveries.create({
       data: {
         fk_store: store.id_store,
         fk_user: deliveryUserId,
         delivery_status: 'INACTIVE'
       }
     });
-
-    return delivery;
   } catch (error) {
     if (error.code === 'P2002') {
-      const existing = await prisma.deliveries.findUnique({
+      const row = await prisma.deliveries.findUnique({
         where: { fk_user: deliveryUserId }
       });
       
-      if (existing && existing.fk_store === store.id_store) {
+      if (row && row.fk_store === store.id_store) {
         throw new ConflictError("El delivery ya está vinculado a este comercio");
       }
       throw new ConflictError("El delivery ya está vinculado a un comercio");
