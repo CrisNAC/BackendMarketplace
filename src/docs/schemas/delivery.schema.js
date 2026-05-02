@@ -300,5 +300,27 @@ export const deliverySchemas = {
       page: { type: "integer", example: 1 },
       size: { type: "integer", example: 20 }
     }
+  },
+  QueryValidationErrorResponse: {
+    type: "object",
+    properties: {
+      error: {
+        type: "object",
+        properties: {
+          code: { type: "integer", example: 400 },
+          message: { type: "string", example: "Datos inválidos" },
+          details: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                field: { type: "string", example: "period" },
+                message: { type: "string", example: "Invalid enum value" }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 };

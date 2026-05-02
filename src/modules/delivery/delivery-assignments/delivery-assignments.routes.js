@@ -160,7 +160,7 @@ router.post("/orders/:orderId/delivery-response", authenticate, requireRole(ROLE
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/DeliveryStatusErrorResponse'
+ *               $ref: '#/components/schemas/QueryValidationErrorResponse'
  *       401:
  *         description: No autenticado
  *         content:

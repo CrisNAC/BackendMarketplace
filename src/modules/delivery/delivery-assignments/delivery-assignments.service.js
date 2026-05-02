@@ -377,7 +377,7 @@ export const getDeliveryOrderHistoryService = async (deliveryId, authenticatedUs
     status: true,
     ...(assignment_status && { assignment_status }),
     ...(dateFilter && { created_at: dateFilter }),
-    ...(orderId && { fk_order: orderId }),
+    ...(orderId !== undefined && { fk_order: orderId }),
     ...(userName && {
       order: {
         user: {
