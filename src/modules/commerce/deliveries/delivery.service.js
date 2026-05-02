@@ -1,5 +1,6 @@
 import { prisma } from "../../../lib/prisma.js";
 import { ConflictError, NotFoundError, ValidationError } from "../../../lib/errors.js";
+import { parsePositiveInteger } from "../../../lib/validators.js";
 import { getAuthorizedStoreOwnerService } from "../commerces/store.service.js";
 
 export const searchDeliveryCandidatesService = async (query) => {
@@ -65,4 +66,88 @@ export const createDeliveryService = async (authenticatedUserId, storeIdStr, del
     }
     throw error;
   }
+};
+
+export const getStoreDeliveryReviewsService = async (
+  authenticatedUserId,
+  storeIdStr,
+  deliveryIdStr,
+  query
+) => {
+  const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
+  const deliveryId = parsePositiveInteger(deliveryIdStr, "ID de delivery");
+
+  const delivery = await prisma.deliveries.findUnique({
+    where: { id_delivery: deliveryId },
+    select: { id_delivery: true, fk_store: true }
+  });
+
+  if (!delivery || delivery.fk_store !== store.id_store) {
+    throw new NotFoundError("Delivery no encontrado para este comercio");
+  }
+
+  const searchValue = query?.search?.toString().trim();
+  const searchOrderId = searchValue ? parsePositiveInteger(searchValue, "ID de pedido") : null;
+
+  const minRatingValue = query?.minRating ?? query?.min_rating;
+  const maxRatingValue = query?.maxRating ?? query?.max_rating;
+
+  const minRating = minRatingValue !== undefined
+    ? parsePositiveInteger(minRatingValue, "minRating")
+    : null;
+  const maxRating = maxRatingValue !== undefined
+    ? parsePositiveInteger(maxRatingValue, "maxRating")
+    : null;
+
+  if (minRating !== null && (minRating < 1 || minRating > 5)) {
+    throw new ValidationError("minRating debe estar entre 1 y 5");
+  }
+
+  if (maxRating !== null && (maxRating < 1 || maxRating > 5)) {
+    throw new ValidationError("maxRating debe estar entre 1 y 5");
+  }
+
+  if (minRating !== null && maxRating !== null && minRating > maxRating) {
+    throw new ValidationError("minRating no puede ser mayor que maxRating");
+  }
+
+  const ratingFilter =
+    minRating !== null || maxRating !== null
+      ? {
+        rating: {
+          ...(minRating !== null && { gte: minRating }),
+          ...(maxRating !== null && { lte: maxRating })
+        }
+      }
+      : {};
+
+  const reviews = await prisma.deliveryReviews.findMany({
+    where: {
+      fk_delivery: deliveryId,
+      status: true,
+      ...(searchOrderId ? { fk_order: searchOrderId } : {}),
+      ...ratingFilter
+    },
+    orderBy: { created_at: "desc" },
+    select: {
+      id_delivery_review: true,
+      fk_order: true,
+      rating: true,
+      comment: true,
+      created_at: true,
+      user: { select: { name: true } }
+    }
+  });
+
+  return {
+    total: reviews.length,
+    reviews: reviews.map((review) => ({
+      id: review.id_delivery_review,
+      orderId: review.fk_order,
+      customerName: review.user?.name ?? "Cliente",
+      rating: review.rating,
+      comment: review.comment,
+      createdAt: review.created_at
+    }))
+  };
 };

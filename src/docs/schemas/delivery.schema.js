@@ -3,6 +3,27 @@
  */
 
 export const deliverySchemas = {
+  DeliveryReviewItem: {
+    type: "object",
+    properties: {
+      id: { type: "integer", example: 1 },
+      orderId: { type: "integer", example: 120 },
+      customerName: { type: "string", example: "Juan" },
+      rating: { type: "integer", example: 5 },
+      comment: { type: "string", example: "Entrega rápida" },
+      createdAt: { type: "string", format: "date-time" }
+    }
+  },
+  DeliveryReviewListResponse: {
+    type: "object",
+    properties: {
+      total: { type: "integer", example: 2 },
+      reviews: {
+        type: "array",
+        items: { $ref: "#/components/schemas/DeliveryReviewItem" }
+      }
+    }
+  },
   DeliveryRegisterBody: {
     type: "object",
     required: ["vehicleType"],
