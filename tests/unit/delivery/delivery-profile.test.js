@@ -54,7 +54,7 @@ const mockDelivery = {
   fk_user: 10,
   fk_store: 1,
   delivery_status: "ACTIVE",
-  vehicle_type: "MOTO",
+  vehicle_type: "MOTORCYCLE",
   status: true,
   user: mockUser,
 };
@@ -64,7 +64,7 @@ const mockUpdatedDelivery = {
   fk_user: 10,
   fk_store: 1,
   delivery_status: "ACTIVE",
-  vehicle_type: "BICICLETA",
+  vehicle_type: "BICYCLE",
   status: true,
   user: {
     name: "Juan Actualizado",
@@ -175,14 +175,14 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Actualización exitosa: vehicleType ---
 
   it("devuelve 200 al actualizar vehicleType", async () => {
-    setupProfileMocks({ vehicle_type: "BICICLETA" });
+    setupProfileMocks({ vehicle_type: "BICYCLE" });
 
-    const res = await putDelivery(1, { vehicleType: "BICICLETA" });
+    const res = await putDelivery(1, { vehicleType: "BICYCLE" });
 
     expect(res.status).toBe(200);
     expect(prisma.deliveries.update).toHaveBeenCalledWith({
       where: { id_delivery: 1 },
-      data: { vehicle_type: "BICICLETA" },
+      data: { vehicle_type: "BICYCLE" },
     });
   });
 
@@ -194,7 +194,7 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
     const res = await putDelivery(1, {
       name: "Juan Actualizado",
       phone: "0987654321",
-      vehicleType: "BICICLETA",
+      vehicleType: "BICYCLE",
     });
 
     expect(res.status).toBe(200);
@@ -204,7 +204,7 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
     });
     expect(prisma.deliveries.update).toHaveBeenCalledWith({
       where: { id_delivery: 1 },
-      data: { vehicle_type: "BICICLETA" },
+      data: { vehicle_type: "BICYCLE" },
     });
   });
 
