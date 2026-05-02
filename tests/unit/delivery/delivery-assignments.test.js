@@ -322,7 +322,15 @@ describe("respondToAssignmentService", () => {
 // ─── getDeliveryOrderHistoryService ──────────────────────────────────────────
 
 describe("getDeliveryOrderHistoryService", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    prisma.$transaction.mockImplementation((callbackOrArray) => {
+      if (typeof callbackOrArray === "function") {
+        return callbackOrArray(mockTx);
+      }
+      return Promise.all(callbackOrArray.map((p) => Promise.resolve(p)));
+    });
+  });
 
   // ─── VALIDACIONES ─────────────────────────────────────────────────────────
 
