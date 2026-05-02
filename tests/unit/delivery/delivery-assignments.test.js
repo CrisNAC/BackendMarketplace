@@ -4,6 +4,7 @@ import { prisma } from "../../../src/lib/prisma.js";
 import {
   createAssignmentService,
   respondToAssignmentService,
+  getDeliveryOrderHistoryService,
 } from "../../../src/modules/delivery/delivery-assignments/delivery-assignments.service.js";
 
 // ─── MOCK DE PRISMA ──────────────────────────────────────────────────────────
@@ -33,9 +34,16 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     },
     deliveryAssignments: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
+      count: vi.fn(),
     },
-    $transaction: vi.fn((callback) => callback(mockTx)),
+    $transaction: vi.fn((callbackOrArray) => {
+      if (typeof callbackOrArray === "function") {
+        return callbackOrArray(mockTx);
+      }
+      return Promise.all(callbackOrArray.map(p => Promise.resolve(p)));
+    }),
   },
 }));
 
@@ -63,6 +71,30 @@ const mockAssignmentPending = {
   assignment_sequence: 1,
   delivery: { fk_user: 5 },
   order: { fk_store: 10 },
+};
+
+const mockPagination = { page: 1, limit: 20, skip: 0 };
+
+const mockAssignmentHistory = {
+  id_delivery_assignment: 1,
+  assignment_status: "DELIVERED",
+  assignment_sequence: 1,
+  created_at: "2026-01-01T00:00:00.000Z",
+  order: {
+    id_order: 100,
+    order_status: "DELIVERED",
+    total: "150000",
+    shipping_cost: "10000",
+    created_at: "2026-01-01T00:00:00.000Z",
+    user: { id_user: 1, name: "Juan Pérez" },
+    store: { id_store: 10, name: "Mi Comercio" }
+  }
+};
+
+const mockDeliveryForHistory = {
+  id_delivery: 1,
+  fk_user: 5,
+  status: true
 };
 
 // ─── createAssignmentService ──────────────────────────────────────────────────
@@ -282,6 +314,190 @@ describe("respondToAssignmentService", () => {
     expect(mockTx.orders.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { order_status: "PENDING" },
+      })
+    );
+  });
+});
+
+// ─── getDeliveryOrderHistoryService ──────────────────────────────────────────
+
+describe("getDeliveryOrderHistoryService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // ─── VALIDACIONES ─────────────────────────────────────────────────────────
+
+  it("lanza 400 cuando el ID de delivery es inválido", async () => {
+    await expect(
+      getDeliveryOrderHistoryService("abc", 5, {}, mockPagination)
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("lanza 404 cuando el delivery no existe", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(null);
+
+    await expect(
+      getDeliveryOrderHistoryService(1, 5, {}, mockPagination)
+    ).rejects.toMatchObject({ status: 404, message: /delivery no encontrado/i });
+  });
+
+  it("lanza 403 cuando el delivery no pertenece al usuario autenticado", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue({
+      ...mockDeliveryForHistory,
+      fk_user: 99
+    });
+
+    await expect(
+      getDeliveryOrderHistoryService(1, 5, {}, mockPagination)
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  // ─── RESPUESTA BASE ───────────────────────────────────────────────────────
+
+  it("retorna estructura de paginación correcta", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDeliveryForHistory);
+    prisma.$transaction.mockResolvedValue([[mockAssignmentHistory], 1]);
+
+    const result = await getDeliveryOrderHistoryService(1, 5, {}, mockPagination);
+
+    expect(result).toMatchObject({
+      total_elements: 1,
+      total_pages: 1,
+      page: 1,
+      size: 20
+    });
+    expect(Array.isArray(result.content)).toBe(true);
+  });
+
+  it("retorna contenido con los campos esperados", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDeliveryForHistory);
+    prisma.$transaction.mockResolvedValue([[mockAssignmentHistory], 1]);
+
+    const result = await getDeliveryOrderHistoryService(1, 5, {}, mockPagination);
+    const item = result.content[0];
+
+    expect(item).toHaveProperty("id_delivery_assignment");
+    expect(item).toHaveProperty("assignment_status");
+    expect(item).toHaveProperty("assignment_sequence");
+    expect(item).toHaveProperty("created_at");
+    expect(item.order).toHaveProperty("id_order");
+    expect(item.order).toHaveProperty("total");
+    expect(item.order).toHaveProperty("user");
+    expect(item.order).toHaveProperty("store");
+  });
+
+  // ─── FILTROS ──────────────────────────────────────────────────────────────
+
+  it("filtra correctamente por period 7d", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDeliveryForHistory);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentHistory]);
+    prisma.deliveryAssignments.count.mockResolvedValue(1);
+
+    await getDeliveryOrderHistoryService(1, 5, { period: "7d" }, mockPagination);
+
+    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          created_at: expect.objectContaining({ gte: expect.any(Date) })
+        })
+      })
+    );
+  });
+
+  it("filtra correctamente por period 15d", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDeliveryForHistory);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentHistory]);
+    prisma.deliveryAssignments.count.mockResolvedValue(1);
+
+    await getDeliveryOrderHistoryService(1, 5, { period: "15d" }, mockPagination);
+
+    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          created_at: expect.objectContaining({ gte: expect.any(Date) })
+        })
+      })
+    );
+  });
+
+  it("filtra correctamente por period 1m", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDeliveryForHistory);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentHistory]);
+    prisma.deliveryAssignments.count.mockResolvedValue(1);
+
+    await getDeliveryOrderHistoryService(1, 5, { period: "1m" }, mockPagination);
+
+    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          created_at: expect.objectContaining({ gte: expect.any(Date) })
+        })
+      })
+    );
+  });
+
+  it("filtra correctamente por assignment_status", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDeliveryForHistory);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentHistory]);
+    prisma.deliveryAssignments.count.mockResolvedValue(1);
+
+    await getDeliveryOrderHistoryService(1, 5, { assignment_status: "DELIVERED" }, mockPagination);
+
+    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ assignment_status: "DELIVERED" })
+      })
+    );
+  });
+
+  it("filtra correctamente por orderId", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDeliveryForHistory);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentHistory]);
+    prisma.deliveryAssignments.count.mockResolvedValue(1);
+
+    await getDeliveryOrderHistoryService(1, 5, { orderId: 100 }, mockPagination);
+
+    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ fk_order: 100 })
+      })
+    );
+  });
+
+  it("filtra correctamente por userName", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDeliveryForHistory);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentHistory]);
+    prisma.deliveryAssignments.count.mockResolvedValue(1);
+
+    await getDeliveryOrderHistoryService(1, 5, { userName: "Juan" }, mockPagination);
+
+    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          order: { user: { name: { contains: "Juan", mode: "insensitive" } } }
+        })
+      })
+    );
+  });
+
+  it("sin filtros retorna todos los registros", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDeliveryForHistory);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentHistory]);
+    prisma.deliveryAssignments.count.mockResolvedValue(1);
+
+    await getDeliveryOrderHistoryService(1, 5, {}, mockPagination);
+
+    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({
+          created_at: expect.anything()
+        })
+      })
+    );
+    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({
+          assignment_status: expect.anything()
+        })
       })
     );
   });
