@@ -56,7 +56,15 @@ import {
 const app = express();
 
 // Seguridad HTTP con Helmet
-app.use(helmet());
+app.use(helmet({
+  permissionsPolicy: {
+    features: {
+      camera: [],
+      microphone: [],
+      payment: [],
+    }
+  }
+}));
 
 //Para debug en consola de las peticiones
 app.use(morgan('dev'));
