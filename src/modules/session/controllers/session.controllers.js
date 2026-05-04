@@ -107,6 +107,9 @@ export const userSession = async (req, res) => {
                 store: {
                     where: { status: true },
                     select: { id_store: true }
+                },
+                delivery: {
+                    select: { id_delivery: true, status: true }
                 }
             }
         });
@@ -126,7 +129,9 @@ export const userSession = async (req, res) => {
                 email: user.email,
                 phone: user.phone,
                 role: user.role,
-                id_store: user.store?.id_store ?? null
+                id_store: user.store?.id_store ?? null,
+                id_delivery:
+                    user.delivery && user.delivery.status ? user.delivery.id_delivery : null
             },
         });
     } catch (error) {

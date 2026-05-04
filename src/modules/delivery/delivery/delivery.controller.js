@@ -83,7 +83,7 @@ export const getPendingAssignments = async (req, res) => {
       });
     }
 
-    const result = await getPendingAssignmentsService(deliveryId);
+    const result = await getPendingAssignmentsService(deliveryId, req.user.id_user);
     res.json(result);
   } catch (error) {
     return res.status(error.status || 500).json({

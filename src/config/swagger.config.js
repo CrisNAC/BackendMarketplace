@@ -13,6 +13,7 @@ import {
     reviewReportSchemas,
     categoryRequestSchemas,
     deliverySchemas,
+    orderSchemas,
     // /session
     sessionSchemas,
     // /admin
@@ -74,6 +75,7 @@ const options = {
 
                 ...categoryRequestSchemas,
                 ...deliverySchemas,
+                ...orderSchemas,
                 // /session
                 ...sessionSchemas,
                 // /images

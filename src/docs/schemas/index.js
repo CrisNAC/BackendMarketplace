@@ -10,6 +10,7 @@ export * from "./commerce/product-report.schema.js";
 export * from "./commerce/review-report.schema.js";
 export * from "./commerce/category-request.schema.js";
 export * from "./delivery.schema.js";
+export * from "./order.schema.js";
 
 export * from "./session/session.schema.js";
 
