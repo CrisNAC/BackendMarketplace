@@ -6,7 +6,8 @@ import { NotFoundError, ValidationError } from "../../../../lib/errors.js";
 
 /**
  * Devuelve los deliveries ACTIVE de la tienda disponibles para tomar el pedido,
- * junto con la dirección de entrega del pedido (si tiene).
+ * EXCLUYENDO aquellos que ya tienen asignaciones PENDING o ACCEPTED activas.
+ * También devuelve la dirección de entrega del pedido (si tiene).
  *
  * GET /api/stores/:storeId/orders/:orderId/deliveries
  */
@@ -15,7 +16,7 @@ export const getAvailableDeliveriesForOrderService = async (
   storeIdStr,
   orderIdStr
 ) => {
-  //Verificar que el comercio existe y pertenece al usuario autenticado
+  // Verificar que el comercio existe y pertenece al usuario autenticado
   const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
 
   const orderId = Number(orderIdStr);
@@ -23,7 +24,7 @@ export const getAvailableDeliveriesForOrderService = async (
     throw new ValidationError("ID de pedido inválido");
   }
 
-  //Verificar que el pedido existe y pertenece a esta tienda
+  // Verificar que el pedido existe y pertenece a esta tienda
   const order = await prisma.orders.findFirst({
     where: {
       id_order: orderId,
@@ -57,20 +58,36 @@ export const getAvailableDeliveriesForOrderService = async (
     );
   }
 
-  //Verificar que no tenga ya una asignación PENDING activa
-  const existingPending = await prisma.deliveryAssignments.findFirst({
+  // Verificar que no tenga ya una asignación PENDING o ACCEPTED activa
+  const existingAssignment = await prisma.deliveryAssignments.findFirst({
     where: {
       fk_order: orderId,
-      assignment_status: "PENDING",
+      assignment_status: { in: ["PENDING", "ACCEPTED"] },
       status: true
     }
   });
 
-  if (existingPending) {
-    throw new ValidationError("Este pedido ya tiene una asignación pendiente");
+  if (existingAssignment) {
+    throw new ValidationError("Este pedido ya tiene una asignación activa");
   }
 
-  //Obtener deliveries ACTIVE de la tienda
+  // Obtener IDs de deliveries que tienen asignaciones PENDING o ACCEPTED
+  const busyDeliveries = await prisma.deliveryAssignments.findMany({
+    where: {
+      assignment_status: { in: ["PENDING", "ACCEPTED"] },
+      status: true,
+      delivery: {
+        fk_store: store.id_store
+      }
+    },
+    select: {
+      fk_delivery: true
+    }
+  });
+
+  const busyDeliveryIds = new Set(busyDeliveries.map(d => d.fk_delivery));
+
+  // Obtener deliveries ACTIVE de la tienda que NO estén ocupados
   const deliveries = await prisma.deliveries.findMany({
     where: {
       fk_store: store.id_store,
@@ -90,6 +107,11 @@ export const getAvailableDeliveriesForOrderService = async (
     }
   });
 
+  // Filtrar deliveries que estén ocupados
+  const availableDeliveries = deliveries.filter(
+    d => !busyDeliveryIds.has(d.id_delivery)
+  );
+
   return {
     order_id: orderId,
     order_status: order.order_status,
@@ -102,7 +124,7 @@ export const getAvailableDeliveriesForOrderService = async (
           postal_code: order.address.postal_code ?? null
         }
       : null,
-    available_deliveries: deliveries.map((d) => ({
+    available_deliveries: availableDeliveries.map((d) => ({
       id_delivery: d.id_delivery,
       name: d.user.name,
       phone: d.user.phone,
