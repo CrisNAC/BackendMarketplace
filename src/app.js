@@ -57,6 +57,13 @@ const app = express();
 
 // Seguridad HTTP con Helmet
 app.use(helmet());
+app.use((req, res, next) => {
+  res.setHeader(
+    "Permissions-Policy",
+    "camera=(), microphone=(), payment=()"
+  );
+  next();
+});
 
 //Para debug en consola de las peticiones
 app.use(morgan('dev'));
