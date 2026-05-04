@@ -1,3 +1,4 @@
+//distance.controller.js
 export const getDistance = async (req, res, next) => {
   const { points } = req.body;
 
