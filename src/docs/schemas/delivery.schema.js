@@ -24,6 +24,183 @@ export const deliverySchemas = {
       }
     }
   },
+  DeliverySearchCandidate: {
+    type: "object",
+    properties: {
+      id_user: { type: "integer", example: 12 },
+      name: { type: "string", example: "Maria Gomez" },
+      email: { type: "string", format: "email", example: "maria.delivery@test.com" },
+      phone: { type: "string", example: "0987654321" }
+    }
+  },
+  DeliverySearchCandidatesResponse: {
+    type: "array",
+    items: { $ref: "#/components/schemas/DeliverySearchCandidate" }
+  },
+  LinkStoreDeliveryRequest: {
+    type: "object",
+    required: ["fk_user"],
+    properties: {
+      fk_user: {
+        type: "integer",
+        example: 12,
+        description: "ID del usuario DELIVERY que se quiere vincular al comercio"
+      }
+    }
+  },
+  StoreDeliveryResponse: {
+    type: "object",
+    properties: {
+      id_delivery: { type: "integer", example: 4 },
+      fk_store: { type: "integer", example: 8 },
+      fk_user: { type: "integer", example: 12 },
+      delivery_status: {
+        type: "string",
+        enum: ["ACTIVE", "INACTIVE", "SUSPENDED"],
+        example: "INACTIVE"
+      },
+      vehicle_type: {
+        type: "string",
+        enum: ["CAR", "MOTORCYCLE", "BICYCLE", "ON_FOOT"],
+        example: "CAR"
+      },
+      status: { type: "boolean", example: true },
+      created_at: { type: "string", format: "date-time" },
+      updated_at: { type: "string", format: "date-time" }
+    }
+  },
+  UpdateDeliveryProfileRequest: {
+    type: "object",
+    properties: {
+      name: {
+        type: "string",
+        minLength: 2,
+        example: "Maria Gomez"
+      },
+      phone: {
+        type: "string",
+        minLength: 10,
+        pattern: "^\\d{10,}$",
+        example: "0987654321"
+      },
+      vehicleType: {
+        type: "string",
+        enum: ["CAR", "MOTORCYCLE", "BICYCLE", "ON_FOOT"],
+        example: "MOTORCYCLE"
+      }
+    }
+  },
+  UpdateDeliveryProfileMultipartRequest: {
+    type: "object",
+    properties: {
+      name: {
+        type: "string",
+        minLength: 2,
+        example: "Maria Gomez"
+      },
+      phone: {
+        type: "string",
+        minLength: 10,
+        pattern: "^\\d{10,}$",
+        example: "0987654321"
+      },
+      vehicleType: {
+        type: "string",
+        enum: ["CAR", "MOTORCYCLE", "BICYCLE", "ON_FOOT"],
+        example: "MOTORCYCLE"
+      },
+      avatarUrl: {
+        type: "string",
+        format: "binary",
+        description: "Imagen de avatar opcional"
+      }
+    }
+  },
+  DeliveryProfileUser: {
+    type: "object",
+    properties: {
+      name: { type: "string", example: "Maria Gomez" },
+      phone: { type: "string", example: "0987654321" },
+      avatar_url: {
+        type: "string",
+        nullable: true,
+        example: "https://cdn.example.com/users/12/avatar.jpg"
+      },
+      email: { type: "string", format: "email", example: "maria.delivery@test.com" }
+    }
+  },
+  DeliveryProfileResponse: {
+    type: "object",
+    properties: {
+      id_delivery: { type: "integer", example: 4 },
+      fk_store: { type: "integer", nullable: true, example: 8 },
+      fk_user: { type: "integer", example: 12 },
+      delivery_status: {
+        type: "string",
+        enum: ["ACTIVE", "INACTIVE", "SUSPENDED"],
+        example: "ACTIVE"
+      },
+      vehicle_type: {
+        type: "string",
+        enum: ["CAR", "MOTORCYCLE", "BICYCLE", "ON_FOOT"],
+        example: "MOTORCYCLE"
+      },
+      status: { type: "boolean", example: true },
+      created_at: { type: "string", format: "date-time" },
+      updated_at: { type: "string", format: "date-time" },
+      user: { $ref: "#/components/schemas/DeliveryProfileUser" }
+    }
+  },
+  DeliveryProfileErrorResponse: {
+    type: "object",
+    properties: {
+      error: {
+        type: "object",
+        properties: {
+          code: { type: "integer", example: 400 },
+          message: { type: "string", example: "Telefono debe tener minimo 10 digitos" },
+          details: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                path: {
+                  type: "array",
+                  items: { type: "string" },
+                  example: ["phone"]
+                },
+                message: { type: "string", example: "Telefono debe tener minimo 10 digitos" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  DeliveryProfileForbiddenResponse: {
+    type: "object",
+    properties: {
+      error: {
+        type: "object",
+        properties: {
+          code: { type: "integer", example: 403 },
+          message: { type: "string", example: "No tienes permiso para actualizar este perfil de delivery" }
+        }
+      }
+    }
+  },
+  DeliveryProfileNotFoundResponse: {
+    type: "object",
+    properties: {
+      error: {
+        type: "object",
+        properties: {
+          code: { type: "integer", example: 404 },
+          message: { type: "string", example: "Delivery no encontrado" }
+        }
+      }
+    }
+  },
   DeliveryRegisterBody: {
     type: "object",
     required: ["vehicleType"],
