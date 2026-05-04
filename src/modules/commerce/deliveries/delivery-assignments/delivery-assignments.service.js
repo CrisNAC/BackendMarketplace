@@ -61,7 +61,8 @@ export const getAvailableDeliveriesForOrderService = async (
   const existingPending = await prisma.deliveryAssignments.findFirst({
     where: {
       fk_order: orderId,
-      assignment_status: "PENDING"
+      assignment_status: "PENDING",
+      status: true
     }
   });
 
