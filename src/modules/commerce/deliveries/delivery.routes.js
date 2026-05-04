@@ -7,10 +7,103 @@ import { searchDeliveries, createDelivery, getStoreDeliveryReviews } from "./del
 export const deliveryRouter = Router();
 export const storeDeliveryRouter = Router();
 
-// GET /api/deliveries/search?q=
+/**
+ * @swagger
+ * /api/deliveries/search:
+ *   get:
+ *     summary: Buscar deliveries disponibles para vincular a un comercio
+ *     description: Busca usuarios activos con rol DELIVERY por email o telefono y retorna candidatos que aun no tienen un registro de delivery vinculado.
+ *     tags: [Deliveries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Texto a buscar en email o telefono
+ *     responses:
+ *       200:
+ *         description: Candidatos encontrados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DeliverySearchCandidatesResponse'
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
+ *       403:
+ *         description: Solo comercios pueden buscar deliveries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 deliveryRouter.get("/search", authenticate, requireRole(ROLES.SELLER), searchDeliveries);
 
-// POST /api/stores/{id}/deliveries
+/**
+ * @swagger
+ * /api/stores/{id}/deliveries:
+ *   post:
+ *     summary: Vincular un delivery a un comercio
+ *     description: Crea un registro en Deliveries para asociar un usuario DELIVERY al comercio del vendedor autenticado. El delivery se crea con estado INACTIVE por defecto.
+ *     tags: [Deliveries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del comercio
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LinkStoreDeliveryRequest'
+ *     responses:
+ *       201:
+ *         description: Delivery vinculado al comercio
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/StoreDeliveryResponse'
+ *       400:
+ *         description: Datos invalidos o fk_user faltante
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
+ *       403:
+ *         description: No tiene permisos para vincular deliveries a este comercio
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Comercio o candidato a delivery no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: El delivery ya esta vinculado a este comercio o a otro comercio
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 storeDeliveryRouter.post("/:id/deliveries", authenticate, requireRole(ROLES.SELLER), createDelivery);
 
 /**
