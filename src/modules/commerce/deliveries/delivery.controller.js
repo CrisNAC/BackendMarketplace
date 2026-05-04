@@ -1,7 +1,9 @@
 import {
   searchDeliveryCandidatesService,
   createDeliveryService,
-  getStoreDeliveryReviewsService
+  getStoreDeliveriesService,
+  deleteStoreDeliveryService,
+  getStoreDeliveryReviewsService,
 } from "./delivery.service.js";
 
 export const searchDeliveries = async (req, res) => {
@@ -32,6 +34,30 @@ export const createDelivery = async (req, res) => {
 
     const delivery = await createDeliveryService(req.user?.id_user, id, fkUser);
     res.status(201).json(delivery);
+  } catch (error) {
+    return res.status(error.status || error.statusCode || 500).json({
+      message: error.message || "Error interno del servidor"
+    });
+  }
+};
+
+export const getStoreDeliveries = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await getStoreDeliveriesService(req.user?.id_user, id);
+    res.status(200).json(result);
+  } catch (error) {
+    return res.status(error.status || error.statusCode || 500).json({
+      message: error.message || "Error interno del servidor"
+    });
+  }
+};
+
+export const deleteStoreDelivery = async (req, res) => {
+  try {
+    const { id, deliveryId } = req.params;
+    await deleteStoreDeliveryService(req.user?.id_user, id, deliveryId);
+    res.status(204).send();
   } catch (error) {
     return res.status(error.status || error.statusCode || 500).json({
       message: error.message || "Error interno del servidor"

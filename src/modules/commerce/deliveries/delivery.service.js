@@ -30,7 +30,7 @@ export const searchDeliveryCandidatesService = async (query) => {
 export const createDeliveryService = async (authenticatedUserId, storeIdStr, deliveryUserIdStr) => {
   const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
   const deliveryUserId = Number(deliveryUserIdStr);
-  
+
   if (!Number.isInteger(deliveryUserId) || deliveryUserId <= 0) {
     throw new ValidationError("El ID del candidato a delivery debe ser un número entero positivo");
   }
@@ -58,7 +58,7 @@ export const createDeliveryService = async (authenticatedUserId, storeIdStr, del
       const existing = await prisma.deliveries.findUnique({
         where: { fk_user: deliveryUserId }
       });
-      
+
       if (existing && existing.fk_store === store.id_store) {
         throw new ConflictError("El delivery ya está vinculado a este comercio");
       }
@@ -66,6 +66,124 @@ export const createDeliveryService = async (authenticatedUserId, storeIdStr, del
     }
     throw error;
   }
+};
+
+export const getStoreDeliveriesService = async (authenticatedUserId, storeIdStr) => {
+  const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
+
+  const deliveries = await prisma.deliveries.findMany({
+    where: { fk_store: store.id_store, status: true },
+    select: {
+      id_delivery: true,
+      delivery_status: true,
+      vehicle_type: true,
+      user: {
+        select: { id_user: true, name: true, email: true, phone: true },
+      },
+      delivery_assignments: {
+        where: { status: true },
+        select: { assignment_status: true },
+      },
+      delivery_reviews: {
+        where: { status: true },
+        select: { rating: true },
+      },
+    },
+    orderBy: { created_at: "desc" },
+  });
+
+  let totalAvailable = 0;
+  let totalInDelivery = 0;
+  const allRatings = [];
+
+  const mappedDeliveries = deliveries.map((d) => {
+    const assignments = d.delivery_assignments;
+    const hasActiveAssignment = assignments.some(
+      (a) => a.assignment_status === "PENDING" || a.assignment_status === "ACCEPTED"
+    );
+
+    const delivered = assignments.filter((a) => a.assignment_status === "DELIVERED").length;
+    const rejected = assignments.filter((a) => a.assignment_status === "REJECTED").length;
+    const terminal = delivered + rejected;
+    const successRate = terminal > 0 ? Math.round((delivered / terminal) * 1000) / 10 : null;
+
+    const ratings = d.delivery_reviews.map((r) => r.rating);
+    allRatings.push(...ratings);
+    const avgRating =
+      ratings.length > 0
+        ? Math.round((ratings.reduce((sum, r) => sum + r, 0) / ratings.length) * 10) / 10
+        : null;
+
+    let displayStatus;
+    if (hasActiveAssignment) {
+      displayStatus = "IN_DELIVERY";
+      totalInDelivery++;
+    } else if (d.delivery_status === "ACTIVE") {
+      displayStatus = "AVAILABLE";
+      totalAvailable++;
+    } else {
+      displayStatus = "UNAVAILABLE";
+    }
+
+    return {
+      id: d.id_delivery,
+      user: {
+        id: d.user.id_user,
+        name: d.user.name,
+        email: d.user.email,
+        phone: d.user.phone,
+      },
+      status: displayStatus,
+      vehicleType: d.vehicle_type,
+      completedDeliveries: delivered,
+      successRate,
+      avgRating,
+      reviewCount: ratings.length,
+    };
+  });
+
+  const globalAvgRating =
+    allRatings.length > 0
+      ? Math.round((allRatings.reduce((sum, r) => sum + r, 0) / allRatings.length) * 10) / 10
+      : null;
+
+  return {
+    stats: {
+      total: deliveries.length,
+      available: totalAvailable,
+      inDelivery: totalInDelivery,
+      avgRating: globalAvgRating,
+    },
+    deliveries: mappedDeliveries,
+  };
+};
+
+export const deleteStoreDeliveryService = async (authenticatedUserId, storeIdStr, deliveryIdStr) => {
+  const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
+  const deliveryId = parsePositiveInteger(deliveryIdStr, "ID de delivery");
+
+  const delivery = await prisma.deliveries.findFirst({
+    where: { id_delivery: deliveryId, fk_store: store.id_store, status: true },
+    select: {
+      id_delivery: true,
+      delivery_assignments: {
+        where: { status: true, assignment_status: { in: ["PENDING", "ACCEPTED"] } },
+        select: { id_delivery_assignment: true },
+        take: 1,
+      },
+    },
+  });
+
+  if (!delivery) throw new NotFoundError("Delivery no encontrado para este comercio");
+
+  if (delivery.delivery_assignments.length > 0) {
+    throw new ValidationError("No se puede desvincular un delivery con entregas activas");
+  }
+
+  await prisma.deliveries.update({
+    where: { id_delivery: deliveryId },
+    data: { fk_store: null },
+  });
 };
 
 export const getStoreDeliveryReviewsService = async (
