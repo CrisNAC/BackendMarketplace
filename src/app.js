@@ -22,6 +22,7 @@ import sessionRoutes from "./modules/session/routes/session.routes.js";
 import userProductReviewRoutes from "./modules/users/product-review/product-review.routes.js";
 import deliveryRoutes from "./modules/delivery/delivery/delivery.routes.js";
 import assignmentRoutes from "./modules/delivery/delivery-assignments/delivery-assignments.routes.js";
+import storeDeliveryAssignmentRoutes from "./modules/commerce/deliveries/delivery-assignments/delivery-assignments.routes.js";
 
 import productReportRoutes from "./modules/global/reports/product/product-report.routes.js";
 import reviewReportRoutes from "./modules/global/reports/review/review-report.routes.js";
@@ -86,6 +87,7 @@ app.use("/api/commerces", commerceAddressRoutes);
 // Rutas de delivery
 app.use("/api/deliveries", deliveryRouter);
 app.use("/api/stores", storeDeliveryRouter);
+app.use("/api/stores", storeDeliveryAssignmentRoutes);
 
 //Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
 //Se encuentra indexado
