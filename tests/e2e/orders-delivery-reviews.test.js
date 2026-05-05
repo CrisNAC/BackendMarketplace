@@ -119,7 +119,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
 
   // GET /api/orders/pending-delivery-reviews tests
 
-  it("CP-OM485-01 - Sin autenticación - GET pending reviews - retorna 401", async () => {
+  it("retorna 401 cuando se hace un GET pending reviews sin autenticación", async () => {
     const res = await request(app)
       .get("/api/orders/pending-delivery-reviews")
       .expect(401);
@@ -128,7 +128,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
     expect(res.body.error.message).toMatch(/no autenticado/i);
   });
 
-  it("CP-OM485-02 - No CUSTOMER - GET pending reviews - retorna 403 cuando usuario es SELLER", async () => {
+  it("retorna 403 cuando el usuario es SELLER (no CUSTOMER) y hace un GET pending reviews", async () => {
     prisma.users.findFirst.mockResolvedValue(mockSellerUser);
 
     const res = await request(app)
@@ -140,7 +140,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
     expect(res.body.error.message).toMatch(/solo clientes pueden calificar/i);
   });
 
-  it("CP-OM485-03 - Listar pedidos pendientes de calificar - retorna 200 con lista de pedidos", async () => {
+  it("retorna 200 con lista de pedidos pendientes de calificar cuando el usuario es cliente y tiene pedidos", async () => {
     prisma.users.findFirst.mockResolvedValue(mockCustomerUser);
     prisma.deliveryReviews.findMany.mockResolvedValue([]);
     prisma.orders.findMany.mockResolvedValue(mockPendingReviews);
@@ -168,7 +168,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
 
   // POST /api/orders/:orderId/delivery-review tests
 
-  it("CP-OM485-04 - Rating fuera de rango - retorna 400 cuando rating es 0", async () => {
+  it("retorna 400 cuando rating es menor a uno", async () => {
     const res = await request(app)
       .post("/api/orders/100/delivery-review")
       .set("Cookie", customerCookie)
@@ -179,7 +179,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
     expect(res.body.error.message).toMatch(/entre 1 y 5/i);
   });
 
-  it("CP-OM485-04b - Rating fuera de rango - retorna 400 cuando rating es 6", async () => {
+  it("retorna 400 cuando rating es mayor a cinco", async () => {
     const res = await request(app)
       .post("/api/orders/100/delivery-review")
       .set("Cookie", customerCookie)
@@ -190,7 +190,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
     expect(res.body.error.message).toMatch(/entre 1 y 5/i);
   });
 
-  it("CP-OM485-05 - Comentario muy largo - retorna 400 cuando comentario excede 1000 caracteres", async () => {
+  it("retorna 400 cuando comentario excede 1000 caracteres", async () => {
     const longComment = "a".repeat(1001);
 
     const res = await request(app)
@@ -203,7 +203,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
     expect(res.body.error.message).toMatch(/no puede superar los 1000/i);
   });
 
-  it("CP-OM485-06 - Pedido ya calificado - retorna 409 si el pedido ya tiene una calificación", async () => {
+  it("retorna 409 cuando el pedido ya tiene una calificación", async () => {
     prisma.users.findFirst.mockResolvedValue(mockCustomerUser);
     prisma.orders.findFirst.mockResolvedValue({
       id_order: 100,
@@ -229,7 +229,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
     expect(res.body.error.message).toMatch(/ya tiene una calificación/i);
   });
 
-  it("CP-OM485-07 - Crear calificación válida - retorna 201 con datos de la calificación", async () => {
+  it("retorna 201 cuando se crea calificación válida con los respectivos datos de la calificación", async () => {
     prisma.users.findFirst.mockResolvedValue(mockCustomerUser);
     prisma.orders.findFirst.mockResolvedValue({
       id_order: 100,
