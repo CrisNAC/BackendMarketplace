@@ -81,17 +81,59 @@ export const updateDeliveryStatusService = async (authenticatedUserId, id_delive
 };
 
 // Obtener asignaciones pendientes del delivery
-export const getPendingAssignmentsService = async (id_delivery) => {
-  const delivery = await prisma.deliveries.findUnique({
-    where: { id_delivery },
+export const getPendingAssignmentsService = async (id_delivery, authUserId) => {
+  const delivery = await prisma.deliveries.findFirst({
+    where: {
+      id_delivery,
+      status: true,
+      ...(authUserId != null ? { fk_user: authUserId } : {})
+    },
     include: {
       user: { select: { id_user: true, name: true, email: true } },
-      store: { select: { id_store: true, name: true } },
+      store: { select: { id_store: true, name: true, store_status: true } },
       delivery_assignments: {
-        where: { assignment_status: "PENDING" },
+        where: { assignment_status: "PENDING", status: true },
         include: {
           order: {
-            select: { id_order: true, total: true, fk_address: true }
+            select: {
+              id_order: true,
+              total: true,
+              fk_address: true,
+              order_status: true,
+              shipping_cost: true,
+              shipping_distance_km: true,
+              created_at: true,
+              address: {
+                select: {
+                  id_address: true,
+                  address: true,
+                  city: true,
+                  region: true
+                }
+              },
+              user: {
+                select: {
+                  id_user: true,
+                  name: true,
+                  phone: true,
+                  avatar_url: true
+                }
+              },
+              store: {
+                select: {
+                  id_store: true,
+                  name: true,
+                  store_status: true
+                }
+              },
+              order_items: {
+                where: { status: true },
+                select: {
+                  quantity: true,
+                  product: { select: { name: true } }
+                }
+              }
+            }
           }
         },
         orderBy: { created_at: "desc" }
