@@ -1,6 +1,9 @@
+// src/docs/schemas/index.js
+
 export * from "./common.schema.js";
 export * from "./image.schema.js";
 
+// Commerce schemas
 export * from "./commerce/address.schema.js";
 export * from "./commerce/store.schema.js";
 export * from "./commerce/product-review.schema.js";
@@ -9,9 +12,12 @@ export * from "./commerce/product.schema.js";
 export * from "./commerce/product-report.schema.js";
 export * from "./commerce/review-report.schema.js";
 export * from "./commerce/category-request.schema.js";
+export * from "./commerce/delivery-assignment.schema.js"; 
 export * from "./delivery.schema.js";
 export * from "./order.schema.js";
 
+// Session schemas
 export * from "./session/session.schema.js";
 
+// Admin schemas
 export * from "./admin/admin-category.schema.js";
