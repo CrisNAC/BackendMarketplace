@@ -19,10 +19,10 @@ export const validateStoreCategoryService = async (categoryId) => {
     "fk_store_category"
   );
 
-  const category = await prisma.storeCategories.findUnique({
-    where: { id_store_category: parsedCategoryId },
+  const category = await prisma.categories.findUnique({
+    where: { id_category: parsedCategoryId },
     select: {
-      id_store_category: true,
+      id_category: true,
       status: true
     }
   });
@@ -44,7 +44,7 @@ export const getStoreCategoriesService = async (filters = {}) => {
     ? Math.min(limitRaw, 100)
     : 100;
 
-  const categories = await prisma.storeCategories.findMany({
+  const categories = await prisma.categories.findMany({
     where: {
       status: true,
       ...(search
@@ -57,7 +57,7 @@ export const getStoreCategoriesService = async (filters = {}) => {
         : {})
     },
     select: {
-      id_store_category: true,
+      id_category: true,
       name: true,
       status: true,
       created_at: true,
@@ -70,7 +70,7 @@ export const getStoreCategoriesService = async (filters = {}) => {
   });
 
   return categories.map((category) => ({
-    id: category.id_store_category,
+    id: category.id_category,
     name: category.name,
     status: category.status,
     createdAt: category.created_at,

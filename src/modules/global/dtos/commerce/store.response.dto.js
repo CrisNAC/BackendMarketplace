@@ -1,11 +1,13 @@
 import { BaseResponseDTO } from "../base/base.response.dto.js";
-// ─── STORE CATEGORY NESTED ───────────────────────────────────────
-export class StoreCategoryNestedDTO {
-    id_store_category;
+// ─── CATEGORY NESTED ─────────────────────────────────────────────
+export class CategoryNestedDTO {
+    id_category;
     name;
+    status;
     constructor(data) {
-        this.id_store_category = data.id_store_category;
+        this.id_category = data.id_category;
         this.name = data.name;
+        this.status = data.status ?? null;
     }
 }
 // ─── STORE RESPONSE DTO ──────────────────────────────────────────
@@ -20,8 +22,13 @@ export class StoreResponseDTO extends BaseResponseDTO {
     instagram_url;
     tiktok_url;
     fk_user;
+    categories;
     store_category;
     constructor(data) {
+        const categories = Array.isArray(data.categories)
+            ? data.categories.map((category) => new CategoryNestedDTO(category))
+            : [];
+
         super({
             id: data.id_store,
             created_at: data.created_at,
@@ -37,8 +44,12 @@ export class StoreResponseDTO extends BaseResponseDTO {
         this.instagram_url = data.instagram_url ?? null;
         this.tiktok_url = data.tiktok_url ?? null;
         this.fk_user = data.fk_user;
-        this.store_category = data.store_category
-            ? new StoreCategoryNestedDTO(data.store_category)
+        this.categories = categories;
+        this.store_category = categories[0]
+            ? {
+                id_store_category: categories[0].id_category,
+                name: categories[0].name
+            }
             : null;
         // status excluido intencionalmente
     }

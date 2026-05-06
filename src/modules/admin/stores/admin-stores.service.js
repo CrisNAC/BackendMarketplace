@@ -1,5 +1,28 @@
 import { prisma } from "../../../lib/prisma.js";
 
+const mapStoreCategories = (storeCategories) => {
+  const categories = Array.isArray(storeCategories)
+    ? storeCategories
+        .map((relation) => relation?.category)
+        .filter((category) => category && Number.isInteger(category.id_category) && category.name)
+        .map((category) => ({
+          id_category: category.id_category,
+          name: category.name,
+          status: category.status
+        }))
+    : [];
+
+  return {
+    categories,
+    store_category: categories[0]
+      ? {
+          id_store_category: categories[0].id_category,
+          name: categories[0].name
+        }
+      : null
+  };
+};
+
 /**
  * Aprueba un comercio cambiando su store_status de INACTIVE a ACTIVE.
  * También actualiza la visibilidad de todos sus productos.
@@ -78,15 +101,31 @@ export const getPendingStoresService = async (pagination) => {
             email: true,
           }
         },
-        store_category: {
-          select: { id_store_category: true, name: true }
+        store_categories: {
+          where: { status: true },
+          select: {
+            id_store_category: true,
+            category: {
+              select: {
+                id_category: true,
+                name: true,
+                status: true
+              }
+            }
+          }
         }
       }
     })
   ]);
 
   return {
-    data: stores,
+    data: stores.map((store) => {
+      const { store_categories, ...restStore } = store;
+      return {
+        ...restStore,
+        ...mapStoreCategories(store_categories)
+      };
+    }),
     pagination: {
       total,
       page,

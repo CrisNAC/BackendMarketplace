@@ -3,15 +3,46 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../../../lib/prisma.js";
 import { getProductPricing } from "../../../lib/product-pricing.js";
-import { validateStoreCategoryService } from "../store-categories/store-category.service.js";
+import {
+  validateStoreCategoriesService
+} from "../store-categories/store-category.service.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALLOWED_LOCAL_LOGO_DIRECTORIES = new Set(["uploads", "storage", "public"]);
 const DISTANCE_THRESHOLD_KM = 2;
+const mapStoreCategories = (storeCategories) => {
+  const categories = Array.isArray(storeCategories)
+    ? storeCategories
+        .map((relation) => {
+          const category = relation?.category;
+
+          if (!category) {
+            return null;
+          }
+
+          return {
+            id_category: category.id_category,
+            name: category.name,
+            status: category.status
+          };
+        })
+        .filter((category) => category && Number.isInteger(category.id_category) && category.name)
+    : [];
+
+  return {
+    categories,
+    store_category: categories[0]
+      ? {
+          id_store_category: categories[0].id_category,
+          name: categories[0].name
+        }
+      : null
+  };
+};
+
 const STORE_RESPONSE_SELECT = {
   id_store: true,
   fk_user: true,
-  fk_store_category: true,
   name: true,
   email: true,
   phone: true,
@@ -33,11 +64,18 @@ const STORE_RESPONSE_SELECT = {
       status: true
     }
   },
-  store_category: {
+  store_categories: {
+    where: { status: true },
     select: {
       id_store_category: true,
-      name: true,
-      status: true
+      status: true,
+      category: {
+        select: {
+          id_category: true,
+          name: true,
+          status: true
+        }
+      }
     }
   },
   products: {
@@ -133,6 +171,48 @@ const validateRequiredStringField = (value, fieldName, maxLength) => {
   }
 
   return normalizedValue;
+};
+
+const normalizeCategoryIds = (categoryIds) => {
+  const rawCategoryIds = Array.isArray(categoryIds)
+    ? categoryIds
+    : categoryIds !== undefined && categoryIds !== null && categoryIds !== ""
+      ? [categoryIds]
+      : [];
+
+  const normalizedCategoryIds = [...new Set(
+    rawCategoryIds
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value > 0)
+  )];
+
+  if (normalizedCategoryIds.length === 0) {
+    throw { status: 400, message: "Debes enviar al menos una categoría de comercio" };
+  }
+
+  return normalizedCategoryIds;
+};
+
+const validateStoreCategoriesByIds = async (categoryIds) => {
+  const normalizedCategoryIds = normalizeCategoryIds(categoryIds);
+
+  const categories = await prisma.categories.findMany({
+    where: {
+      id_category: {
+        in: normalizedCategoryIds
+      },
+      status: true
+    },
+    select: {
+      id_category: true
+    }
+  });
+
+  if (categories.length !== normalizedCategoryIds.length) {
+    throw { status: 400, message: "Una o más categorías de comercio no son válidas" };
+  }
+
+  return normalizedCategoryIds;
 };
 
 const validateOptionalStringField = (value, fieldName, maxLength) => {
@@ -323,8 +403,12 @@ const mapStoreWithPricedProducts = (store) => {
     return store;
   }
 
+  const { store_categories, ...restStore } = store;
+  const mappedCategories = mapStoreCategories(store_categories);
+
   return {
-    ...store,
+    ...restStore,
+    ...mappedCategories,
     products: Array.isArray(store.products)
       ? store.products.map(mapStoreProductPricing)
       : [],
@@ -481,6 +565,7 @@ const deletePreviousStoreLogoFromStorage = async (previousLogo, nextLogo) => {
 export const createStoreService = async (data) => {
   const {
     fk_user,
+    category_ids,
     fk_store_category,
     name,
     email,
@@ -497,9 +582,12 @@ export const createStoreService = async (data) => {
     distance_price
   } = data;
 
+  const normalizedCategoryIds = await validateStoreCategoriesService(
+    category_ids ?? fk_store_category
+  );
+
   if (
     !fk_user ||
-    !fk_store_category ||
     !name ||
     !email ||
     !phone ||
@@ -514,10 +602,6 @@ export const createStoreService = async (data) => {
 
   if (!Number.isInteger(fk_user) || fk_user <= 0) {
     throw { status: 400, message: "fk_user invalido" };
-  }
-
-  if (!Number.isInteger(fk_store_category) || fk_store_category <= 0) {
-    throw { status: 400, message: "fk_store_category invalido" };
   }
 
   if (!name || typeof name !== "string" || !name.trim()) {
@@ -576,19 +660,10 @@ export const createStoreService = async (data) => {
       throw { status: 409, message: "El usuario ya tiene un comercio" };
     }
 
-    const categoria = await prisma.storeCategories.findUnique({
-      where: { id_store_category: fk_store_category },
-    });
-
-    if (!categoria) {
-      throw { status: 400, message: "Categoria no valida" };
-    }
-
     const newStore = await prisma.$transaction(async (tx) => {
       const createdStore = await tx.stores.create({
         data: {
           fk_user,
-          fk_store_category,
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim(),
@@ -599,6 +674,13 @@ export const createStoreService = async (data) => {
           tiktok_url,
           store_status: "INACTIVE", // Pendiente de aprobación del admin
         },
+      });
+
+      await tx.storeCategories.createMany({
+        data: normalizedCategoryIds.map((categoryId) => ({
+          fk_store: createdStore.id_store,
+          fk_category: categoryId
+        }))
       });
 
       await tx.addresses.create({
@@ -658,11 +740,12 @@ export const updateStoreService = async (
   const dataToUpdate = {};
   const addressDataToUpdate = {};
   const shippingZoneDataToUpdate = {};
+  let normalizedCategoryIds = null;
   let hasCoordinatesToUpdate = false;
 
-  if (payload?.fk_store_category !== undefined) {
-    dataToUpdate.fk_store_category = await validateStoreCategoryService(
-      payload.fk_store_category
+  if (payload?.category_ids !== undefined || payload?.fk_store_category !== undefined) {
+    normalizedCategoryIds = await validateStoreCategoriesService(
+      payload.category_ids ?? payload.fk_store_category
     );
   }
 
@@ -776,7 +859,8 @@ export const updateStoreService = async (
   if (
     Object.keys(dataToUpdate).length === 0 &&
     Object.keys(addressDataToUpdate).length === 0 &&
-    Object.keys(shippingZoneDataToUpdate).length === 0
+    Object.keys(shippingZoneDataToUpdate).length === 0 &&
+    !normalizedCategoryIds
   ) {
     throw {
       status: 400,
@@ -827,6 +911,19 @@ export const updateStoreService = async (
         await tx.stores.update({
           where: { id_store: store.id_store },
           data: dataToUpdate
+        });
+      }
+
+      if (normalizedCategoryIds) {
+        await tx.storeCategories.deleteMany({
+          where: { fk_store: store.id_store }
+        });
+
+        await tx.storeCategories.createMany({
+          data: normalizedCategoryIds.map((categoryId) => ({
+            fk_store: store.id_store,
+            fk_category: categoryId
+          }))
         });
       }
 
@@ -917,124 +1014,22 @@ export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}
     if (isNaN(Number(id))) {
       throw { status: 400, message: "ID de tienda debe ser un número" };
     }
-
-    const storeSelect = {
-      id_store: true,
-      fk_store_category: true,
-      name: true,
-      description: true,
-      logo: true,
-      phone: true,
-      email: true,
-      website_url: true,
-      instagram_url: true,
-      tiktok_url: true,
-      status: true,
-      store_status: true,
-      created_at: true,
-      user: {
-        select: { id_user: true, name: true, email: true }
-      },
-      store_category: {
-        select: { id_store_category: true, name: true }
-      },
-      products: {
-        where: { status: true, visible: true },
-        select: {
-          id_product: true,
-          name: true,
-          price: true,
-          offer_price: true,
-          quantity: true,
-          visible: true,
-          is_offer: true,
-          image_url: true, 
-          product_category: {
-            select: { id_product_category: true, name: true }
-          }
-        }
-      },
-      addresses: {
-        where: { status: true },
-        orderBy: { created_at: "asc" },
-        select: {
-          id_address: true,
-          address: true,
-          city: true,
-          region: true,
-          postal_code: true,
-          status: true,
-          created_at: true,
-          updated_at: true
-        }
-      },
-      shipping_zones: {
-        where: { status: true },
-        orderBy: { created_at: "asc" },
-        select: {
-          id_shipping_zone: true,
-          base_price: true,
-          distance_price: true,
-          status: true,
-          created_at: true,
-          updated_at: true
-        }
-      }
-    };
+    const {
+      store_categories,
+      shipping_zones,
+      ...baseLegacyStoreSelect
+    } = STORE_RESPONSE_SELECT;
 
     const legacyStoreSelect = {
-      id_store: true,
-      fk_store_category: true,
-      name: true,
-      description: true,
-      logo: true,
-      phone: true,
-      email: true,
-      website_url: true,
-      instagram_url: true,
-      tiktok_url: true,
-      status: true,
-      created_at: true,
-      user: {
-        select: { id_user: true, name: true, email: true }
-      },
-      store_category: {
-        select: { id_store_category: true, name: true }
-      },
-      products: {
-        where: { status: true, visible: true },
-        select: {
-          id_product: true,
-          name: true,
-          price: true,
-          quantity: true,
-          visible: true,
-          product_category: {
-            select: { id_product_category: true, name: true }
-          }
-        }
-      },
-      addresses: {
-        where: { status: true },
-        orderBy: { created_at: "asc" },
-        select: {
-          id_address: true,
-          address: true,
-          city: true,
-          region: true,
-          postal_code: true,
-          status: true,
-          created_at: true,
-          updated_at: true
-        }
-      }
+      ...baseLegacyStoreSelect,
+      fk_store_category: true
     };
 
     let store;
     try {
       store = await prisma.stores.findUnique({
         where: { id_store: Number(id) },
-        select: storeSelect
+        select: STORE_RESPONSE_SELECT
       });
     } catch (queryError) {
       const shouldUseLegacyFallback =
@@ -1407,7 +1402,12 @@ export const getStoresService = async (filters = {}) => {
     if (!Number.isInteger(categoryId) || categoryId <= 0) {
       throw { status: 400, message: "storeCategoryId invalido" };
     }
-    where.fk_store_category = categoryId;
+    where.store_categories = {
+      some: {
+        fk_category: categoryId,
+        status: true
+      }
+    };
   }
 
   const stores = await prisma.stores.findMany({
@@ -1419,11 +1419,21 @@ export const getStoresService = async (filters = {}) => {
       description: true,
       logo: true,
       status: true,
-      store_category: {
-        select: { id_store_category: true, name: true }
+      store_categories: {
+        where: { status: true },
+        select: {
+          id_store_category: true,
+          category: {
+            select: {
+              id_category: true,
+              name: true,
+              status: true
+            }
+          }
+        }
       }
     }
   });
 
-  return stores;
+  return stores.map(mapStoreWithPricedProducts);
 };

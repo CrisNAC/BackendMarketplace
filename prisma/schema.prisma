@@ -60,7 +60,6 @@ model Notifications {
 //------------------------------------COMERCIOS----------------------------------------
 model Stores {
   id_store          Int       @id @default(autoincrement())
-  fk_store_category Int
   fk_user           Int       @unique
   name              String    @db.VarChar(100)
   email             String    @unique @db.VarChar(100)
@@ -77,7 +76,7 @@ model Stores {
 
   // Relaciones
   user                Users                @relation(fields: [fk_user], references: [id_user])
-  store_category      StoreCategories      @relation(fields: [fk_store_category], references: [id_store_category]) //Un comercio maneja un solo tipo de categoria (Para muchos rubros -> Multirubro)
+  store_categories    StoreCategories[] //Un comercio puede manejar multiples categorias
   products            Products[]   //Un comercio puede registrar multiples productos
   addresses           Addresses[] //Un comercio puede registrar multiples direcciones de sucursales igualmente
   shipping_zones      ShippingZones[] //Un comercio puede abarcar distintos precios para las regiones a las que envia el pedido
@@ -91,12 +90,27 @@ model Stores {
 //------------------------------------COMERCIOS-CATEGORIAS----------------------------------------
 model StoreCategories {
   id_store_category   Int       @id @default(autoincrement())
-  name                String    @db.VarChar(100)
+  fk_store            Int
+  fk_category         Int
   status              Boolean   @default(true)
   created_at          DateTime  @default(now()) @db.Timestamptz
   updated_at          DateTime  @updatedAt @db.Timestamptz
 
-  stores Stores[]
+  store       Stores      @relation(fields: [fk_store], references: [id_store])
+  category    Categories  @relation(fields: [fk_category], references: [id_category])
+
+  @@unique([fk_store, fk_category])
+}
+
+//------------------------------------CATEGORIAS----------------------------------------
+model Categories {
+  id_category   Int       @id @default(autoincrement())
+  name          String    @db.VarChar(100)
+  status        Boolean   @default(true)
+  created_at    DateTime  @default(now()) @db.Timestamptz
+  updated_at    DateTime  @updatedAt @db.Timestamptz
+
+  store_categories StoreCategories[]
 }
 
 //------------------------------------ZONAS_ENVIOS----------------------------------------
