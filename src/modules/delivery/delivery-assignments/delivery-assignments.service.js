@@ -145,7 +145,27 @@ export const getDeliveryAssignmentsService = async (id_delivery, status = null) 
     where,
     include: {
       order: {
-        select: { id_order: true, total: true, fk_address: true, created_at: true }
+        include: {
+          user: {
+            select: {
+              id_user: true,
+              name: true,
+              email: true,
+              phone: true
+            }
+          },
+          address: {
+            select: {
+              id_address: true,
+              address: true,
+              city: true,
+              region: true,
+              postal_code: true,
+              latitude: true,
+              longitude: true
+            }
+          }
+        }
       }
     },
     orderBy: { created_at: 'desc' }
