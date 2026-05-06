@@ -14,7 +14,14 @@ export const searchDeliveryCandidatesService = async (query) => {
         { email: { contains: query, mode: 'insensitive' } },
         { phone: { contains: query, mode: 'insensitive' } }
       ],
-      delivery: null
+      AND: [
+        {
+          OR: [
+            { delivery: { is: null } },
+            { delivery: { fk_store: null } },
+          ],
+        },
+      ],
     },
     select: {
       id_user: true,
@@ -162,27 +169,29 @@ export const deleteStoreDeliveryService = async (authenticatedUserId, storeIdStr
   const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
   const deliveryId = parsePositiveInteger(deliveryIdStr, "ID de delivery");
 
-  const delivery = await prisma.deliveries.findFirst({
-    where: { id_delivery: deliveryId, fk_store: store.id_store, status: true },
-    select: {
-      id_delivery: true,
-      delivery_assignments: {
-        where: { status: true, assignment_status: { in: ["PENDING", "ACCEPTED"] } },
-        select: { id_delivery_assignment: true },
-        take: 1,
+  await prisma.$transaction(async (tx) => {
+    const delivery = await tx.deliveries.findFirst({
+      where: { id_delivery: deliveryId, fk_store: store.id_store, status: true },
+      select: {
+        id_delivery: true,
+        delivery_assignments: {
+          where: { status: true, assignment_status: { in: ["PENDING", "ACCEPTED"] } },
+          select: { id_delivery_assignment: true },
+          take: 1,
+        },
       },
-    },
-  });
+    });
 
-  if (!delivery) throw new NotFoundError("Delivery no encontrado para este comercio");
+    if (!delivery) throw new NotFoundError("Delivery no encontrado para este comercio");
 
-  if (delivery.delivery_assignments.length > 0) {
-    throw new ValidationError("No se puede desvincular un delivery con entregas activas");
-  }
+    if (delivery.delivery_assignments.length > 0) {
+      throw new ValidationError("No se puede desvincular un delivery con entregas activas");
+    }
 
-  await prisma.deliveries.update({
-    where: { id_delivery: deliveryId },
-    data: { fk_store: null },
+    await tx.deliveries.update({
+      where: { id_delivery: deliveryId },
+      data: { fk_store: null, delivery_status: "INACTIVE" },
+    });
   });
 };
 

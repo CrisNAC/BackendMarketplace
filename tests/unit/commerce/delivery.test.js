@@ -5,28 +5,21 @@ import { prisma } from "../../../src/lib/prisma.js";
 
 // ─── MOCK DE PRISMA ──────────────────────────────────────────────────────────
 
-vi.mock("../../../src/lib/prisma.js", () => ({
-  prisma: {
-    users: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
+vi.mock("../../../src/lib/prisma.js", () => {
+  const users = { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), delete: vi.fn() };
+  const stores = { findUnique: vi.fn() };
+  const deliveries = { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() };
+  const deliveryReviews = { findMany: vi.fn() };
+  return {
+    prisma: {
+      users,
+      stores,
+      deliveries,
+      deliveryReviews,
+      $transaction: vi.fn((fn) => fn({ users, stores, deliveries, deliveryReviews })),
     },
-    stores: {
-      findUnique: vi.fn(),
-    },
-    deliveries: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-    },
-    deliveryReviews: {
-      findMany: vi.fn(),
-    },
-  },
-}));
+  };
+});
 
 vi.mock("jsonwebtoken", async () => {
   const actual = await vi.importActual("jsonwebtoken");
@@ -401,7 +394,7 @@ describe("DELETE /api/stores/:id/deliveries/:deliveryId", () => {
     expect(res.status).toBe(204);
     expect(prisma.deliveries.update).toHaveBeenCalledWith({
       where: { id_delivery: 10 },
-      data: { fk_store: null },
+      data: { fk_store: null, delivery_status: "INACTIVE" },
     });
   });
 
@@ -417,13 +410,13 @@ describe("DELETE /api/stores/:id/deliveries/:deliveryId", () => {
       .delete("/api/stores/1/deliveries/10")
       .set("Cookie", authCookie);
 
-    // update solo cambia fk_store, no toca status ni el usuario
+    // update solo cambia fk_store y delivery_status, no toca al usuario
     expect(prisma.deliveries.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { fk_store: null },
+        data: { fk_store: null, delivery_status: "INACTIVE" },
       })
     );
-    expect(prisma.users).not.toHaveProperty("delete");
+    expect(prisma.users.delete).not.toHaveBeenCalled();
   });
 });
 
