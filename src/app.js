@@ -1,12 +1,15 @@
+//app.js
 import { validateEnv } from './config/env.config.js'
 validateEnv() // Si falta algo, el servidor no arranca
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 
 import storeRoutes from "./modules/commerce/commerces/store.routes.js";
 import commerceAddressRoutes from "./modules/commerce/addresses/routes/addresses.routes.js";
+import { deliveryRouter, storeDeliveryRouter } from "./modules/commerce/deliveries/delivery.routes.js";
 import storeCategoryRoutes from "./modules/commerce/store-categories/store-category.routes.js";
 import productRoutes from "./modules/commerce/products/product.routes.js";
 import categoriesRoutes from "./modules/global/categories/categories.routes.js";
@@ -17,6 +20,9 @@ import userRoutes from "./modules/users/users/routes/users.routes.js";
 import addressRoutes from "./modules/users/addresses/routes/addresses.routes.js";
 import sessionRoutes from "./modules/session/routes/session.routes.js";
 import userProductReviewRoutes from "./modules/users/product-review/product-review.routes.js";
+import deliveryRoutes from "./modules/delivery/delivery/delivery.routes.js";
+import assignmentRoutes from "./modules/delivery/delivery-assignments/delivery-assignments.routes.js";
+import storeDeliveryAssignmentRoutes from "./modules/commerce/deliveries/delivery-assignments/delivery-assignments.routes.js";
 
 import productReportRoutes from "./modules/global/reports/product/product-report.routes.js";
 import reviewReportRoutes from "./modules/global/reports/review/review-report.routes.js";
@@ -50,6 +56,16 @@ import {
 
 const app = express();
 
+// Seguridad HTTP con Helmet
+app.use(helmet());
+app.use((req, res, next) => {
+  res.setHeader(
+    "Permissions-Policy",
+    "camera=(), microphone=(), payment=()"
+  );
+  next();
+});
+
 //Para debug en consola de las peticiones
 app.use(morgan('dev'));
 app.use(express.json());
@@ -67,6 +83,11 @@ app.use("/api/commerces/category-requests", categoryRequestRoutes);
 app.use("/api/commerces/categories", storeCategoryRoutes);
 app.use("/api/commerces", storeRoutes);
 app.use("/api/commerces", commerceAddressRoutes);
+
+// Rutas de delivery
+app.use("/api/deliveries", deliveryRouter);
+app.use("/api/stores", storeDeliveryRouter);
+app.use("/api/stores", storeDeliveryAssignmentRoutes);
 
 //Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
 //Se encuentra indexado
@@ -89,6 +110,11 @@ app.use("/api/users", wishlistRoutes);
 app.use("/api/users", cartRoutes);
 app.use("/api/users", userOrderRouter);
 app.use('/api/session', sessionRoutes);
+
+// Rutas de deliveries
+app.use("/api/deliveries", deliveryRoutes);
+app.use("/api/assignments", assignmentRoutes);
+
 
 // Rutas de pedidos
 app.use("/api/orders", orderRouter);
