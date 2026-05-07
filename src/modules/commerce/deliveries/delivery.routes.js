@@ -2,35 +2,57 @@ import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
 import { ROLES } from "../../../utils/contants/roles.constant.js";
-import {
-  searchDeliveries,
-  createDelivery,
-  getStoreDeliveries,
-  deleteStoreDelivery,
-  getStoreDeliveryReviews,
-} from "./delivery.controller.js";
+import { searchDeliveries, createDelivery, getStoreDeliveryReviews } from "./delivery.controller.js";
 
 export const deliveryRouter = Router();
 export const storeDeliveryRouter = Router();
 
-// GET /api/deliveries/search?q=
+/**
+ * @swagger
+ * /api/deliveries/search:
+ *   get:
+ *     summary: Buscar deliveries disponibles para vincular a un comercio
+ *     description: Busca usuarios activos con rol DELIVERY por email o telefono y retorna candidatos que aun no tienen un registro de delivery vinculado.
+ *     tags: [Deliveries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Texto a buscar en email o telefono
+ *     responses:
+ *       200:
+ *         description: Candidatos encontrados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DeliverySearchCandidatesResponse'
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
+ *       403:
+ *         description: Solo comercios pueden buscar deliveries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 deliveryRouter.get("/search", authenticate, requireRole(ROLES.SELLER), searchDeliveries);
-
-// POST /api/stores/:id/deliveries — Vincular delivery al comercio
-storeDeliveryRouter.post("/:id/deliveries", authenticate, requireRole(ROLES.SELLER), createDelivery);
 
 /**
  * @swagger
  * /api/stores/{id}/deliveries:
- *   get:
- *     summary: Listar repartidores del comercio
- *     description: >
- *       Retorna todos los repartidores vinculados al comercio junto con estadísticas
- *       agregadas (disponibles, en entrega, total, rating promedio).
- *       Solo accesible por el dueño del comercio.
+ *   post:
+ *     summary: Vincular un delivery a un comercio
+ *     description: Crea un registro en Deliveries para asociar un usuario DELIVERY al comercio del vendedor autenticado. El delivery se crea con estado INACTIVE por defecto.
  *     tags: [Deliveries]
  *     security:
- *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -38,109 +60,51 @@ storeDeliveryRouter.post("/:id/deliveries", authenticate, requireRole(ROLES.SELL
  *         schema:
  *           type: integer
  *         description: ID del comercio
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LinkStoreDeliveryRequest'
  *     responses:
- *       200:
- *         description: Lista de repartidores y estadísticas
+ *       201:
+ *         description: Delivery vinculado al comercio
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 stats:
- *                   type: object
- *                   properties:
- *                     total:
- *                       type: integer
- *                     available:
- *                       type: integer
- *                     inDelivery:
- *                       type: integer
- *                     avgRating:
- *                       type: number
- *                       nullable: true
- *                 deliveries:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                       user:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: integer
- *                           name:
- *                             type: string
- *                           email:
- *                             type: string
- *                           phone:
- *                             type: string
- *                             nullable: true
- *                       status:
- *                         type: string
- *                         enum: [AVAILABLE, IN_DELIVERY, UNAVAILABLE]
- *                       vehicleType:
- *                         type: string
- *                         enum: [CAR, MOTORCYCLE, BICYCLE, ON_FOOT]
- *                       completedDeliveries:
- *                         type: integer
- *                       successRate:
- *                         type: number
- *                         nullable: true
- *                         description: Porcentaje de entregas exitosas sobre el total de terminales (DELIVERED + REJECTED)
- *                       avgRating:
- *                         type: number
- *                         nullable: true
- *                       reviewCount:
- *                         type: integer
- *       401:
- *         description: No autenticado
- *       403:
- *         description: No tiene permisos para acceder a este comercio
- *       404:
- *         description: Comercio no encontrado
- */
-storeDeliveryRouter.get("/:id/deliveries", authenticate, requireRole(ROLES.SELLER), getStoreDeliveries);
-
-/**
- * @swagger
- * /api/stores/{id}/deliveries/{deliveryId}:
- *   delete:
- *     summary: Desvincular repartidor del comercio
- *     description: >
- *       Desvincula un repartidor del comercio (fk_store = null). No elimina al usuario.
- *       No se permite desvincular si el repartidor tiene entregas activas (PENDING o ACCEPTED).
- *       Solo accesible por el dueño del comercio.
- *     tags: [Deliveries]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID del comercio
- *       - in: path
- *         name: deliveryId
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID del delivery a desvincular
- *     responses:
- *       204:
- *         description: Repartidor desvinculado correctamente
+ *               $ref: '#/components/schemas/StoreDeliveryResponse'
  *       400:
- *         description: El repartidor tiene entregas activas
+ *         description: Datos invalidos o fk_user faltante
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
  *       403:
- *         description: No tiene permisos para acceder a este comercio
+ *         description: No tiene permisos para vincular deliveries a este comercio
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
- *         description: Delivery no encontrado para este comercio
+ *         description: Comercio o candidato a delivery no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: El delivery ya esta vinculado a este comercio o a otro comercio
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-storeDeliveryRouter.delete("/:id/deliveries/:deliveryId", authenticate, requireRole(ROLES.SELLER), deleteStoreDelivery);
+storeDeliveryRouter.post("/:id/deliveries", authenticate, requireRole(ROLES.SELLER), createDelivery);
 
 /**
  * @swagger
@@ -231,8 +195,8 @@ storeDeliveryRouter.delete("/:id/deliveries/:deliveryId", authenticate, requireR
  *                   message: "Delivery no encontrado para este comercio"
  */
 storeDeliveryRouter.get(
-  "/:storeId/deliveries/:deliveryId/reviews",
-  authenticate,
-  requireRole(ROLES.SELLER),
-  getStoreDeliveryReviews
+	"/:storeId/deliveries/:deliveryId/reviews",
+	authenticate,
+	requireRole(ROLES.SELLER),
+	getStoreDeliveryReviews
 );
