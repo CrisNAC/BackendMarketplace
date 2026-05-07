@@ -13,28 +13,67 @@ const parsePositiveInteger = (value, fieldName) => {
   return parsedValue;
 };
 
-export const validateStoreCategoryService = async (categoryId) => {
-  const parsedCategoryId = parsePositiveInteger(
-    categoryId,
-    "fk_store_category"
-  );
+// export const validateStoreCategoryService = async (categoryId) => {
+//   const parsedCategoryId = parsePositiveInteger(
+//     categoryId,
+//     "fk_store_category"
+//   );
 
-  const category = await prisma.categories.findUnique({
-    where: { id_category: parsedCategoryId },
-    select: {
-      id_category: true,
-      status: true
-    }
-  });
+//   const category = await prisma.categories.findUnique({
+//     where: { id_category: parsedCategoryId },
+//     select: {
+//       id_category: true,
+//       status: true
+//     }
+//   });
 
-  if (!category || !category.status) {
-    throw {
-      status: 400,
-      message: "fk_store_category no es valido"
-    };
+//   if (!category || !category.status) {
+//     throw {
+//       status: 400,
+//       message: "fk_store_category no es valido"
+//     };
+//   }
+
+//   return parsedCategoryId;
+// };
+
+export const validateStoreCategoriesService = async (categoryData) => {
+  if (categoryData === undefined || categoryData === null) {
+    return [];
   }
 
-  return parsedCategoryId;
+  const categoryIds = Array.isArray(categoryData)
+    ? categoryData
+    : [categoryData];
+
+  if (categoryIds.length === 0) {
+    return [];
+  }
+
+  const validatedIds = categoryIds.map((id) =>
+    parsePositiveInteger(id, "category_id")
+  );
+
+  const categories = await prisma.categories.findMany({
+    where: {
+      id_category: { in: validatedIds },
+      status: true
+    },
+    select: { id_category: true }
+  });
+
+  const foundIds = new Set(categories.map((c) => c.id_category));
+
+  for (const id of validatedIds) {
+    if (!foundIds.has(id)) {
+      throw {
+        status: 400,
+        message: `Categoría ${id} no existe o no está activa`
+      };
+    }
+  }
+
+  return validatedIds;
 };
 
 export const getStoreCategoriesService = async (filters = {}) => {
