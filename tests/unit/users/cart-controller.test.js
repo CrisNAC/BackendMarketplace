@@ -41,12 +41,14 @@ describe("getCarts", () => {
     const { req, res, next } = makeCtx({}, {}, null);
     await getCarts(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Usuario autenticado requerido" });
   });
 
   it("retorna 200 con los carritos del usuario", async () => {
     const { req, res, next } = makeCtx({ customerId: "2" });
     getActiveCartsForUserService.mockResolvedValue([{ id_cart: 1 }]);
     await getCarts(req, res, next);
+    expect(getActiveCartsForUserService).toHaveBeenCalledWith(1, "2");
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ carts: [{ id_cart: 1 }] });
   });
@@ -104,9 +106,10 @@ describe("getCartItemsById", () => {
 
   it("llama next con el error cuando el servicio falla", async () => {
     const { req, res, next } = makeCtx({ cartId: "10" });
-    getCartItemsByIdService.mockRejectedValue(new Error("fail"));
+    const err = new Error("fail");
+    getCartItemsByIdService.mockRejectedValue(err);
     await getCartItemsById(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(err);
   });
 });
 
@@ -128,9 +131,10 @@ describe("removeCartItem", () => {
 
   it("llama next con el error cuando el servicio falla", async () => {
     const { req, res, next } = makeCtx({ cartItemId: "3" });
-    removeCartItemService.mockRejectedValue(new Error("fail"));
+    const err = new Error("fail");
+    removeCartItemService.mockRejectedValue(err);
     await removeCartItem(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(err);
   });
 });
 
@@ -152,8 +156,9 @@ describe("updateCartItemQuantity", () => {
 
   it("llama next con el error cuando el servicio falla", async () => {
     const { req, res, next } = makeCtx({ cartItemId: "3" }, { quantity: 2 });
-    updatedCartItemQuantityService.mockRejectedValue(new Error("fail"));
+    const err = new Error("fail");
+    updatedCartItemQuantityService.mockRejectedValue(err);
     await updateCartItemQuantity(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(err);
   });
 });

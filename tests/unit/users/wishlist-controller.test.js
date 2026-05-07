@@ -49,6 +49,8 @@ describe("getWishlists", () => {
     const { req, res, next } = noUser({ customerId: "2" });
     await getWishlists(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(getWishlistsService).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("retorna 200 con las wishlists", async () => {
@@ -60,9 +62,10 @@ describe("getWishlists", () => {
 
   it("llama next con el error cuando el servicio falla", async () => {
     const { req, res, next } = makeCtx({ customerId: "2" });
-    getWishlistsService.mockRejectedValue(new Error("fail"));
+    const error = new Error("fail");
+    getWishlistsService.mockRejectedValue(error);
     await getWishlists(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(error);
   });
 });
 
@@ -73,6 +76,8 @@ describe("createWishlist", () => {
     const { req, res, next } = noUser({ customerId: "2" });
     await createWishlist(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(createWishlistService).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("retorna 201 con la wishlist creada", async () => {
@@ -84,9 +89,10 @@ describe("createWishlist", () => {
 
   it("llama next con el error cuando el servicio falla", async () => {
     const { req, res, next } = makeCtx({ customerId: "2" });
-    createWishlistService.mockRejectedValue(new Error("fail"));
+    const error = new Error("fail");
+    createWishlistService.mockRejectedValue(error);
     await createWishlist(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(error);
   });
 });
 
@@ -97,6 +103,8 @@ describe("deleteWishlist", () => {
     const { req, res, next } = noUser({ customerId: "2", wishlistId: "1" });
     await deleteWishlist(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(deleteWishlistService).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("retorna 204 al eliminar la wishlist", async () => {
@@ -108,9 +116,10 @@ describe("deleteWishlist", () => {
 
   it("llama next con el error cuando el servicio falla", async () => {
     const { req, res, next } = makeCtx({ customerId: "2", wishlistId: "1" });
-    deleteWishlistService.mockRejectedValue(new Error("fail"));
+    const error = new Error("fail");
+    deleteWishlistService.mockRejectedValue(error);
     await deleteWishlist(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(error);
   });
 });
 
@@ -121,6 +130,8 @@ describe("getWishlistItems", () => {
     const { req, res, next } = noUser({ customerId: "2", wishlistId: "1" });
     await getWishlistItems(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(getWishlistItemsService).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("retorna 200 con los items", async () => {
@@ -132,9 +143,10 @@ describe("getWishlistItems", () => {
 
   it("llama next con el error cuando el servicio falla", async () => {
     const { req, res, next } = makeCtx({ customerId: "2", wishlistId: "1" });
-    getWishlistItemsService.mockRejectedValue(new Error("fail"));
+    const error = new Error("fail");
+    getWishlistItemsService.mockRejectedValue(error);
     await getWishlistItems(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(error);
   });
 });
 
@@ -145,6 +157,8 @@ describe("addWishlistItem", () => {
     const { req, res, next } = noUser({ customerId: "2", wishlistId: "1" });
     await addWishlistItem(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(addWishlistItemService).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("retorna 201 con el item agregado", async () => {
@@ -156,9 +170,10 @@ describe("addWishlistItem", () => {
 
   it("llama next con el error cuando el servicio falla", async () => {
     const { req, res, next } = makeCtx({ customerId: "2", wishlistId: "1" });
-    addWishlistItemService.mockRejectedValue(new Error("fail"));
+    const error = new Error("fail");
+    addWishlistItemService.mockRejectedValue(error);
     await addWishlistItem(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(error);
   });
 });
 
@@ -169,6 +184,8 @@ describe("updateWishlistItemQuantity", () => {
     const { req, res, next } = noUser({ customerId: "2", wishlistId: "1", productId: "5" });
     await updateWishlistItemQuantity(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(updateWishlistItemQuantityService).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("retorna 200 con la wishlist actualizada", async () => {
@@ -183,9 +200,10 @@ describe("updateWishlistItemQuantity", () => {
 
   it("llama next con el error cuando el servicio falla", async () => {
     const { req, res, next } = makeCtx({ customerId: "2", wishlistId: "1", productId: "5" });
-    updateWishlistItemQuantityService.mockRejectedValue(new Error("fail"));
+    const error = new Error("fail");
+    updateWishlistItemQuantityService.mockRejectedValue(error);
     await updateWishlistItemQuantity(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(error);
   });
 });
 
@@ -196,6 +214,8 @@ describe("removeWishlistItem", () => {
     const { req, res, next } = noUser({ customerId: "2", wishlistId: "1", productId: "5" });
     await removeWishlistItem(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(removeWishlistItemService).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("retorna 204 al eliminar el item", async () => {
@@ -207,8 +227,9 @@ describe("removeWishlistItem", () => {
 
   it("llama next con el error cuando el servicio falla", async () => {
     const { req, res, next } = makeCtx({ customerId: "2", wishlistId: "1", productId: "5" });
-    removeWishlistItemService.mockRejectedValue(new Error("fail"));
+    const error = new Error("fail");
+    removeWishlistItemService.mockRejectedValue(error);
     await removeWishlistItem(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(error);
   });
 });

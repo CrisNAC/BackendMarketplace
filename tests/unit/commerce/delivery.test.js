@@ -5,28 +5,32 @@ import { prisma } from "../../../src/lib/prisma.js";
 
 // ─── MOCK DE PRISMA ──────────────────────────────────────────────────────────
 
-vi.mock("../../../src/lib/prisma.js", () => ({
-  prisma: {
-    users: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
+vi.mock("../../../src/lib/prisma.js", () => {
+  const deliveries = {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  };
+  return {
+    prisma: {
+      users: {
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+      },
+      stores: {
+        findUnique: vi.fn(),
+      },
+      deliveries,
+      deliveryReviews: {
+        findMany: vi.fn(),
+      },
+      $transaction: vi.fn(async (fn) => fn({ deliveries })),
     },
-    stores: {
-      findUnique: vi.fn(),
-    },
-    deliveries: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-    },
-    deliveryReviews: {
-      findMany: vi.fn(),
-    },
-  },
-}));
+  };
+});
 
 vi.mock("jsonwebtoken", async () => {
   const actual = await vi.importActual("jsonwebtoken");

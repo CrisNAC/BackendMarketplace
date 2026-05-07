@@ -34,6 +34,7 @@ describe("reportProductReview", () => {
     const { req, res, next } = makeCtx({ reviewId: "1" }, {}, {}, null);
     await reportProductReview(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Usuario autenticado requerido" });
   });
 
   it("retorna 201 con el reporte creado", async () => {
@@ -62,6 +63,7 @@ describe("getReviewReportsFiltered", () => {
     const { req, res, next } = makeCtx({}, {}, {}, null);
     await getReviewReportsFiltered(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Usuario autenticado requerido" });
   });
 
   it("retorna 200 con los reportes filtrados", async () => {
@@ -89,13 +91,16 @@ describe("resolveReviewReport", () => {
     const { req, res, next } = makeCtx({ reportId: "1" }, {}, {}, null);
     await resolveReviewReport(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Usuario autenticado requerido" });
   });
 
   it("retorna 200 con el resultado de la resolución", async () => {
     const { req, res, next } = makeCtx({ reportId: "1" }, { decision: "KEEP_REVIEW" });
-    resolveReviewReportService.mockResolvedValue({ updatedReport: { id_review_report: 1 } });
+    const mockResult = { updatedReport: { id_review_report: 1 } };
+    resolveReviewReportService.mockResolvedValue(mockResult);
     await resolveReviewReport(req, res, next);
     expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(mockResult);
   });
 
   it("llama next con el error cuando el servicio falla", async () => {

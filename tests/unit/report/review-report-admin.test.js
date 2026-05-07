@@ -122,7 +122,10 @@ describe("getReviewReportsFilteredService", () => {
     for (const status of ["PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"]) {
       await expect(
         getReviewReportsFilteredService(1, { report_status: status }, pagination)
-      ).resolves.not.toThrow();
+      ).resolves.toMatchObject({
+        data: expect.any(Array),
+        meta: expect.any(Object),
+      });
     }
   });
 });
