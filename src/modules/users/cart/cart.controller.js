@@ -62,6 +62,7 @@ export const getCartItemsById = async (req, res, next) => {
   try {
     if (!req.user?.id_user) {
       return res.status(401).json({
+        success: false,
         message: "Usuario autenticado requerido"
       });
     }
@@ -82,6 +83,7 @@ export const removeCartItem = async (req, res, next) => {
   try {
     if (!req.user?.id_user) {
       return res.status(401).json({
+        success: false,
         message: "Usuario autenticado requerido"
       });
     }
@@ -102,6 +104,7 @@ export const updateCartItemQuantity = async (req, res, next) => {
   try {
     if (!req.user?.id_user) {
       return res.status(401).json({
+        success: false,
         message: "Usuario autenticado requerido"
       });
     }

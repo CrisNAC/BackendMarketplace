@@ -69,6 +69,7 @@ describe("addCartItem", () => {
     const { req, res, next } = makeCtx({}, {}, null);
     await addCartItem(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Usuario autenticado requerido" });
   });
 
   it("retorna 201 con el carrito creado", async () => {
@@ -95,6 +96,7 @@ describe("getCartItemsById", () => {
     const { req, res, next } = makeCtx({}, {}, null);
     await getCartItemsById(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Usuario autenticado requerido" });
   });
 
   it("retorna 200 con los items del carrito", async () => {
@@ -120,6 +122,7 @@ describe("removeCartItem", () => {
     const { req, res, next } = makeCtx({}, {}, null);
     await removeCartItem(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Usuario autenticado requerido" });
   });
 
   it("retorna 200 con el carrito actualizado", async () => {
@@ -145,6 +148,7 @@ describe("updateCartItemQuantity", () => {
     const { req, res, next } = makeCtx({}, {}, null);
     await updateCartItemQuantity(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Usuario autenticado requerido" });
   });
 
   it("retorna 200 con el carrito actualizado", async () => {
