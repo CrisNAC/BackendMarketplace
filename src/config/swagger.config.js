@@ -1,3 +1,4 @@
+//swagger.config.js
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import {
@@ -13,6 +14,7 @@ import {
     reviewReportSchemas,
     categoryRequestSchemas,
     deliverySchemas,
+    orderSchemas,
     // /session
     sessionSchemas,
     // /admin
@@ -74,6 +76,7 @@ const options = {
 
                 ...categoryRequestSchemas,
                 ...deliverySchemas,
+                ...orderSchemas,
                 // /session
                 ...sessionSchemas,
                 // /images

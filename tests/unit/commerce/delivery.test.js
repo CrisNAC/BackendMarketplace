@@ -19,6 +19,7 @@ vi.mock("../../../src/lib/prisma.js", () => {
         findMany: vi.fn(),
         findUnique: vi.fn(),
         findFirst: vi.fn(),
+        delete: vi.fn(),
       },
       stores: {
         findUnique: vi.fn(),
@@ -405,7 +406,7 @@ describe("DELETE /api/stores/:id/deliveries/:deliveryId", () => {
     expect(res.status).toBe(204);
     expect(prisma.deliveries.update).toHaveBeenCalledWith({
       where: { id_delivery: 10 },
-      data: { fk_store: null },
+      data: { fk_store: null, delivery_status: "INACTIVE" },
     });
   });
 
@@ -421,13 +422,13 @@ describe("DELETE /api/stores/:id/deliveries/:deliveryId", () => {
       .delete("/api/stores/1/deliveries/10")
       .set("Cookie", authCookie);
 
-    // update solo cambia fk_store, no toca status ni el usuario
+    // update solo cambia fk_store y delivery_status, no toca al usuario
     expect(prisma.deliveries.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { fk_store: null },
+        data: { fk_store: null, delivery_status: "INACTIVE" },
       })
     );
-    expect(prisma.users).not.toHaveProperty("delete");
+    expect(prisma.users.delete).not.toHaveBeenCalled();
   });
 });
 

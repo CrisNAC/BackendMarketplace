@@ -14,7 +14,14 @@ export const searchDeliveryCandidatesService = async (query) => {
         { email: { contains: query, mode: 'insensitive' } },
         { phone: { contains: query, mode: 'insensitive' } }
       ],
-      delivery: null
+      AND: [
+        {
+          OR: [
+            { delivery: { is: null } },
+            { delivery: { fk_store: null } },
+          ],
+        },
+      ],
     },
     select: {
       id_user: true,
@@ -183,7 +190,7 @@ export const deleteStoreDeliveryService = async (authenticatedUserId, storeIdStr
 
     await tx.deliveries.update({
       where: { id_delivery: deliveryId },
-      data: { fk_store: null },
+      data: { fk_store: null, delivery_status: "INACTIVE" },
     });
   });
 };
