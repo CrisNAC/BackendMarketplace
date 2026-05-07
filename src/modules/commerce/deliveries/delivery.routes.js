@@ -13,10 +13,108 @@ import {
 export const deliveryRouter = Router();
 export const storeDeliveryRouter = Router();
 
-// GET /api/deliveries/search?q=
+/**
+ * @swagger
+ * /api/deliveries/search:
+ *   get:
+ *     summary: Buscar candidatos a repartidor
+ *     description: >
+ *       Busca usuarios activos con rol DELIVERY por email o teléfono.
+ *       Solo retorna candidatos que aún no están vinculados a ningún comercio.
+ *     tags: [Deliveries]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Texto a buscar en email o teléfono del candidato
+ *     responses:
+ *       200:
+ *         description: Lista de candidatos encontrados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id_user:
+ *                     type: integer
+ *                   name:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *                   phone:
+ *                     type: string
+ *                     nullable: true
+ *       401:
+ *         description: No autenticado
+ *       403:
+ *         description: Solo vendedores pueden buscar repartidores
+ */
 deliveryRouter.get("/search", authenticate, requireRole(ROLES.SELLER), searchDeliveries);
 
-// POST /api/stores/:id/deliveries — Vincular delivery al comercio
+/**
+ * @swagger
+ * /api/stores/{id}/deliveries:
+ *   post:
+ *     summary: Vincular repartidor al comercio
+ *     description: >
+ *       Vincula un usuario con rol DELIVERY al comercio del vendedor autenticado.
+ *       El repartidor se crea con estado INACTIVE por defecto.
+ *     tags: [Deliveries]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del comercio
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fk_user
+ *             properties:
+ *               fk_user:
+ *                 type: integer
+ *                 description: ID del usuario con rol DELIVERY a vincular
+ *     responses:
+ *       201:
+ *         description: Repartidor vinculado correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id_delivery:
+ *                   type: integer
+ *                 fk_store:
+ *                   type: integer
+ *                 fk_user:
+ *                   type: integer
+ *                 delivery_status:
+ *                   type: string
+ *                   example: INACTIVE
+ *       400:
+ *         description: fk_user faltante o inválido
+ *       401:
+ *         description: No autenticado
+ *       403:
+ *         description: No tiene permisos para acceder a este comercio
+ *       404:
+ *         description: Comercio o candidato no encontrado
+ *       409:
+ *         description: El repartidor ya está vinculado a un comercio
+ */
 storeDeliveryRouter.post("/:id/deliveries", authenticate, requireRole(ROLES.SELLER), createDelivery);
 
 /**
