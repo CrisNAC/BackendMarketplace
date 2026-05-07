@@ -6,17 +6,29 @@ import { prisma } from "../../../src/lib/prisma.js";
 // ─── MOCK DE PRISMA ──────────────────────────────────────────────────────────
 
 vi.mock("../../../src/lib/prisma.js", () => {
-  const users = { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), delete: vi.fn() };
-  const stores = { findUnique: vi.fn() };
-  const deliveries = { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() };
-  const deliveryReviews = { findMany: vi.fn() };
+  const deliveries = {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  };
   return {
     prisma: {
-      users,
-      stores,
+      users: {
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        delete: vi.fn(),
+      },
+      stores: {
+        findUnique: vi.fn(),
+      },
       deliveries,
-      deliveryReviews,
-      $transaction: vi.fn((fn) => fn({ users, stores, deliveries, deliveryReviews })),
+      deliveryReviews: {
+        findMany: vi.fn(),
+      },
+      $transaction: vi.fn(async (fn) => fn({ deliveries })),
     },
   };
 });

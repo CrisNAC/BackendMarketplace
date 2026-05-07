@@ -2,7 +2,8 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import { prisma } from "../../../src/lib/prisma.js";
 import {
   approveStoreService,
-  getPendingStoresService
+  getPendingStoresService,
+  rejectStoreService,
 } from "../../../src/modules/admin/stores/admin-stores.service.js";
 
 // ─── MOCK DE PRISMA ──────────────────────────────────────────────────────────
@@ -17,6 +18,9 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     },
     products: {
       updateMany: vi.fn(),
+    },
+    notifications: {
+      create: vi.fn(),
     },
     $transaction: vi.fn(),
   }
@@ -183,5 +187,69 @@ describe("getPendingStoresService", () => {
     const result = await getPendingStoresService({ page: 1, limit: 10, skip: 0 });
 
     expect(result.pagination.totalPages).toBe(3);
+  });
+});
+
+// ─── rejectStoreService ──────────────────────────────────────────────────────
+
+describe("rejectStoreService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const mockInactiveStoreWithUser = {
+    id_store: 1,
+    name: "Comercio Test",
+    store_status: "INACTIVE",
+    status: true,
+    fk_user: 10,
+  };
+  const mockSuspendedStore = { id_store: 1, name: "Comercio Test", store_status: "SUSPENDED", status: true };
+
+  it("lanza 400 cuando el ID es inválido", async () => {
+    await expect(rejectStoreService(-1, "motivo")).rejects.toMatchObject({ status: 400 });
+    await expect(rejectStoreService("abc", "motivo")).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("lanza 400 cuando el motivo está vacío", async () => {
+    await expect(rejectStoreService(1, "")).rejects.toMatchObject({ status: 400 });
+    await expect(rejectStoreService(1, "   ")).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("lanza 400 cuando el motivo no es string", async () => {
+    await expect(rejectStoreService(1, null)).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("lanza 404 cuando el comercio no existe", async () => {
+    prisma.stores.findUnique.mockResolvedValue(null);
+    await expect(rejectStoreService(1, "motivo válido")).rejects.toMatchObject({
+      status: 404,
+      message: "Comercio no encontrado",
+    });
+  });
+
+  it("lanza 404 cuando el comercio está eliminado (status false)", async () => {
+    prisma.stores.findUnique.mockResolvedValue({ ...mockInactiveStoreWithUser, status: false });
+    await expect(rejectStoreService(1, "motivo")).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("lanza 400 cuando el comercio no está INACTIVE", async () => {
+    prisma.stores.findUnique.mockResolvedValue({ ...mockInactiveStoreWithUser, store_status: "ACTIVE" });
+    await expect(rejectStoreService(1, "motivo")).rejects.toMatchObject({
+      status: 400,
+      message: "El comercio no está pendiente de aprobación",
+    });
+  });
+
+  it("rechaza el comercio y crea notificación vía $transaction", async () => {
+    prisma.stores.findUnique
+      .mockResolvedValueOnce(mockInactiveStoreWithUser)
+      .mockResolvedValueOnce(mockSuspendedStore);
+    prisma.$transaction.mockResolvedValue([{}, {}]);
+
+    const result = await rejectStoreService(1, "No cumple requisitos");
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    const txArgs = prisma.$transaction.mock.calls[0][0];
+    expect(txArgs).toHaveLength(2);
+    expect(result.store_status).toBe("SUSPENDED");
   });
 });
