@@ -111,7 +111,32 @@ describe("GET /api/deliveries/search", () => {
         where: expect.objectContaining({
           role: "DELIVERY",
           status: true,
-          delivery: null,
+          OR: expect.arrayContaining([
+            expect.objectContaining({
+              email: expect.objectContaining({
+                contains: "delivery",
+                mode: "insensitive",
+              }),
+            }),
+            expect.objectContaining({
+              phone: expect.objectContaining({
+                contains: "delivery",
+                mode: "insensitive",
+              }),
+            }),
+          ]),
+          AND: expect.arrayContaining([
+            expect.objectContaining({
+              OR: expect.arrayContaining([
+                expect.objectContaining({
+                  delivery: expect.objectContaining({ is: null }),
+                }),
+                expect.objectContaining({
+                  delivery: expect.objectContaining({ fk_store: null }),
+                }),
+              ]),
+            }),
+          ]),
         }),
       })
     );
@@ -129,11 +154,22 @@ describe("GET /api/deliveries/search", () => {
     expect(res.body).toHaveLength(1);
     expect(res.body[0].id_user).toBe(3);
 
-    // Verificar que el filtro de "delivery: null" está siendo aplicado
+    // Verificar que el filtro de exclusión de deliveries vinculados está siendo aplicado
     expect(prisma.users.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          delivery: null,
+          AND: expect.arrayContaining([
+            expect.objectContaining({
+              OR: expect.arrayContaining([
+                expect.objectContaining({
+                  delivery: expect.objectContaining({ is: null }),
+                }),
+                expect.objectContaining({
+                  delivery: expect.objectContaining({ fk_store: null }),
+                }),
+              ]),
+            }),
+          ]),
         }),
       })
     );
