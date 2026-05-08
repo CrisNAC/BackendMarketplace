@@ -5,6 +5,10 @@ import {
   createAssignmentService,
   respondToAssignmentService,
   getDeliveryOrderHistoryService,
+  getOrderAssignmentsService,
+  getDeliveryAssignmentsService,
+  getDeliveryPendingAssignmentsService,
+  getAcceptedAssignmentService,
 } from "../../../src/modules/delivery/delivery-assignments/delivery-assignments.service.js";
 
 // ─── MOCK DE PRISMA ──────────────────────────────────────────────────────────
@@ -508,5 +512,96 @@ describe("getDeliveryOrderHistoryService", () => {
         })
       })
     );
+  });
+});
+
+// ─── getOrderAssignmentsService ───────────────────────────────────────────────
+
+describe("getOrderAssignmentsService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("lanza 404 cuando el pedido no existe", async () => {
+    prisma.orders.findUnique.mockResolvedValue(null);
+    await expect(getOrderAssignmentsService(1)).rejects.toMatchObject({ status: 404, message: "Pedido no encontrado" });
+  });
+
+  it("retorna las asignaciones del pedido", async () => {
+    prisma.orders.findUnique.mockResolvedValue(mockOrder);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentPending]);
+    const result = await getOrderAssignmentsService(1);
+    expect(result).toEqual([mockAssignmentPending]);
+  });
+});
+
+// ─── getDeliveryAssignmentsService ───────────────────────────────────────────
+
+describe("getDeliveryAssignmentsService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("lanza 404 cuando el delivery no existe", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(null);
+    await expect(getDeliveryAssignmentsService(1)).rejects.toMatchObject({ status: 404, message: "Delivery no encontrado" });
+  });
+
+  it("retorna asignaciones sin filtro de status", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentPending]);
+    const result = await getDeliveryAssignmentsService(1);
+    expect(result).toEqual([mockAssignmentPending]);
+  });
+
+  it("retorna asignaciones filtradas por status", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentPending]);
+    await getDeliveryAssignmentsService(1, "PENDING");
+    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ assignment_status: "PENDING" }) })
+    );
+  });
+});
+
+// ─── getDeliveryPendingAssignmentsService ────────────────────────────────────
+
+describe("getDeliveryPendingAssignmentsService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("lanza 404 cuando el delivery no existe", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(null);
+    await expect(getDeliveryPendingAssignmentsService(1)).rejects.toMatchObject({ status: 404, message: "Delivery no encontrado" });
+  });
+
+  it("retorna las asignaciones pendientes del delivery", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
+    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentPending]);
+    const result = await getDeliveryPendingAssignmentsService(1);
+    expect(result).toEqual([mockAssignmentPending]);
+    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ assignment_status: "PENDING" }) })
+    );
+  });
+});
+
+// ─── getAcceptedAssignmentService ────────────────────────────────────────────
+
+describe("getAcceptedAssignmentService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("lanza 404 cuando el pedido no existe", async () => {
+    prisma.orders.findUnique.mockResolvedValue(null);
+    await expect(getAcceptedAssignmentService(1)).rejects.toMatchObject({ status: 404, message: "Pedido no encontrado" });
+  });
+
+  it("lanza 404 cuando no hay asignación aceptada", async () => {
+    prisma.orders.findUnique.mockResolvedValue(mockOrder);
+    prisma.deliveryAssignments.findFirst.mockResolvedValue(null);
+    await expect(getAcceptedAssignmentService(1)).rejects.toMatchObject({ status: 404, message: "No hay asignación aceptada para este pedido" });
+  });
+
+  it("retorna la asignación aceptada", async () => {
+    const accepted = { ...mockAssignmentPending, assignment_status: "ACCEPTED" };
+    prisma.orders.findUnique.mockResolvedValue(mockOrder);
+    prisma.deliveryAssignments.findFirst.mockResolvedValue(accepted);
+    const result = await getAcceptedAssignmentService(1);
+    expect(result.assignment_status).toBe("ACCEPTED");
   });
 });
