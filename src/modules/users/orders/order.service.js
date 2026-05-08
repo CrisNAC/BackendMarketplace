@@ -1,3 +1,4 @@
+//order.service.js
 import { prisma } from "../../../lib/prisma.js";
 import {
   ValidationError,
@@ -351,10 +352,10 @@ export const createOrderService = async (
         },
         ...(finalAddressId
           ? {
-              address: {
-                connect: { id_address: finalAddressId }
-              }
+            address: {
+              connect: { id_address: finalAddressId }
             }
+          }
           : {}),
         total,
         shipping_cost: shippingCost,
@@ -483,6 +484,224 @@ export const getOrdersService = async (authenticatedUserId, customerId) => {
   });
 
   return orders.map(mapOrderResponse);
+};
+
+export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
+
+  const user = await prisma.users.findFirst({
+    where: { id_user: resolvedUserId, status: true },
+    select: { role: true }
+  });
+
+  if (!user) {
+    throw new NotFoundError("Usuario no encontrado.");
+  }
+
+  if (user.role !== "CUSTOMER") {
+    throw new ForbiddenError("Solo clientes pueden calificar deliveries.");
+  }
+
+  const reviewedOrders = await prisma.deliveryReviews.findMany({
+    where: {
+      fk_user: resolvedUserId,
+      status: true
+    },
+    select: {
+      fk_order: true
+    }
+  });
+
+  const reviewedOrderIds = reviewedOrders.map((review) => review.fk_order);
+
+  const pendingOrders = await prisma.orders.findMany({
+    where: {
+      fk_user: resolvedUserId,
+      status: true,
+      order_status: "DELIVERED",
+      ...(reviewedOrderIds.length > 0
+        ? {
+          id_order: {
+            notIn: reviewedOrderIds
+          }
+        }
+        : {}),
+      delivery_assignments: {
+        some: { status: true }
+      }
+    },
+    orderBy: {
+      updated_at: "desc"
+    },
+    select: {
+      id_order: true,
+      updated_at: true,
+      store: {
+        select: {
+          name: true
+        }
+      },
+      delivery_assignments: {
+        where: { status: true },
+        orderBy: [{ assignment_sequence: "desc" }, { assigned_at: "desc" }],
+        take: 1,
+        select: {
+          fk_delivery: true,
+          delivery: {
+            select: {
+              user: {
+                select: {
+                  name: true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  return pendingOrders
+    .map((order) => {
+      const latestAssignment = order.delivery_assignments[0];
+      if (!latestAssignment) return null;
+
+      return {
+        orderId: order.id_order,
+        deliveryId: latestAssignment.fk_delivery,
+        deliveryName: latestAssignment.delivery?.user?.name ?? "Delivery",
+        storeName: order.store?.name ?? "Comercio",
+        deliveredAt: order.updated_at
+      };
+    })
+    .filter(Boolean);
+};
+
+export const createDeliveryReviewService = async (
+  authenticatedUserId,
+  orderId,
+  { rating, comment }
+) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
+  const resolvedOrderId = parsePositiveInteger(orderId, "orderId");
+  const normalizedRating = Number(rating);
+  const normalizedComment = typeof comment === "string" ? comment.trim() : "";
+
+  if (
+    !Number.isInteger(normalizedRating) ||
+    normalizedRating < 1 ||
+    normalizedRating > 5
+  ) {
+    throw new ValidationError("La calificación debe estar entre 1 y 5");
+  }
+
+  if (normalizedComment.length > 1000) {
+    throw new ValidationError(
+      "El comentario no puede superar los 1000 caracteres"
+    );
+  }
+
+  const user = await prisma.users.findFirst({
+    where: {
+      id_user: resolvedUserId,
+      status: true
+    },
+    select: {
+      role: true
+    }
+  });
+
+  if (!user) throw new NotFoundError("Usuario no encontrado.");
+
+  if (user.role !== "CUSTOMER") {
+    throw new ForbiddenError(
+      "Solo clientes pueden calificar deliveries."
+    );
+  }
+
+  const order = await prisma.orders.findFirst({
+    where: {
+      id_order: resolvedOrderId,
+      fk_user: resolvedUserId,
+      status: true
+    },
+    select: {
+      id_order: true,
+      order_status: true
+    }
+  });
+
+  if (!order) {
+    throw new NotFoundError("Pedido no encontrado");
+  }
+
+  if (order.order_status !== "DELIVERED") {
+    throw new ValidationError(
+      "Solo se pueden calificar pedidos entregados"
+    );
+  }
+
+  const latestAssignment =
+    await prisma.deliveryAssignments.findFirst({
+      where: {
+        fk_order: resolvedOrderId,
+        status: true
+      },
+      orderBy: [
+        { assignment_sequence: "desc" },
+        { assigned_at: "desc" }
+      ],
+      select: {
+        fk_delivery: true
+      }
+    });
+
+  if (!latestAssignment) {
+    throw new ValidationError(
+      "El pedido no tiene delivery asignado"
+    );
+  }
+
+  try {
+    const created = await prisma.deliveryReviews.create({
+      data: {
+        fk_order: resolvedOrderId,
+        fk_user: resolvedUserId,
+        fk_delivery: latestAssignment.fk_delivery,
+        rating: normalizedRating,
+        comment: normalizedComment || null,
+        status: true
+      },
+      select: {
+        id_delivery_review: true,
+        fk_order: true,
+        fk_delivery: true,
+        rating: true,
+        comment: true,
+        created_at: true
+      }
+    });
+
+    return {
+      id: created.id_delivery_review,
+      orderId: created.fk_order,
+      deliveryId: created.fk_delivery,
+      rating: created.rating,
+      comment: created.comment,
+      createdAt: created.created_at
+    };
+  } catch (error) {
+    if (
+      error?.code === "P2002" &&
+      error?.meta?.target?.includes("fk_order")
+    ) {
+      throw new ConflictError(
+        "Este pedido ya tiene una calificación de delivery"
+      );
+    }
+
+    throw error;
+  }
 };
 
 
@@ -653,37 +872,91 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
 
   const allowed = roleTransitions[order.order_status];
 
-  if (!allowed) throw new ValidationError(`No se puede modificar un pedido en estado ${order.order_status}`)
+  if (!allowed) throw new ValidationError(`No se puede modificar un pedido en estado ${order.order_status}`);
 
   if (!allowed.includes(order_status)) throw new ValidationError(`Transicion invalida: ${order.order_status} a ${order_status}`);
 
-  const updated = await prisma.orders.update({
-    where: { id_order: resolvedOrderId },
-    data: { order_status },
-    select: {
-      id_order: true,
-      order_status: true,
-      total: true,
-      shipping_cost: true,
-      shipping_distance_km: true,
-      notes: true,
-      created_at: true,
-      updated_at: true,
-      address: {
-        select: { id_address: true, address: true, city: true, region: true }
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await tx.orders.update({
+      where: {
+        id_order: resolvedOrderId,
+        order_status: order.order_status  // condicional atómico — falla si otro request ya cambió el status
       },
-      order_items: {
-        where: { status: true },
-        select: {
-          id_order_item: true,
-          quantity: true,
-          price: true,
-          original_price: true,
-          is_offer_applied: true,
-          subtotal: true
+      data: { order_status },
+      select: {
+        id_order: true,
+        order_status: true,
+        fk_store: true,
+        total: true,
+        shipping_cost: true,
+        shipping_distance_km: true,
+        notes: true,
+        created_at: true,
+        updated_at: true,
+        address: {
+          select: { id_address: true, address: true, city: true, region: true }
+        },
+        order_items: {
+          where: { status: true },
+          select: {
+            id_order_item: true,
+            quantity: true,
+            price: true,
+            original_price: true,
+            is_offer_applied: true,
+            subtotal: true
+          }
         }
       }
+    });
+
+    if (!updatedOrder) {
+      throw new ConflictError("El pedido fue modificado por otra solicitud, intente nuevamente");
     }
+
+    if (order_status === "PROCESSING") {
+      const existingPending = await tx.deliveryAssignments.findFirst({
+        where: { fk_order: resolvedOrderId, assignment_status: "PENDING", status: true }
+      });
+
+      if (existingPending) {
+        throw new ConflictError("Ya hay una asignación pendiente para este pedido");
+      }
+
+      const delivery = await tx.deliveries.findFirst({
+        where: {
+          fk_store: order.fk_store,
+          delivery_status: "ACTIVE",
+          status: true,
+          delivery_assignments: {
+            none: { assignment_status: "PENDING" }
+          }
+        }
+      });
+
+      if (!delivery) {
+        throw new ValidationError("No hay deliveries disponibles para este comercio");
+      }
+
+      const lastAssignment = await tx.deliveryAssignments.findFirst({
+        where: { fk_order: resolvedOrderId },
+        orderBy: { assignment_sequence: "desc" },
+        select: { assignment_sequence: true }
+      });
+
+      await tx.deliveryAssignments.create({
+        data: {
+          fk_order: resolvedOrderId,
+          fk_delivery: delivery.id_delivery,
+          assignment_status: "PENDING",
+          assignment_sequence: (lastAssignment?.assignment_sequence || 0) + 1,
+          status: true
+        }
+      });
+    }
+
+    return updatedOrder;
   });
+
   return mapOrderResponse(updated);
 };

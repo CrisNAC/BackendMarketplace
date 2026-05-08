@@ -40,6 +40,7 @@ model Users {
   reviewsResolved   ReviewReports[] @relation("ReviewResolver") //Usuario admin puede resolver multiples reportes de reseñas
   product_reports    ProductReports[] @relation("ProductReporter") //Usuario puede reportar multiples productos
   productsResolved   ProductReports[] @relation("ProductReportResolver") //Usuario seller puede resolver multiples reportes de productos
+  delivery_reviews DeliveryReviews[]
 }
 
 //------------------------------------NOTIFICACIONES----------------------------------------
@@ -349,27 +350,56 @@ model CartItems {
 //------------------------------------DELIVERIES----------------------------------------
 model Deliveries {
   id_delivery     Int              @id @default(autoincrement())
-  fk_store        Int
+  fk_store        Int?
   fk_user         Int              @unique
-  delivery_status DeliveryStatus   @default(AVAILABLE)
+  delivery_status DeliveryStatus   @default(INACTIVE)
+  vehicle_type    VehicleType      @default(CAR)
   status          Boolean          @default(true)
   created_at      DateTime         @default(now()) @db.Timestamptz
   updated_at      DateTime         @updatedAt @db.Timestamptz
 
-  store            Stores          @relation(fields: [fk_store], references: [id_store])
+  store            Stores?         @relation(fields: [fk_store], references: [id_store])
   user             Users           @relation(fields: [fk_user], references: [id_user])
   delivery_assignments  DeliveryAssignments[]
+  delivery_reviews DeliveryReviews[]
 }
 
 model DeliveryAssignments  {
   id_delivery_assignment    Int      @id @default(autoincrement())
-  fk_order                  Int      @unique
+  fk_order                  Int      // 
   fk_delivery               Int
+  assignment_status         AssignmentStatus @default(PENDING)  
+  assignment_sequence       Int      @default(1)  
   assigned_at               DateTime @default(now()) @db.Timestamptz
   status                    Boolean  @default(true)
+  created_at                DateTime @default(now()) @db.Timestamptz  
+  updated_at                DateTime @updatedAt @db.Timestamptz 
 
-  order   Orders   @relation(fields: [fk_order], references: [id_order])
+  order   Orders   @relation("OrderDeliveryAssignments", fields: [fk_order], references: [id_order])
   delivery Deliveries @relation(fields: [fk_delivery], references: [id_delivery])
+  @@unique([fk_order, assignment_sequence]) 
+}
+
+model DeliveryReviews {
+  id_delivery_review   Int       @id @default(autoincrement())
+  fk_order             Int       @unique
+  fk_user              Int
+  fk_delivery          Int
+  rating               Int       @db.SmallInt   // 1 a 5 estrellas
+  comment              String?   @db.Text
+  status               Boolean   @default(true)
+  created_at           DateTime  @default(now()) @db.Timestamptz
+  updated_at           DateTime  @updatedAt @db.Timestamptz
+  order      Orders       @relation(fields: [fk_order], references: [id_order])
+  user       Users        @relation(fields: [fk_user], references: [id_user])
+  delivery   Deliveries   @relation(fields: [fk_delivery], references: [id_delivery])
+}
+
+enum AssignmentStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  DELIVERED
 }
 
 //------------------------------------PEDIDOS----------------------------------------
@@ -393,8 +423,9 @@ model Orders {
   store                Stores              @relation(fields: [fk_store], references: [id_store])
   address              Addresses?           @relation(fields: [fk_address], references: [id_address])
   order_items          OrderItems[]
-  delivery_assignment  DeliveryAssignments?
+  delivery_assignments  DeliveryAssignments[]  @relation("OrderDeliveryAssignments")
   product_reports       ProductReports[]
+  delivery_review      DeliveryReviews?
 }
 
 model OrderItems {
@@ -415,11 +446,16 @@ model OrderItems {
 }
 
 enum DeliveryStatus {
-  AVAILABLE
-  ON_THE_WAY
-  ASSIGNED
-  DELIVERED
+  ACTIVE
   INACTIVE
+  SUSPENDED
+}
+
+enum VehicleType {
+  CAR
+  MOTORCYCLE
+  BICYCLE
+  ON_FOOT
 }
 
 enum OrderStatus {

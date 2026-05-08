@@ -1,0 +1,280 @@
+import { prisma } from "../../../lib/prisma.js";
+import { ConflictError, NotFoundError, ValidationError } from "../../../lib/errors.js";
+import { parsePositiveInteger } from "../../../lib/validators.js";
+import { getAuthorizedStoreOwnerService } from "../commerces/store.service.js";
+
+export const searchDeliveryCandidatesService = async (query) => {
+  if (!query) return [];
+
+  const candidates = await prisma.users.findMany({
+    where: {
+      role: 'DELIVERY',
+      status: true,
+      OR: [
+        { email: { contains: query, mode: 'insensitive' } },
+        { phone: { contains: query, mode: 'insensitive' } }
+      ],
+      AND: [
+        {
+          OR: [
+            { delivery: { is: null } },
+            { delivery: { fk_store: null } },
+          ],
+        },
+      ],
+    },
+    select: {
+      id_user: true,
+      name: true,
+      email: true,
+      phone: true
+    }
+  });
+
+  return candidates;
+};
+
+export const createDeliveryService = async (authenticatedUserId, storeIdStr, deliveryUserIdStr) => {
+  const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
+  const deliveryUserId = Number(deliveryUserIdStr);
+
+  if (!Number.isInteger(deliveryUserId) || deliveryUserId <= 0) {
+    throw new ValidationError("El ID del candidato a delivery debe ser un número entero positivo");
+  }
+
+  const user = await prisma.users.findFirst({
+    where: { id_user: deliveryUserId, role: 'DELIVERY', status: true }
+  });
+
+  if (!user) {
+    throw new NotFoundError("Candidato a delivery no encontrado o no válido");
+  }
+
+  try {
+    const delivery = await prisma.deliveries.create({
+      data: {
+        fk_store: store.id_store,
+        fk_user: deliveryUserId,
+        delivery_status: 'INACTIVE'
+      }
+    });
+
+    return delivery;
+  } catch (error) {
+    if (error.code === 'P2002') {
+      const existing = await prisma.deliveries.findUnique({
+        where: { fk_user: deliveryUserId }
+      });
+
+      if (existing && existing.fk_store === store.id_store) {
+        throw new ConflictError("El delivery ya está vinculado a este comercio");
+      }
+      throw new ConflictError("El delivery ya está vinculado a un comercio");
+    }
+    throw error;
+  }
+};
+
+export const getStoreDeliveriesService = async (authenticatedUserId, storeIdStr) => {
+  const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
+
+  const deliveries = await prisma.deliveries.findMany({
+    where: { fk_store: store.id_store, status: true },
+    select: {
+      id_delivery: true,
+      delivery_status: true,
+      vehicle_type: true,
+      user: {
+        select: { id_user: true, name: true, email: true, phone: true },
+      },
+      delivery_assignments: {
+        where: { status: true },
+        select: { assignment_status: true },
+      },
+      delivery_reviews: {
+        where: { status: true },
+        select: { rating: true },
+      },
+    },
+    orderBy: { created_at: "desc" },
+  });
+
+  let totalAvailable = 0;
+  let totalInDelivery = 0;
+  const allRatings = [];
+
+  const mappedDeliveries = deliveries.map((d) => {
+    const assignments = d.delivery_assignments;
+    const hasActiveAssignment = assignments.some(
+      (a) => a.assignment_status === "PENDING" || a.assignment_status === "ACCEPTED"
+    );
+
+    const delivered = assignments.filter((a) => a.assignment_status === "DELIVERED").length;
+    const rejected = assignments.filter((a) => a.assignment_status === "REJECTED").length;
+    const terminal = delivered + rejected;
+    const successRate = terminal > 0 ? Math.round((delivered / terminal) * 1000) / 10 : null;
+
+    const ratings = d.delivery_reviews.map((r) => r.rating);
+    allRatings.push(...ratings);
+    const avgRating =
+      ratings.length > 0
+        ? Math.round((ratings.reduce((sum, r) => sum + r, 0) / ratings.length) * 10) / 10
+        : null;
+
+    let displayStatus;
+    if (hasActiveAssignment) {
+      displayStatus = "IN_DELIVERY";
+      totalInDelivery++;
+    } else if (d.delivery_status === "ACTIVE") {
+      displayStatus = "AVAILABLE";
+      totalAvailable++;
+    } else {
+      displayStatus = "UNAVAILABLE";
+    }
+
+    return {
+      id: d.id_delivery,
+      user: {
+        id: d.user.id_user,
+        name: d.user.name,
+        email: d.user.email,
+        phone: d.user.phone,
+      },
+      status: displayStatus,
+      vehicleType: d.vehicle_type,
+      completedDeliveries: delivered,
+      successRate,
+      avgRating,
+      reviewCount: ratings.length,
+    };
+  });
+
+  const globalAvgRating =
+    allRatings.length > 0
+      ? Math.round((allRatings.reduce((sum, r) => sum + r, 0) / allRatings.length) * 10) / 10
+      : null;
+
+  return {
+    stats: {
+      total: deliveries.length,
+      available: totalAvailable,
+      inDelivery: totalInDelivery,
+      avgRating: globalAvgRating,
+    },
+    deliveries: mappedDeliveries,
+  };
+};
+
+export const deleteStoreDeliveryService = async (authenticatedUserId, storeIdStr, deliveryIdStr) => {
+  const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
+  const deliveryId = parsePositiveInteger(deliveryIdStr, "ID de delivery");
+
+  await prisma.$transaction(async (tx) => {
+    const delivery = await tx.deliveries.findFirst({
+      where: { id_delivery: deliveryId, fk_store: store.id_store, status: true },
+      select: {
+        id_delivery: true,
+        delivery_assignments: {
+          where: { status: true, assignment_status: { in: ["PENDING", "ACCEPTED"] } },
+          select: { id_delivery_assignment: true },
+          take: 1,
+        },
+      },
+    });
+
+    if (!delivery) throw new NotFoundError("Delivery no encontrado para este comercio");
+
+    if (delivery.delivery_assignments.length > 0) {
+      throw new ValidationError("No se puede desvincular un delivery con entregas activas");
+    }
+
+    await tx.deliveries.update({
+      where: { id_delivery: deliveryId },
+      data: { fk_store: null, delivery_status: "INACTIVE" },
+    });
+  });
+};
+
+export const getStoreDeliveryReviewsService = async (
+  authenticatedUserId,
+  storeIdStr,
+  deliveryIdStr,
+  query
+) => {
+  const store = await getAuthorizedStoreOwnerService(authenticatedUserId, storeIdStr);
+  const deliveryId = parsePositiveInteger(deliveryIdStr, "ID de delivery");
+
+  const delivery = await prisma.deliveries.findUnique({
+    where: { id_delivery: deliveryId },
+    select: { id_delivery: true, fk_store: true }
+  });
+
+  if (!delivery || delivery.fk_store !== store.id_store) {
+    throw new NotFoundError("Delivery no encontrado para este comercio");
+  }
+
+  const searchValue = query?.search?.toString().trim();
+  const searchOrderId = searchValue ? parsePositiveInteger(searchValue, "ID de pedido") : null;
+
+  const minRatingValue = query?.minRating ?? query?.min_rating;
+  const maxRatingValue = query?.maxRating ?? query?.max_rating;
+
+  const minRating = minRatingValue !== undefined
+    ? parsePositiveInteger(minRatingValue, "minRating")
+    : null;
+  const maxRating = maxRatingValue !== undefined
+    ? parsePositiveInteger(maxRatingValue, "maxRating")
+    : null;
+
+  if (minRating !== null && (minRating < 1 || minRating > 5)) {
+    throw new ValidationError("minRating debe estar entre 1 y 5");
+  }
+
+  if (maxRating !== null && (maxRating < 1 || maxRating > 5)) {
+    throw new ValidationError("maxRating debe estar entre 1 y 5");
+  }
+
+  if (minRating !== null && maxRating !== null && minRating > maxRating) {
+    throw new ValidationError("minRating no puede ser mayor que maxRating");
+  }
+
+  const ratingFilter =
+    minRating !== null || maxRating !== null
+      ? {
+        rating: {
+          ...(minRating !== null && { gte: minRating }),
+          ...(maxRating !== null && { lte: maxRating })
+        }
+      }
+      : {};
+
+  const reviews = await prisma.deliveryReviews.findMany({
+    where: {
+      fk_delivery: deliveryId,
+      status: true,
+      ...(searchOrderId ? { fk_order: searchOrderId } : {}),
+      ...ratingFilter
+    },
+    orderBy: { created_at: "desc" },
+    select: {
+      id_delivery_review: true,
+      fk_order: true,
+      rating: true,
+      comment: true,
+      created_at: true,
+      user: { select: { name: true } }
+    }
+  });
+
+  return {
+    total: reviews.length,
+    reviews: reviews.map((review) => ({
+      id: review.id_delivery_review,
+      orderId: review.fk_order,
+      customerName: review.user?.name ?? "Cliente",
+      rating: review.rating,
+      comment: review.comment,
+      createdAt: review.created_at
+    }))
+  };
+};
