@@ -50,25 +50,41 @@ export const createDeliveryService = async (authenticatedUserId, storeIdStr, del
     throw new NotFoundError("Candidato a delivery no encontrado o no válido");
   }
 
+  // Si el usuario ya tiene una fila en `deliveries` (la crea registerDeliveryService
+  // al convertirse en delivery con fk_store: null), reutilizarla en lugar de
+  // intentar un create que choca con la UNIQUE de fk_user.
+  const existing = await prisma.deliveries.findUnique({
+    where: { fk_user: deliveryUserId }
+  });
+
+  if (existing) {
+    if (existing.fk_store === store.id_store) {
+      throw new ConflictError("El delivery ya está vinculado a este comercio");
+    }
+    if (existing.fk_store !== null) {
+      throw new ConflictError("El delivery ya está vinculado a un comercio");
+    }
+
+    return prisma.deliveries.update({
+      where: { id_delivery: existing.id_delivery },
+      data: {
+        fk_store: store.id_store,
+        delivery_status: 'INACTIVE',
+        status: true
+      }
+    });
+  }
+
   try {
-    const delivery = await prisma.deliveries.create({
+    return await prisma.deliveries.create({
       data: {
         fk_store: store.id_store,
         fk_user: deliveryUserId,
         delivery_status: 'INACTIVE'
       }
     });
-
-    return delivery;
   } catch (error) {
     if (error.code === 'P2002') {
-      const existing = await prisma.deliveries.findUnique({
-        where: { fk_user: deliveryUserId }
-      });
-
-      if (existing && existing.fk_store === store.id_store) {
-        throw new ConflictError("El delivery ya está vinculado a este comercio");
-      }
       throw new ConflictError("El delivery ya está vinculado a un comercio");
     }
     throw error;
