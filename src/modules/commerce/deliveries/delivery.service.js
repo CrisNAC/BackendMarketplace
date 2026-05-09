@@ -65,13 +65,24 @@ export const createDeliveryService = async (authenticatedUserId, storeIdStr, del
       throw new ConflictError("El delivery ya está vinculado a un comercio");
     }
 
-    return prisma.deliveries.update({
-      where: { id_delivery: existing.id_delivery },
+    const { count } = await prisma.deliveries.updateMany({
+      where: {
+        id_delivery: existing.id_delivery,
+        fk_store: null
+      },
       data: {
         fk_store: store.id_store,
         delivery_status: 'INACTIVE',
         status: true
       }
+    });
+
+    if (count === 0) {
+      throw new ConflictError("El delivery ya está vinculado a un comercio");
+    }
+
+    return prisma.deliveries.findUnique({
+      where: { id_delivery: existing.id_delivery }
     });
   }
 
