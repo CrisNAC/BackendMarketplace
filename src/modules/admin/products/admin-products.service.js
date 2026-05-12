@@ -12,9 +12,27 @@ const mapProductResponse = (product) => ({
   visible: product.visible,
   approvalStatus: product.approval_status,
   rejectionReason: product.rejection_reason ?? null,
-  category: product.product_category
-    ? { id: product.product_category.id_product_category, name: product.product_category.name }
+  category: product.product_categories?.[0]?.category
+    ? {
+        id: product.product_categories[0].category.id_category,
+        name: product.product_categories[0].category.name
+      }
     : null,
+  product_category: product.product_categories?.[0]?.category
+    ? {
+        id_product_category: product.product_categories[0].category.id_category,
+        name: product.product_categories[0].category.name
+      }
+    : null,
+  categories: Array.isArray(product.product_categories)
+    ? product.product_categories
+        .map((relation) => relation.category)
+        .filter(Boolean)
+        .map((category) => ({
+          id_product_category: category.id_category,
+          name: category.name
+        }))
+    : [],
   store: product.store
     ? { id: product.store.id_store, name: product.store.name }
     : null,
@@ -39,8 +57,13 @@ const productSelect = {
   approval_status: true,
   rejection_reason: true,
   created_at: true,
-  product_category: {
-    select: { id_product_category: true, name: true },
+  product_categories: {
+    where: { status: true },
+    select: {
+      category: {
+          select: { id_category: true, name: true }
+      }
+    }
   },
   store: {
     select: { id_store: true, name: true, fk_user: true },

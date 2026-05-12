@@ -89,10 +89,16 @@ const STORE_RESPONSE_SELECT = {
       visible: true,
       is_offer: true,
       image_url: true,
-      product_category: {
+      product_categories: {
+        where: { status: true },
         select: {
-          id_product_category: true,
-          name: true
+          category: {
+            select: {
+              id_category: true,
+              name: true,
+              status: true
+            }
+          }
         }
       }
     }
@@ -388,13 +394,38 @@ const parseBooleanField = (value, fieldName) => {
 
 const mapStoreProductPricing = (product) => {
   const pricing = getProductPricing(product);
+  const categories = Array.isArray(product.product_categories)
+    ? product.product_categories
+        .map((relation) => relation?.category)
+        .filter((category) => category && Number.isInteger(category.id_category) && category.name)
+    : [];
+  const primaryCategory = categories[0] ?? null;
 
   return {
     ...product,
     price: pricing.price,
     original_price: pricing.originalPrice,
     offer_price: pricing.offerPrice,
-    is_offer: pricing.isOffer
+    is_offer: pricing.isOffer,
+    category: primaryCategory
+      ? {
+          id: primaryCategory.id_category,
+          name: primaryCategory.name,
+          status: primaryCategory.status
+        }
+      : null,
+    product_category: primaryCategory
+      ? {
+          id_product_category: primaryCategory.id_category,
+          name: primaryCategory.name,
+          status: primaryCategory.status
+        }
+      : null,
+    categories: categories.map((category) => ({
+      id_product_category: category.id_category,
+      name: category.name,
+      status: category.status
+    }))
   };
 };
 
@@ -1126,8 +1157,13 @@ export const getAllProductsByStoreService = async (id) => {
         visible: true,
         is_offer: true,
         created_at: true,
-        product_category: {
-          select: { id_product_category: true, name: true },
+        product_categories: {
+          where: { status: true },
+          select: {
+            category: {
+              select: { id_category: true, name: true, status: true }
+            }
+          }
         },
       },
       orderBy: { created_at: "desc" },
@@ -1203,7 +1239,12 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
       if (!Number.isInteger(categoryId) || categoryId <= 0) {
         throw { status: 400, message: "category debe ser un entero mayor a 0" };
       }
-      whereConditions.fk_product_category = categoryId;
+      whereConditions.product_categories = {
+        some: {
+          fk_category: categoryId,
+          status: true
+        }
+      };
     }
 
     const resolvedVisible = visible ?? available;
@@ -1289,8 +1330,13 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
         is_offer: true,
         image_url: true, 
         created_at: true,
-        product_category: {
-          select: { id_product_category: true, name: true },
+        product_categories: {
+          where: { status: true },
+          select: {
+            category: {
+              select: { id_category: true, name: true, status: true }
+            }
+          }
         },
       },
       orderBy: { [sortBy || "created_at"]: sortOrder === "asc" ? "asc" : "desc" }

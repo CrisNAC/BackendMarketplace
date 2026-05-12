@@ -50,9 +50,16 @@ export const validateStoreCategoriesService = async (categoryData) => {
     return [];
   }
 
-  const validatedIds = categoryIds.map((id) =>
-    parsePositiveInteger(id, "category_id")
-  );
+  const validatedIds = [...new Set(
+    categoryIds.map((id) => parsePositiveInteger(id, "category_id"))
+  )];
+
+  if (validatedIds.length > 3) {
+    throw {
+      status: 400,
+      message: "Un comercio no puede tener mas de 3 categorias"
+    };
+  }
 
   const categories = await prisma.categories.findMany({
     where: {
