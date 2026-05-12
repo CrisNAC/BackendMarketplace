@@ -62,13 +62,31 @@ export const getAvailableDeliveriesForOrderService = async (
   const existingAssignment = await prisma.deliveryAssignments.findFirst({
     where: {
       fk_order: orderId,
-      assignment_status: { in: ["PENDING", "ACCEPTED"] },
       status: true
+    },
+    include: {
+      delivery: {
+        select: { delivery_status: true }
+      }
     }
   });
 
   if (existingAssignment) {
-    throw new ValidationError("Este pedido ya tiene una asignación activa");
+    const assignmentStatus = existingAssignment.assignment_status;
+    const deliveryStatus = existingAssignment.delivery?.delivery_status;
+
+    // Si la asignación es ACCEPTED, siempre bloquear
+    if (assignmentStatus === "ACCEPTED") {
+      throw new ValidationError("Este pedido ya tiene una asignación aceptada activa");
+    }
+
+    // Si es PENDING pero el delivery está ACTIVE, bloquear
+    if (assignmentStatus === "PENDING" && deliveryStatus === "ACTIVE") {
+      throw new ValidationError("Este pedido ya tiene una asignación pendiente de respuesta");
+    }
+
+    // Si es PENDING y el delivery está INACTIVE/SUSPENDED, permitir (se sobrescribe)
+    // Continuamos sin error
   }
 
   // Obtener IDs de deliveries que tienen asignaciones PENDING o ACCEPTED

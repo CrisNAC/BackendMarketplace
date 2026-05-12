@@ -53,13 +53,31 @@ export const createAssignmentService = async (data) => {
 
       // Verificar que no hay un intento PENDING activo
       const pendingAssignment = await tx.deliveryAssignments.findFirst({
-        where: { fk_order, assignment_status: "PENDING" }
+        where: { fk_order, assignment_status: "PENDING" },
+        include: {
+          delivery: {
+            select: { delivery_status: true }
+          }
+        }
       });
 
       if (pendingAssignment) {
-        throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
+        const deliveryStatus = pendingAssignment.delivery?.delivery_status;
+        
+        // Si el delivery está INACTIVE, permitir sobrescribir (se auto-rechaza)
+        if (deliveryStatus === "INACTIVE") {
+          await tx.deliveryAssignments.update({
+            where: { id_delivery_assignment: pendingAssignment.id_delivery_assignment },
+            data: {
+              assignment_status: "REJECTED",
+              status: false
+            }
+          });
+        } else {
+          // Si está ACTIVE, SUSPENDED, o no existe delivery, bloquear
+          throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
+        }
       }
-
       // Crear el delivery assignment
       return tx.deliveryAssignments.create({
         data: {
