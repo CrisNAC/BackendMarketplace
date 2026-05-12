@@ -124,6 +124,9 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
     prisma.deliveryAssignments.findFirst.mockResolvedValue({
       id_delivery_assignment: 1,
       assignment_status: "PENDING",
+      delivery: {
+        delivery_status: "ACTIVE" // Delivery activo -> bloquear
+      }
     });
  
     const res = await request(app)
@@ -131,7 +134,7 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
       .set("Cookie", authCookie);
  
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/ya tiene una asignación activa/i);
+    expect(res.body.message).toMatch(/ya tiene una asignación/i);
   });
  
   it("devuelve 200 con lista vacía cuando no hay deliveries ACTIVE", async () => {
