@@ -5,13 +5,17 @@ import { prisma } from "../../../src/lib/prisma.js";
 
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
-    productCategories: {
+    categories: {
       findFirst: vi.fn(),
       create: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
       count: vi.fn(),
       findMany: vi.fn()
+    },
+    productCategories: {
+      deleteMany: vi.fn(),
+      groupBy: vi.fn()
     },
     products: {
       updateMany: vi.fn(),
@@ -50,17 +54,17 @@ const asRole = (req, role) => req.set("x-test-role", role);
 
 const now = new Date().toISOString();
 const mockCategory = {
-  id_product_category: 1,
+  id_category: 1,
   name: "Electrónica",
   status: true,
   visible: true,
   created_at: now,
   updated_at: now,
-  _count: { products: 5 }
+  _count: { product_categories: 5 }
 };
 
 const mockUpdatedCategory = {
-  id_product_category: 1,
+  id_category: 1,
   name: "Electrónica premium",
   visible: false,
   created_at: now,
@@ -69,37 +73,38 @@ const mockUpdatedCategory = {
 
 const mockCategoryList = [
   {
-    id_product_category: 1,
+    id_category: 1,
     name: "Electrónica",
     status: true,
     visible: true,
-    _count: { products: 3 }
+    _count: { product_categories: 3 }
   },
   {
-    id_product_category: 2,
+    id_category: 2,
     name: "Ropa",
     status: false,
     visible: false,
-    _count: { products: 0 }
+    _count: { product_categories: 0 }
   }
 ];
 
 const mockCategoryWithProducts = [
   {
-    id_product_category: 1,
+    id_category: 1,
     name: "Electrónica",
     status: true,
     visible: true,
-    _count: { products: 2 },
-    products: [
+    product_categories: [
       {
-        id_product: 1,
-        name: "Auriculares",
-        price: 150000,
-        offer_price: 120000,
-        is_offer: true,
-        status: true,
-        visible: true
+        product: {
+          id_product: 1,
+          name: "Auriculares",
+          price: 150000,
+          offer_price: 120000,
+          is_offer: true,
+          status: true,
+          visible: true
+        }
       }
     ]
   }
@@ -141,7 +146,7 @@ describe("POST /api/admin/categories", () => {
   });
 
   it("devuelve 400 cuando ya existe una categoría activa con el mismo nombre", async () => {
-    prisma.productCategories.findFirst.mockResolvedValue({ id_product_category: 10 });
+    prisma.categories.findFirst.mockResolvedValue({ id_category: 10 });
 
     const res = await asRole(
       request(app)
@@ -152,7 +157,7 @@ describe("POST /api/admin/categories", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.message).toBe("Ya existe una categoría con ese nombre");
-    expect(prisma.productCategories.findFirst).toHaveBeenCalledWith(
+    expect(prisma.categories.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           name: { equals: "electrónica", mode: "insensitive" },
@@ -163,9 +168,9 @@ describe("POST /api/admin/categories", () => {
   });
 
   it("devuelve 201 y crea categoría con visible=true y status=true", async () => {
-    prisma.productCategories.findFirst.mockResolvedValue(null);
-    prisma.productCategories.create.mockResolvedValue({
-      id_product_category: 22,
+    prisma.categories.findFirst.mockResolvedValue(null);
+    prisma.categories.create.mockResolvedValue({
+      id_category: 22,
       name: "Electrónica",
       visible: true,
       status: true,
@@ -180,7 +185,7 @@ describe("POST /api/admin/categories", () => {
     );
 
     expect(res.status).toBe(201);
-    expect(prisma.productCategories.create).toHaveBeenCalledWith(
+    expect(prisma.categories.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           name: "Electrónica",
@@ -224,14 +229,14 @@ describe("GET /api/admin/categories/:id", () => {
   });
 
   it("devuelve 404 cuando la categoría no existe", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue(null);
+    prisma.categories.findUnique.mockResolvedValue(null);
 
     const res = await asRole(request(app).get("/api/admin/categories/999"), "admin");
     expect(res.status).toBe(404);
   });
 
   it("devuelve 200 con la categoría y productCount", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue(mockCategory);
+    prisma.categories.findUnique.mockResolvedValue(mockCategory);
 
     const res = await asRole(request(app).get("/api/admin/categories/1"), "admin");
 
@@ -243,7 +248,7 @@ describe("GET /api/admin/categories/:id", () => {
   });
 
   it("devuelve la categoría aunque status sea false (admin ve todo)", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue({
+    prisma.categories.findUnique.mockResolvedValue({
       ...mockCategory,
       status: false
     });
@@ -255,9 +260,9 @@ describe("GET /api/admin/categories/:id", () => {
   });
 
   it("retorna productCount en 0 cuando la categoría no tiene productos", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue({
+    prisma.categories.findUnique.mockResolvedValue({
       ...mockCategory,
-      _count: { products: 0 }
+      _count: { product_categories: 0 }
     });
 
     const res = await asRole(request(app).get("/api/admin/categories/1"), "admin");
@@ -287,8 +292,8 @@ describe("GET /api/admin/categories", () => {
   });
 
   it("devuelve 200 con todas las categorías sin filtros", async () => {
-    prisma.productCategories.count.mockResolvedValue(2);
-    prisma.productCategories.findMany.mockResolvedValue(mockCategoryList);
+    prisma.categories.count.mockResolvedValue(2);
+    prisma.categories.findMany.mockResolvedValue(mockCategoryList);
 
     const res = await asRole(
       request(app).get("/api/admin/categories"),
@@ -304,8 +309,8 @@ describe("GET /api/admin/categories", () => {
   });
 
   it("incluye categorías con status false (admin ve todo)", async () => {
-    prisma.productCategories.count.mockResolvedValue(1);
-    prisma.productCategories.findMany.mockResolvedValue([mockCategoryList[1]]);
+    prisma.categories.count.mockResolvedValue(1);
+    prisma.categories.findMany.mockResolvedValue([mockCategoryList[1]]);
 
     const res = await asRole(
       request(app).get("/api/admin/categories?visible=false"),
@@ -317,8 +322,8 @@ describe("GET /api/admin/categories", () => {
   });
 
   it("filtra por visible=true", async () => {
-    prisma.productCategories.count.mockResolvedValue(1);
-    prisma.productCategories.findMany.mockResolvedValue([mockCategoryList[0]]);
+    prisma.categories.count.mockResolvedValue(1);
+    prisma.categories.findMany.mockResolvedValue([mockCategoryList[0]]);
 
     const res = await asRole(
       request(app).get("/api/admin/categories?visible=true"),
@@ -330,8 +335,8 @@ describe("GET /api/admin/categories", () => {
   });
 
   it("filtra por searchCategory", async () => {
-    prisma.productCategories.count.mockResolvedValue(1);
-    prisma.productCategories.findMany.mockResolvedValue([mockCategoryList[0]]);
+    prisma.categories.count.mockResolvedValue(1);
+    prisma.categories.findMany.mockResolvedValue([mockCategoryList[0]]);
 
     const res = await asRole(
       request(app).get("/api/admin/categories?searchCategory=Electr"),
@@ -343,8 +348,8 @@ describe("GET /api/admin/categories", () => {
   });
 
   it("retorna paginación correcta", async () => {
-    prisma.productCategories.count.mockResolvedValue(40);
-    prisma.productCategories.findMany.mockResolvedValue(mockCategoryList);
+    prisma.categories.count.mockResolvedValue(40);
+    prisma.categories.findMany.mockResolvedValue(mockCategoryList);
 
     const res = await asRole(
       request(app).get("/api/admin/categories?categoryPage=2&categoryLimit=20"),
@@ -361,8 +366,8 @@ describe("GET /api/admin/categories", () => {
   });
 
   it("retorna data vacía cuando no hay coincidencias", async () => {
-    prisma.productCategories.count.mockResolvedValue(0);
-    prisma.productCategories.findMany.mockResolvedValue([]);
+    prisma.categories.count.mockResolvedValue(0);
+    prisma.categories.findMany.mockResolvedValue([]);
 
     const res = await asRole(
       request(app).get("/api/admin/categories?searchCategory=noexiste"),
@@ -395,9 +400,9 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
   });
 
   it("devuelve 200 con categorías y productos", async () => {
-    prisma.productCategories.count.mockResolvedValue(1);
-    prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
-    prisma.products.count.mockResolvedValue(2);
+    prisma.categories.count.mockResolvedValue(1);
+    prisma.categories.findMany.mockResolvedValue(mockCategoryWithProducts);
+    prisma.productCategories.groupBy.mockResolvedValue([{ fk_category: 1, _count: { fk_product: 2 } }]);
 
     const res = await asRole(
       request(app).get("/api/admin/categories/filter/withProducts"),
@@ -411,9 +416,9 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
   });
 
   it("filtra por search — devuelve categoría cuando el nombre de categoría coincide", async () => {
-    prisma.productCategories.count.mockResolvedValue(1);
-    prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
-    prisma.products.count.mockResolvedValue(0);
+    prisma.categories.count.mockResolvedValue(1);
+    prisma.categories.findMany.mockResolvedValue(mockCategoryWithProducts);
+    prisma.productCategories.groupBy.mockResolvedValue([]);
 
     const res = await asRole(
       request(app).get("/api/admin/categories/filter/withProducts?search=Elec"),
@@ -421,13 +426,13 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(prisma.productCategories.findMany).toHaveBeenCalledWith(
+    expect(prisma.categories.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           OR: expect.arrayContaining([
             { name: { contains: "Elec", mode: "insensitive" } },
             expect.objectContaining({
-              products: expect.objectContaining({ some: expect.anything() })
+              product_categories: expect.objectContaining({ some: expect.anything() })
             })
           ])
         })
@@ -436,9 +441,9 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
   });
 
   it("filtra por search — devuelve categoría cuando el nombre de producto coincide", async () => {
-    prisma.productCategories.count.mockResolvedValue(1);
-    prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
-    prisma.products.count.mockResolvedValue(1);
+    prisma.categories.count.mockResolvedValue(1);
+    prisma.categories.findMany.mockResolvedValue(mockCategoryWithProducts);
+    prisma.productCategories.groupBy.mockResolvedValue([{ fk_category: 1, _count: { fk_product: 1 } }]);
 
     const res = await asRole(
       request(app).get("/api/admin/categories/filter/withProducts?search=Auriculares"),
@@ -446,10 +451,12 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(prisma.products.count).toHaveBeenCalledWith(
+    expect(prisma.productCategories.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          name: { contains: "Auriculares", mode: "insensitive" }
+          product: expect.objectContaining({
+            name: { contains: "Auriculares", mode: "insensitive" }
+          })
         })
       })
     );
@@ -457,9 +464,9 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
   });
 
   it("filtra por searchCategory + searchProduct de forma dependiente", async () => {
-    prisma.productCategories.count.mockResolvedValue(1);
-    prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
-    prisma.products.count.mockResolvedValue(1);
+    prisma.categories.count.mockResolvedValue(1);
+    prisma.categories.findMany.mockResolvedValue(mockCategoryWithProducts);
+    prisma.productCategories.groupBy.mockResolvedValue([{ fk_category: 1, _count: { fk_product: 1 } }]);
 
     const res = await asRole(
       request(app).get("/api/admin/categories/filter/withProducts?searchCategory=Electr&searchProduct=Auriculares"),
@@ -467,26 +474,28 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(prisma.productCategories.findMany).toHaveBeenCalledWith(
+    expect(prisma.categories.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           name: { contains: "Electr", mode: "insensitive" }
         })
       })
     );
-    expect(prisma.products.count).toHaveBeenCalledWith(
+    expect(prisma.productCategories.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          name: { contains: "Auriculares", mode: "insensitive" }
+          product: expect.objectContaining({
+            name: { contains: "Auriculares", mode: "insensitive" }
+          })
         })
       })
     );
   });
 
   it("retorna paginación de categorías y productos correcta", async () => {
-    prisma.productCategories.count.mockResolvedValue(10);
-    prisma.productCategories.findMany.mockResolvedValue(mockCategoryWithProducts);
-    prisma.products.count.mockResolvedValue(5);
+    prisma.categories.count.mockResolvedValue(10);
+    prisma.categories.findMany.mockResolvedValue(mockCategoryWithProducts);
+    prisma.productCategories.groupBy.mockResolvedValue([{ fk_category: 1, _count: { fk_product: 5 } }]);
 
     const res = await asRole(
       request(app).get("/api/admin/categories/filter/withProducts?categoryPage=1&categoryLimit=5&productPage=1&productLimit=2"),
@@ -509,8 +518,9 @@ describe("GET /api/admin/categories/filter/withProducts", () => {
   });
 
   it("retorna data vacía cuando no hay coincidencias", async () => {
-    prisma.productCategories.count.mockResolvedValue(0);
-    prisma.productCategories.findMany.mockResolvedValue([]);
+    prisma.categories.count.mockResolvedValue(0);
+    prisma.categories.findMany.mockResolvedValue([]);
+    prisma.productCategories.groupBy.mockResolvedValue([]);
 
     const res = await asRole(
       request(app).get("/api/admin/categories/filter/withProducts?search=noexiste"),
@@ -557,8 +567,8 @@ describe("PATCH /api/admin/categories/:id", () => {
   });
 
   it("devuelve 400 cuando decision es inválida", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue({
-      id_product_category: 2,
+    prisma.categories.findUnique.mockResolvedValue({
+      id_category: 2,
       name: "Solicitud",
       visible: false,
       status: true,
@@ -577,7 +587,7 @@ describe("PATCH /api/admin/categories/:id", () => {
   });
 
   it("devuelve 404 cuando la solicitud no existe", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue(null);
+    prisma.categories.findUnique.mockResolvedValue(null);
 
     const res = await asRole(
       request(app)
@@ -590,8 +600,8 @@ describe("PATCH /api/admin/categories/:id", () => {
   });
 
   it("devuelve 400 cuando la solicitud ya fue procesada", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue({
-      id_product_category: 2,
+    prisma.categories.findUnique.mockResolvedValue({
+      id_category: 2,
       name: "Solicitud procesada",
       visible: true,
       status: true,
@@ -610,8 +620,8 @@ describe("PATCH /api/admin/categories/:id", () => {
   });
 
   it("aprueba solicitud pendiente y devuelve 200", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue({
-      id_product_category: 2,
+    prisma.categories.findUnique.mockResolvedValue({
+      id_category: 2,
       name: "Tecnología retro",
       visible: false,
       status: true,
@@ -619,8 +629,8 @@ describe("PATCH /api/admin/categories/:id", () => {
       updated_at: now
     });
 
-    prisma.productCategories.update.mockResolvedValue({
-      id_product_category: 2,
+    prisma.categories.update.mockResolvedValue({
+      id_category: 2,
       name: "Tecnología retro",
       visible: true,
       status: true,
@@ -636,9 +646,9 @@ describe("PATCH /api/admin/categories/:id", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(prisma.productCategories.update).toHaveBeenCalledWith(
+    expect(prisma.categories.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id_product_category: 2 },
+        where: { id_category: 2 },
         data: expect.objectContaining({ visible: true, status: true })
       })
     );
@@ -648,8 +658,8 @@ describe("PATCH /api/admin/categories/:id", () => {
   });
 
   it("rechaza solicitud pendiente, la desactiva y reasigna productos a Sin categoría (id=1)", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue({
-      id_product_category: 3,
+    prisma.categories.findUnique.mockResolvedValue({
+      id_category: 3,
       name: "Rubro rechazado",
       visible: false,
       status: true,
@@ -657,19 +667,10 @@ describe("PATCH /api/admin/categories/:id", () => {
       updated_at: now
     });
 
-    prisma.products.updateMany.mockResolvedValue({ count: 4 });
-    prisma.productCategories.update.mockResolvedValue({
-      id_product_category: 3,
-      name: "Rubro rechazado",
-      visible: false,
-      status: false,
-      created_at: now,
-      updated_at: now
-    });
     prisma.$transaction.mockResolvedValue([
-      { count: 4 },
+      {},
       {
-        id_product_category: 3,
+        id_category: 3,
         name: "Rubro rechazado",
         visible: false,
         status: false,
@@ -686,15 +687,12 @@ describe("PATCH /api/admin/categories/:id", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(prisma.products.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { fk_product_category: 3 },
-        data: { fk_product_category: 1 }
-      })
+    expect(prisma.productCategories.deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { fk_category: 3 } })
     );
-    expect(prisma.productCategories.update).toHaveBeenCalledWith(
+    expect(prisma.categories.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id_product_category: 3 },
+        where: { id_category: 3 },
         data: expect.objectContaining({ visible: false, status: false })
       })
     );
@@ -752,7 +750,7 @@ describe("PUT /api/admin/categories/:id", () => {
   });
 
   it("devuelve 404 cuando la categoría no existe", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue(null);
+    prisma.categories.findUnique.mockResolvedValue(null);
 
     const res = await asRole(
       request(app).put("/api/admin/categories/999").send({ name: "Nueva" }),
@@ -763,8 +761,14 @@ describe("PUT /api/admin/categories/:id", () => {
   });
 
   it("devuelve 200 y actualiza name y visible", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue({ id_product_category: 1 });
-    prisma.productCategories.update.mockResolvedValue(mockUpdatedCategory);
+    prisma.categories.findUnique.mockResolvedValue({ id_category: 2 });
+    prisma.categories.update.mockResolvedValue({
+      id_category: 2,
+      name: "Electrónica premium",
+      visible: false,
+      created_at: now,
+      updated_at: now
+    });
 
     const payload = {
       name: "Electrónica premium",
@@ -772,21 +776,21 @@ describe("PUT /api/admin/categories/:id", () => {
     };
 
     const res = await asRole(
-      request(app).put("/api/admin/categories/1").send(payload),
+      request(app).put("/api/admin/categories/2").send(payload),
       "admin"
     );
 
     expect(res.status).toBe(200);
-    expect(prisma.productCategories.update).toHaveBeenCalledWith(
+    expect(prisma.categories.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id_product_category: 1 },
+        where: { id_category: 2 },
         data: expect.objectContaining({
           name: "Electrónica premium",
           visible: false
         })
       })
     );
-    expect(res.body.id).toBe(1);
+    expect(res.body.id).toBe(2);
     expect(res.body.visible).toBe(false);
     expect(typeof res.body.name).toBe("string");
   });
@@ -816,14 +820,14 @@ describe("DELETE /api/admin/categories/:id", () => {
   });
 
   it("devuelve 404 cuando la categoría no existe", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue(null);
+    prisma.categories.findUnique.mockResolvedValue(null);
 
     const res = await asRole(request(app).delete("/api/admin/categories/999"), "admin");
     expect(res.status).toBe(404);
   });
 
   it("devuelve 204 cuando la categoría se elimina correctamente", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue(mockCategory);
+    prisma.categories.findUnique.mockResolvedValue(mockCategory);
     prisma.$transaction.mockResolvedValue([]);
 
     const res = await asRole(request(app).delete("/api/admin/categories/2"), "admin");
@@ -831,7 +835,7 @@ describe("DELETE /api/admin/categories/:id", () => {
   });
 
   it("ejecuta la transacción para reasignar productos y ocultar categoría", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue(mockCategory);
+    prisma.categories.findUnique.mockResolvedValue(mockCategory);
     prisma.$transaction.mockImplementation(async (ops) => ops);
 
     await asRole(request(app).delete("/api/admin/categories/2"), "admin");
@@ -840,19 +844,18 @@ describe("DELETE /api/admin/categories/:id", () => {
   });
 
   it("pone status y visible en false al eliminar", async () => {
-    prisma.productCategories.findUnique.mockResolvedValue(mockCategory);
+    prisma.categories.findUnique.mockResolvedValue(mockCategory);
     prisma.$transaction.mockResolvedValue([]);
-    prisma.productCategories.update.mockResolvedValue({});
-    prisma.products.updateMany.mockResolvedValue({});
+    prisma.categories.update.mockResolvedValue({});
 
     await asRole(
       request(app).delete("/api/admin/categories/2"),
       "admin"
     );
 
-    expect(prisma.productCategories.update).toHaveBeenCalledWith(
+    expect(prisma.categories.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id_product_category: 2 },
+        where: { id_category: 2 },
         data: expect.objectContaining({
           status: false,
           visible: false

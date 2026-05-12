@@ -23,7 +23,6 @@ export class StoreResponseDTO extends BaseResponseDTO {
     tiktok_url;
     fk_user;
     categories;
-    store_category;
     constructor(data) {
         const categories = Array.isArray(data.categories)
             ? data.categories.map((category) => new CategoryNestedDTO(category))
@@ -45,12 +44,6 @@ export class StoreResponseDTO extends BaseResponseDTO {
         this.tiktok_url = data.tiktok_url ?? null;
         this.fk_user = data.fk_user;
         this.categories = categories;
-        this.store_category = categories[0]
-            ? {
-                id_store_category: categories[0].id_category,
-                name: categories[0].name
-            }
-            : null;
         // status excluido intencionalmente
     }
     static map(data) {

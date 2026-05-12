@@ -29,15 +29,7 @@ const mapStoreCategories = (storeCategories) => {
         .filter((category) => category && Number.isInteger(category.id_category) && category.name)
     : [];
 
-  return {
-    categories,
-    store_category: categories[0]
-      ? {
-          id_store_category: categories[0].id_category,
-          name: categories[0].name
-        }
-      : null
-  };
+  return { categories };
 };
 
 const STORE_RESPONSE_SELECT = {
@@ -414,15 +406,8 @@ const mapStoreProductPricing = (product) => {
           status: primaryCategory.status
         }
       : null,
-    product_category: primaryCategory
-      ? {
-          id_product_category: primaryCategory.id_category,
-          name: primaryCategory.name,
-          status: primaryCategory.status
-        }
-      : null,
     categories: categories.map((category) => ({
-      id_product_category: category.id_category,
+      id: category.id_category,
       name: category.name,
       status: category.status
     }))
@@ -597,7 +582,6 @@ export const createStoreService = async (data) => {
   const {
     fk_user,
     category_ids,
-    fk_store_category,
     name,
     email,
     phone,
@@ -613,9 +597,7 @@ export const createStoreService = async (data) => {
     distance_price
   } = data;
 
-  const normalizedCategoryIds = await validateStoreCategoriesService(
-    category_ids ?? fk_store_category
-  );
+  const normalizedCategoryIds = await validateStoreCategoriesService(category_ids);
 
   if (
     !fk_user ||
@@ -774,10 +756,8 @@ export const updateStoreService = async (
   let normalizedCategoryIds = null;
   let hasCoordinatesToUpdate = false;
 
-  if (payload?.category_ids !== undefined || payload?.fk_store_category !== undefined) {
-    normalizedCategoryIds = await validateStoreCategoriesService(
-      payload.category_ids ?? payload.fk_store_category
-    );
+  if (payload?.category_ids !== undefined) {
+    normalizedCategoryIds = await validateStoreCategoriesService(payload.category_ids);
   }
 
   if (payload?.name !== undefined) {
@@ -1045,36 +1025,10 @@ export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}
     if (isNaN(Number(id))) {
       throw { status: 400, message: "ID de tienda debe ser un número" };
     }
-    const {
-      store_categories,
-      shipping_zones,
-      ...baseLegacyStoreSelect
-    } = STORE_RESPONSE_SELECT;
-
-    const legacyStoreSelect = {
-      ...baseLegacyStoreSelect,
-      fk_store_category: true
-    };
-
-    let store;
-    try {
-      store = await prisma.stores.findUnique({
-        where: { id_store: Number(id) },
-        select: STORE_RESPONSE_SELECT
-      });
-    } catch (queryError) {
-      const shouldUseLegacyFallback =
-        queryError?.code === "P2021" || queryError?.code === "P2022";
-
-      if (!shouldUseLegacyFallback) {
-        throw queryError;
-      }
-
-      store = await prisma.stores.findUnique({
-        where: { id_store: Number(id) },
-        select: legacyStoreSelect
-      });
-    }
+    const store = await prisma.stores.findUnique({
+      where: { id_store: Number(id) },
+      select: STORE_RESPONSE_SELECT
+    });
 
     // Si no se encuentra el comercio, lanzar error 404
     if (!store) {
@@ -1424,8 +1378,7 @@ export const deleteStoreService = async (id_user, id_store) => {
 
 export const getStoresService = async (filters = {}) => {
   const search = filters.search?.toString().trim();
-  const categoryIdRaw =
-    filters.storeCategoryId ?? filters.categoryId ?? filters.fk_store_category;
+  const categoryIdRaw = filters.storeCategoryId ?? filters.categoryId;
 
   const where = {
     status: true,

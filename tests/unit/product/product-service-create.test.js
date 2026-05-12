@@ -11,7 +11,10 @@ vi.mock("../../../src/lib/prisma.js", () => ({
 
 vi.mock(
   "../../../src/modules/global/categories/product-categories/product-category.service.js",
-  () => ({ validateProductCategoryService: vi.fn().mockResolvedValue(undefined) })
+  () => ({
+    validateProductCategoryService: vi.fn().mockResolvedValue(undefined),
+    validateProductCategoriesService: vi.fn().mockResolvedValue([1])
+  })
 );
 
 vi.mock("../../../src/modules/commerce/product-tags/product-tag.service.js", () => ({
@@ -47,14 +50,15 @@ const mockFullProduct = {
   price: 1500000,
   offer_price: null,
   quantity: 10,
-  fk_product_category: 1,
   fk_store: 5,
   visible: true,
   is_offer: false,
   image_url: null,
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-01T00:00:00.000Z",
-  product_category: { id_product_category: 1, name: "Electrónica", status: true },
+  product_categories: [
+    { category: { id_category: 1, name: "Electrónica", status: true } }
+  ],
   store: { id_store: 5, name: "TiendaA" },
   product_tag_relations: [],
   product_reviews: [],
@@ -70,6 +74,7 @@ describe("createProductService", () => {
     parseProductTagIdsService.mockReturnValue([]);
     mockTx = {
       products: { create: vi.fn().mockResolvedValue({ id_product: 10 }), findFirst: vi.fn() },
+      productCategories: { createMany: vi.fn().mockResolvedValue({}) },
       productTagRelations: { createMany: vi.fn().mockResolvedValue({}) },
     };
     prisma.$transaction.mockImplementation((fn) => fn(mockTx));

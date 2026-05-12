@@ -4,20 +4,6 @@ const categoryIdsSchema = z
   .array(z.number().int().positive("category_ids debe contener IDs válidos"))
   .min(1, "category_ids debe incluir al menos una categoría");
 
-const legacyCategoryIdSchema = z
-  .number({ error: "fk_store_category es requerido" })
-  .int()
-  .positive("fk_store_category debe ser un ID válido");
-
-const storeCategoryFieldsSchema = {
-  category_ids: categoryIdsSchema.optional(),
-  fk_store_category: legacyCategoryIdSchema.optional()
-};
-
-const storeCategoryRequiredRefine = (data) =>
-  (Array.isArray(data.category_ids) && data.category_ids.length > 0) ||
-  data.fk_store_category !== undefined;
-
 // ─── CREATE ──────────────────────────────────────────────────────
 export const CreateStoreDTO = z
   .object({
@@ -25,6 +11,7 @@ export const CreateStoreDTO = z
       .number({ error: "fk_user es requerido" })
       .int()
       .positive("fk_user debe ser un ID válido"),
+    category_ids: categoryIdsSchema,
     name: z
       .string({ error: "name es requerido" })
       .min(1, "name no puede estar vacío")
@@ -72,17 +59,13 @@ export const CreateStoreDTO = z
     latitude: z.number({ error: "latitude es requerido" }),
     longitude: z.number({ error: "longitude es requerido" }),
     base_price: z.number({ error: "base_price es requerido" }).nonnegative("base_price no puede ser negativo"),
-    distance_price: z.number({ error: "distance_price es requerido" }).nonnegative("distance_price no puede ser negativo"),
-    ...storeCategoryFieldsSchema
-  })
-  .refine(storeCategoryRequiredRefine, {
-    message: "Debes enviar al menos una categoría de comercio"
+    distance_price: z.number({ error: "distance_price es requerido" }).nonnegative("distance_price no puede ser negativo")
   });
 
 // ─── UPDATE ──────────────────────────────────────────────────────
 export const UpdateStoreDTO = z
   .object({
-    ...storeCategoryFieldsSchema,
+    category_ids: categoryIdsSchema.optional(),
     name: z
       .string()
       .min(1, "name no puede estar vacío")
@@ -143,10 +126,10 @@ export const UpdateStoreDTO = z
 // ─── FILTER ──────────────────────────────────────────────────────
 export const FilterStoreDTO = z.object({
   name: z.string().optional(),
-  fk_store_category: z
+  categoryId: z
     .string()
     .transform(Number)
-    .pipe(z.number().int().positive("fk_store_category debe ser un ID válido"))
+    .pipe(z.number().int().positive("categoryId debe ser un ID válido"))
     .optional(),
   page: z
     .string()

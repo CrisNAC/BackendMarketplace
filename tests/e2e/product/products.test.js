@@ -15,8 +15,9 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     users: {
       findUnique: vi.fn()
     },
-    productCategories: {
-      findUnique: vi.fn()
+    categories: {
+      findUnique: vi.fn(),
+      findMany: vi.fn()
     },
     productTags: {
       findMany: vi.fn()
@@ -42,17 +43,23 @@ const mockDbProduct = {
   description: "Descripcion de prueba",
   price: 25,
   offer_price: null,
-  fk_product_category: 1,
+  quantity: null,
+  image_url: null,
   fk_store: 1,
   visible: true,
   is_offer: false,
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-01T00:00:00.000Z",
-  product_category: {
-    id_product_category: 1,
-    name: "Categoria Test",
-    status: true
-  },
+  product_categories: [
+    {
+      category: {
+        id_category: 1,
+        name: "Categoria Test",
+        status: true
+      }
+    }
+  ],
+  store: { id_store: 1, name: "Tienda Test" },
   product_tag_relations: [],
   product_reviews: []
 };
@@ -242,10 +249,7 @@ describe("POST /products", () => {
       status: true,
       store: { id_store: 1, status: true }
     });
-    prisma.productCategories.findUnique.mockResolvedValue({
-      id_product_category: 1,
-      status: true
-    });
+    prisma.categories.findMany.mockResolvedValue([{ id_category: 1 }]);
   });
 
   it("devuelve 401 cuando falta autenticacion", async () => {
@@ -294,7 +298,7 @@ describe("POST /products", () => {
       .send({ name: "Test", price: 10 });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/categoryId/i);
+    expect(res.body.message).toMatch(/categor/i);
   });
 
   it("devuelve 400 cuando visible tiene valor invalido", async () => {
@@ -324,15 +328,15 @@ describe("POST /products", () => {
       status: true,
       store: { id_store: 1, status: true }
     });
-    prisma.productCategories.findUnique.mockResolvedValue({
-      id_product_category: 1,
-      status: true
-    });
+    prisma.categories.findMany.mockResolvedValue([{ id_category: 1 }]);
     prisma.$transaction.mockImplementation(async (fn) =>
       fn({
         products: {
           create: vi.fn().mockResolvedValue({ id_product: 1 }),
           findFirst: vi.fn().mockResolvedValue(mockDbProduct)
+        },
+        productCategories: {
+          createMany: vi.fn().mockResolvedValue([])
         },
         productTagRelations: {
           createMany: vi.fn().mockResolvedValue([])
@@ -359,10 +363,7 @@ describe("POST /products", () => {
       status: true,
       store: { id_store: 1, status: true }
     });
-    prisma.productCategories.findUnique.mockResolvedValue({
-      id_product_category: 1,
-      status: true
-    });
+    prisma.categories.findMany.mockResolvedValue([{ id_category: 1 }]);
     prisma.$transaction.mockImplementation(async (fn) =>
       fn({
         products: {
@@ -374,6 +375,9 @@ describe("POST /products", () => {
             offer_price: 22.5,
             is_offer: true
           })
+        },
+        productCategories: {
+          createMany: vi.fn().mockResolvedValue([])
         },
         productTagRelations: {
           createMany: vi.fn().mockResolvedValue([])

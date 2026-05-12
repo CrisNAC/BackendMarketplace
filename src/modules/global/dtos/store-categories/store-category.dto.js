@@ -53,3 +53,11 @@ export class StoreCategoryResponseDTO extends BaseResponseDTO {
         return data.map(StoreCategoryResponseDTO.map);
     }
 }
+
+// StoreCategoryResponseDTO no se importa en ningún servicio, controlador ni ruta — solo en su propio test. Es código muerto: la clase existe pero nadie la usa. Los servicios de categorías retornan plain objects directamente.
+
+// Hay dos opciones:
+
+// Eliminar StoreCategoryResponseDTO del DTO y su test en misc.dto.test.js — es lo limpio si no hay plan de usarlo
+// Dejarlo si hay intención de adoptarlo en el admin (CRUD de StoreCategories) en el futuro
+// Esto debido a que se está utilizando con la relación vieja entre StoreCategories y Stores, no la nueva relación entre ambas

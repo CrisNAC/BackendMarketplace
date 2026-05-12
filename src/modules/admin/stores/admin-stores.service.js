@@ -12,15 +12,7 @@ const mapStoreCategories = (storeCategories) => {
         }))
     : [];
 
-  return {
-    categories,
-    store_category: categories[0]
-      ? {
-          id_store_category: categories[0].id_category,
-          name: categories[0].name
-        }
-      : null
-  };
+  return { categories };
 };
 
 /**

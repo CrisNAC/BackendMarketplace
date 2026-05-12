@@ -81,7 +81,7 @@ export const getProductCategoriesService = async (filters = {}) => {
   });
 
   return categories.map((category) => ({
-    id_product_category: category.id_category,
+    id: category.id_category,
     name: category.name,
     status: category.status,
     createdAt: category.created_at,

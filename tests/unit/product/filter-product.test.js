@@ -20,7 +20,9 @@ const mockListProduct = {
   offer_price: null,
   is_offer: false,
   quantity: 10,
-  product_category: { id_product_category: 1, name: "Categoria Test" },
+  product_categories: [
+    { category: { id_category: 1, name: "Categoria Test" } }
+  ],
   store: { id_store: 1, name: "Tienda Test" }
 };
 
@@ -66,7 +68,7 @@ describe("GET /products/filter", () => {
       original_price: 25,
       offer_price: null,
       is_offer: false,
-      category: { id_product_category: 1, name: "Categoria Test" },
+      category: { id: 1, name: "Categoria Test" },
       store: { id_store: 1, name: "Tienda Test" }
     });
   });
@@ -117,7 +119,9 @@ describe("GET /products/filter", () => {
     expect(res.status).toBe(200);
     expect(prisma.products.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ fk_product_category: 1 })
+        where: expect.objectContaining({
+          product_categories: { some: { fk_category: 1, status: true } }
+        })
       })
     );
   });

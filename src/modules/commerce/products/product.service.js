@@ -36,9 +36,8 @@ const PRODUCT_RESPONSE_SELECT = {
   updated_at: true,
   product_categories: {
     where: { status: true },
+    orderBy: { fk_category: "asc" },
     select: {
-      id_product_category: true,
-      fk_category: true,
       category: {
         select: {
           id_category: true,
@@ -378,13 +377,6 @@ const mapProductResponse = (product) => {
     category: primaryCategory
       ? {
           id: primaryCategory.id_category,
-          name: primaryCategory.name,
-          status: primaryCategory.status
-        }
-      : null,
-    product_category: primaryCategory
-      ? {
-          id_product_category: primaryCategory.id_category,
           name: primaryCategory.name,
           status: primaryCategory.status
         }
@@ -917,7 +909,7 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
         ?.map((relation) => relation.category)
         .filter((category) => category)
         .map((category) => ({
-          id_product_category: category.id_category,
+          id: category.id_category,
           name: category.name,
           status: category.status
         })) ?? [],
@@ -1094,18 +1086,11 @@ export const filterProductsService = async (filters, pagination) => {
             status: product.product_categories[0].category.status
           }
         : null,
-      product_category: product.product_categories?.[0]?.category
-        ? {
-            id_product_category: product.product_categories[0].category.id_category,
-            name: product.product_categories[0].category.name,
-            status: product.product_categories[0].category.status
-          }
-        : null,
       categories: product.product_categories
         ?.map((relation) => relation.category)
         .filter((category) => category)
         .map((category) => ({
-          id_product_category: category.id_category,
+          id: category.id_category,
           name: category.name,
           status: category.status
         })) ?? [],

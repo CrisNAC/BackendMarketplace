@@ -234,46 +234,49 @@ export const filterCategoriesWithProducts = async (
     })
   ]);
  
-  const productCounts = await Promise.all(
-    categories.map((c) =>
-      prisma.products.count({
-        where: {
-          ...productWhere,
-          product_categories: {
-            some: {
-              fk_category: c.id_category,
-              status: true
-            }
-          }
-        }
-      })
-    )
+  const categoryIds = categories.map((c) => c.id_category);
+
+  const countRows = await prisma.productCategories.groupBy({
+    by: ["fk_category"],
+    where: {
+      fk_category: { in: categoryIds },
+      status: true,
+      product: productWhere
+    },
+    _count: { fk_product: true }
+  });
+
+  const countMap = new Map(
+    countRows.map((row) => [row.fk_category, row._count.fk_product])
   );
- 
+
   return {
-    data: categories.map((c, i) => ({
-      id: c.id_category,
-      name: c.name,
-      status: c.status,
-      visible: c.visible,
-      productCount: productCounts[i] ?? 0,
-      products: {
-        data: c.product_categories.map((relation) => relation.product).map((p) => ({
-          id: p.id_product,
-          name: p.name,
-          price: getEffectiveProductPrice(p),
-          originalPrice: getOriginalProductPrice(p),
-          offerPrice: getOfferProductPrice(p),
-          isOffer: Boolean(p.is_offer),
-          status: p.status,
-          visible: p.visible
-        })),
-        total: productCounts[i] ?? 0,
-        productPage: productPagination.page ?? PAGINATION.DEFAULT_PAGE,
-        productLimit,
-        productTotalPages: Math.ceil((productCounts[i] ?? 0) / productLimit)
-      }
-    })),
+    data: categories.map((c) => {
+      const productCount = countMap.get(c.id_category) ?? 0;
+      return {
+        id: c.id_category,
+        name: c.name,
+        status: c.status,
+        visible: c.visible,
+        productCount,
+        products: {
+          data: c.product_categories.map((relation) => relation.product).map((p) => ({
+            id: p.id_product,
+            name: p.name,
+            price: getEffectiveProductPrice(p),
+            originalPrice: getOriginalProductPrice(p),
+            offerPrice: getOfferProductPrice(p),
+            isOffer: Boolean(p.is_offer),
+            status: p.status,
+            visible: p.visible
+          })),
+          total: productCount,
+          productPage: productPagination.page ?? PAGINATION.DEFAULT_PAGE,
+          productLimit,
+          productTotalPages: Math.ceil(productCount / productLimit)
+        }
+      };
+    }),
     categoryTotal,
     categoryPage: categoryPagination.page ?? PAGINATION.DEFAULT_PAGE,
     categoryLimit,

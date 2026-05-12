@@ -18,18 +18,12 @@ const mapProductResponse = (product) => ({
         name: product.product_categories[0].category.name
       }
     : null,
-  product_category: product.product_categories?.[0]?.category
-    ? {
-        id_product_category: product.product_categories[0].category.id_category,
-        name: product.product_categories[0].category.name
-      }
-    : null,
   categories: Array.isArray(product.product_categories)
     ? product.product_categories
         .map((relation) => relation.category)
         .filter(Boolean)
         .map((category) => ({
-          id_product_category: category.id_category,
+          id: category.id_category,
           name: category.name
         }))
     : [],
@@ -59,9 +53,10 @@ const productSelect = {
   created_at: true,
   product_categories: {
     where: { status: true },
+    orderBy: { fk_category: "asc" },
     select: {
       category: {
-          select: { id_category: true, name: true }
+        select: { id_category: true, name: true }
       }
     }
   },

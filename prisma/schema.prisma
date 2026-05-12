@@ -90,14 +90,14 @@ model Stores {
 //------------------------------------COMERCIOS-CATEGORIAS----------------------------------------
 model StoreCategories {
   id_store_category   Int       @id @default(autoincrement())
-  fk_store            Int?
-  fk_category         Int?
+  fk_store            Int
+  fk_category         Int
   status              Boolean   @default(true)
   created_at          DateTime  @default(now()) @db.Timestamptz
   updated_at          DateTime  @updatedAt @db.Timestamptz
 
-  store       Stores?     @relation(fields: [fk_store], references: [id_store])
-  category    Categories? @relation(fields: [fk_category], references: [id_category])
+  store       Stores     @relation(fields: [fk_store], references: [id_store])
+  category    Categories @relation(fields: [fk_category], references: [id_category])
 
   @@unique([fk_store, fk_category])
 }

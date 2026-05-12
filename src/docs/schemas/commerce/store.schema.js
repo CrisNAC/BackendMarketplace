@@ -65,12 +65,22 @@ export const storeSchemas = {
             price: { type: "number", example: 150000 },
             quantity: { type: "integer", nullable: true, example: 50 },
             visible: { type: "boolean", example: true },
-            product_category: {
+            category: {
                 type: "object",
                 nullable: true,
                 properties: {
-                    id_product_category: { type: "integer", example: 3 },
+                    id: { type: "integer", example: 3 },
                     name: { type: "string", example: "Audio" }
+                }
+            },
+            categories: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        id: { type: "integer", example: 3 },
+                        name: { type: "string", example: "Audio" }
+                    }
                 }
             }
         }
@@ -108,14 +118,6 @@ export const storeSchemas = {
                         name: { type: "string", example: "Electrónica" },
                         status: { type: "boolean", example: true }
                     }
-                }
-            },
-            store_category: {
-                type: "object",
-                nullable: true,
-                properties: {
-                    id_store_category: { type: "integer", example: 2 },
-                    name: { type: "string", example: "Electrónica" }
                 }
             },
             products: {
@@ -157,14 +159,6 @@ export const storeSchemas = {
                     }
                 }
             },
-            store_category: {
-                type: "object",
-                nullable: true,
-                properties: {
-                    id_store_category: { type: "integer", example: 2 },
-                    name: { type: "string", example: "Electrónica" }
-                }
-            }
         }
     },
 
@@ -178,12 +172,22 @@ export const storeSchemas = {
             quantity: { type: "integer", nullable: true },
             visible: { type: "boolean", example: true },
             created_at: { type: "string", format: "date-time" },
-            product_category: {
+            category: {
                 type: "object",
                 nullable: true,
                 properties: {
-                    id_product_category: { type: "integer", example: 3 },
+                    id: { type: "integer", example: 3 },
                     name: { type: "string", example: "Audio" }
+                }
+            },
+            categories: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        id: { type: "integer", example: 3 },
+                        name: { type: "string", example: "Audio" }
+                    }
                 }
             }
         }

@@ -13,29 +13,6 @@ const parsePositiveInteger = (value, fieldName) => {
   return parsedValue;
 };
 
-// export const validateStoreCategoryService = async (categoryId) => {
-//   const parsedCategoryId = parsePositiveInteger(
-//     categoryId,
-//     "fk_store_category"
-//   );
-
-//   const category = await prisma.categories.findUnique({
-//     where: { id_category: parsedCategoryId },
-//     select: {
-//       id_category: true,
-//       status: true
-//     }
-//   });
-
-//   if (!category || !category.status) {
-//     throw {
-//       status: 400,
-//       message: "fk_store_category no es valido"
-//     };
-//   }
-
-//   return parsedCategoryId;
-// };
 
 export const validateStoreCategoriesService = async (categoryData) => {
   if (categoryData === undefined || categoryData === null) {

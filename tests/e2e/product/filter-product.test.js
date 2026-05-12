@@ -12,11 +12,11 @@ let existingProductPrice;
 
 beforeAll(async () => {
   // Busca una categoría activa real para usar en los filtros
-  const category = await prisma.productCategories.findFirst({
-    where: { status: true },
-    select: { id_product_category: true }
+  const category = await prisma.categories.findFirst({
+    where: { status: true, visible: true },
+    select: { id_category: true }
   });
-  existingCategoryId = category?.id_product_category ?? null;
+  existingCategoryId = category?.id_category ?? null;
 
   // Busca un producto activo real para tomar su precio como referencia
   const product = await prisma.products.findFirst({
@@ -109,7 +109,7 @@ describe("E2E GET /products/filter", () => {
     expect(res.status).toBe(200);
     if (res.body.content.length > 0) {
       res.body.content.forEach((p) => {
-        expect(p.category?.id_product_category).toBe(existingCategoryId);
+        expect(p.category?.id).toBe(existingCategoryId);
       });
     }
   });
@@ -257,7 +257,7 @@ describe("E2E GET /products/filter", () => {
     expect(res.status).toBe(200);
     if (res.body.content.length > 0) {
       res.body.content.forEach((p) => {
-        expect(p.category?.id_product_category).toBe(existingCategoryId);
+        expect(p.category?.id).toBe(existingCategoryId);
       });
     }
   });

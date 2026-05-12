@@ -25,7 +25,7 @@ const validProductData = {
   fk_store: 2,
   created_at: NOW,
   updated_at: NOW,
-  product_category: { id_product_category: 3, name: "Electrónica" },
+  category: { id: 3, name: "Electrónica" },
   product_tag_relations: [
     { product_tag: { id_product_tag: 1, name: "gaming" } },
     { product_tag: { id_product_tag: 2, name: "nueva" } },
@@ -225,8 +225,8 @@ describe("FilterProductDTO", () => {
 
 describe("ProductCategoryNestedDTO", () => {
   it("asigna id y name", () => {
-    const dto = new ProductCategoryNestedDTO({ id_product_category: 3, name: "Electrónica" });
-    expect(dto.id_product_category).toBe(3);
+    const dto = new ProductCategoryNestedDTO({ id: 3, name: "Electrónica" });
+    expect(dto.id).toBe(3);
     expect(dto.name).toBe("Electrónica");
   });
 });
@@ -278,15 +278,15 @@ describe("ProductResponseDTO", () => {
     expect(dto.quantity).toBeNull();
   });
 
-  it("mapea product_category al DTO anidado", () => {
+  it("mapea category al DTO anidado", () => {
     const dto = new ProductResponseDTO(validProductData);
-    expect(dto.product_category).toBeInstanceOf(ProductCategoryNestedDTO);
-    expect(dto.product_category.id_product_category).toBe(3);
+    expect(dto.category).toBeInstanceOf(ProductCategoryNestedDTO);
+    expect(dto.category.id).toBe(3);
   });
 
-  it("product_category es null cuando no hay categoría", () => {
-    const dto = new ProductResponseDTO({ ...validProductData, product_category: null });
-    expect(dto.product_category).toBeNull();
+  it("category es null cuando no hay categoría", () => {
+    const dto = new ProductResponseDTO({ ...validProductData, category: null });
+    expect(dto.category).toBeNull();
   });
 
   it("mapea tags desde product_tag_relations", () => {
