@@ -2,7 +2,8 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
 import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
- 
+import { createAssignmentService } from "../../../src/modules/delivery/delivery-assignments/delivery-assignments.service.js";
+
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
     stores: {
@@ -10,14 +11,19 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     },
     orders: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
     },
     deliveries: {
       findMany: vi.fn(),
+      findUnique: vi.fn(), 
     },
     deliveryAssignments: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
+      update: vi.fn(),
+      create: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }));
  
@@ -202,4 +208,5 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
     expect(res.body.delivery_address).toBeNull();
     expect(res.body.available_deliveries).toHaveLength(2);
   });
+
 });
