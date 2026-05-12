@@ -209,4 +209,93 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
     expect(res.body.available_deliveries).toHaveLength(2);
   });
 
+  it("rechaza automáticamente la asignación PENDING anterior si delivery está INACTIVE", async () => {
+    vi.mocked(prisma.orders.findUnique).mockResolvedValueOnce({
+      id_order: 100,
+      fk_store: 1
+    });
+    
+    vi.mocked(prisma.deliveries.findUnique).mockResolvedValueOnce({
+      id_delivery: 5,
+      delivery_status: "ACTIVE",
+      status: true
+    });
+
+    const mockPendingWithInactiveDelivery = {
+      id_delivery_assignment: 10,
+      assignment_status: "PENDING",
+      delivery: { delivery_status: "INACTIVE" }
+    };
+
+    // Mockear $transaction para que ejecute el callback correctamente
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) => {
+      const tx = {
+        deliveryAssignments: {
+          findFirst: vi.fn()
+            .mockResolvedValueOnce({ assignment_sequence: 1 }) // último sequence
+            .mockResolvedValueOnce(mockPendingWithInactiveDelivery), // pending assignment
+          update: vi.fn().mockResolvedValueOnce({
+            ...mockPendingWithInactiveDelivery,
+            assignment_status: "REJECTED"
+          }),
+          create: vi.fn().mockResolvedValueOnce({
+            id_delivery_assignment: 11,
+            fk_order: 100,
+            fk_delivery: 5,
+            assignment_status: "PENDING",
+            assignment_sequence: 2
+          }),
+        },
+      };
+      return await callback(tx);
+    });
+
+    const result = await createAssignmentService({
+      fk_order: 100,
+      fk_delivery: 5
+    });
+
+    expect(result.assignment_status).toBe("PENDING");
+    expect(result.assignment_sequence).toBe(2);
+  });
+
+  it("lanza error 409 cuando ya hay PENDING con delivery ACTIVE", async () => {
+    vi.mocked(prisma.orders.findUnique).mockResolvedValueOnce({
+      id_order: 100,
+      fk_store: 1
+    });
+    
+    vi.mocked(prisma.deliveries.findUnique).mockResolvedValueOnce({
+      id_delivery: 5,
+      delivery_status: "ACTIVE",
+      status: true
+    });
+
+    const mockPendingWithActiveDelivery = {
+      id_delivery_assignment: 10,
+      assignment_status: "PENDING",
+      delivery: { delivery_status: "ACTIVE" }
+    };
+
+    // Mockear $transaction para que lance el error
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) => {
+      const tx = {
+        deliveryAssignments: {
+          findFirst: vi.fn()
+            .mockResolvedValueOnce({ assignment_sequence: 1 }) // último sequence
+            .mockResolvedValueOnce(mockPendingWithActiveDelivery), // pending assignment ACTIVE
+          update: vi.fn(),
+          create: vi.fn(),
+        },
+      };
+      return await callback(tx);
+    });
+
+    await expect(
+      createAssignmentService({ fk_order: 100, fk_delivery: 5 })
+    ).rejects.toMatchObject({
+      status: 409,
+      message: "Ya hay una asignación pendiente para este pedido"
+    });
+  });
 });
