@@ -68,7 +68,7 @@ describe("GET /products/filter", () => {
       original_price: 25,
       offer_price: null,
       is_offer: false,
-      category: { id: 1, name: "Categoria Test" },
+      categories: [{ id: 1, name: "Categoria Test" }],
       store: { id_store: 1, name: "Tienda Test" }
     });
   });
