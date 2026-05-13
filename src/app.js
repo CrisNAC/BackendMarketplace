@@ -39,6 +39,8 @@ import { setupSwagger } from "./config/swagger.config.js";
 
 import distanceRoutes from "./modules/global/distances/routes/distance.routes.js";
 
+import notificationRoutes from "./modules/notifications/notification.routes.js";
+
 // Rutas de imágenes
 import { 
   productImageRoutes, 
@@ -110,6 +112,9 @@ app.use("/api/users", wishlistRoutes);
 app.use("/api/users", cartRoutes);
 app.use("/api/users", userOrderRouter);
 app.use('/api/session', sessionRoutes);
+
+// Rutas de notificaciones
+app.use('/api/notifications', notificationRoutes);
 
 // Rutas de deliveries
 app.use("/api/deliveries", deliveryRoutes);

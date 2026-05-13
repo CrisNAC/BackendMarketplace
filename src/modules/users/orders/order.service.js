@@ -7,6 +7,8 @@ import {
   ConflictError
 } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/validators.js";
+import { createNotificationService } from "../../notifications/notification.service.js";
+import { NOTIFICATION_MESSAGES } from "../../notifications/notification.constant.js";
 
 const mapOrderResponse = (order) => ({
   id: order.id_order,
@@ -378,6 +380,10 @@ export const createOrderService = async (
       where: { id_cart: resolvedCartId },
       data: { cart_status: "CHECKED_OUT" }
     })
+
+    // crear notificación de nuevo pedido para el cliente
+    const { title, message } = NOTIFICATION_MESSAGES.ORDER_CONFIRMED(order.id_order);
+    await createNotificationService(tx, { userId: resolvedUserId, title, message, reference_id: order.id_order });
 
     return tx.orders.findUnique({
       where: { id_order: order.id_order },
