@@ -171,47 +171,6 @@ const validateRequiredStringField = (value, fieldName, maxLength) => {
   return normalizedValue;
 };
 
-const normalizeCategoryIds = (categoryIds) => {
-  const rawCategoryIds = Array.isArray(categoryIds)
-    ? categoryIds
-    : categoryIds !== undefined && categoryIds !== null && categoryIds !== ""
-      ? [categoryIds]
-      : [];
-
-  const normalizedCategoryIds = [...new Set(
-    rawCategoryIds
-      .map((value) => Number(value))
-      .filter((value) => Number.isInteger(value) && value > 0)
-  )];
-
-  if (normalizedCategoryIds.length === 0) {
-    throw { status: 400, message: "Debes enviar al menos una categoría de comercio" };
-  }
-
-  return normalizedCategoryIds;
-};
-
-const validateStoreCategoriesByIds = async (categoryIds) => {
-  const normalizedCategoryIds = normalizeCategoryIds(categoryIds);
-
-  const categories = await prisma.categories.findMany({
-    where: {
-      id_category: {
-        in: normalizedCategoryIds
-      },
-      status: true
-    },
-    select: {
-      id_category: true
-    }
-  });
-
-  if (categories.length !== normalizedCategoryIds.length) {
-    throw { status: 400, message: "Una o más categorías de comercio no son válidas" };
-  }
-
-  return normalizedCategoryIds;
-};
 
 const validateOptionalStringField = (value, fieldName, maxLength) => {
   const normalizedValue = normalizeOptionalStringValue(value);

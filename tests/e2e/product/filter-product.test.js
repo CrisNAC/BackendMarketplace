@@ -55,6 +55,8 @@ describe("E2E GET /products/filter", () => {
       expect(product).toHaveProperty("is_offer");
       expect(product).toHaveProperty("quantity");
       expect(product).toHaveProperty("category");
+      expect(product).toHaveProperty("categories");
+      expect(Array.isArray(product.categories)).toBe(true);
       expect(product).toHaveProperty("store");
     }
   });
@@ -109,7 +111,8 @@ describe("E2E GET /products/filter", () => {
     expect(res.status).toBe(200);
     if (res.body.content.length > 0) {
       res.body.content.forEach((p) => {
-        expect(p.category?.id).toBe(existingCategoryId);
+        const allCategoryIds = p.categories.map((c) => c.id);
+        expect(allCategoryIds).toContain(existingCategoryId);
       });
     }
   });
@@ -257,7 +260,8 @@ describe("E2E GET /products/filter", () => {
     expect(res.status).toBe(200);
     if (res.body.content.length > 0) {
       res.body.content.forEach((p) => {
-        expect(p.category?.id).toBe(existingCategoryId);
+        const allCategoryIds = p.categories.map((c) => c.id);
+        expect(allCategoryIds).toContain(existingCategoryId);
       });
     }
   });
