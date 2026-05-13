@@ -52,6 +52,9 @@ vi.mock("../../../src/lib/prisma.js", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
     },
+    notifications: {
+      create: vi.fn()
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -251,6 +254,7 @@ describe("createOrderService", () => {
     prisma.orderItems.createMany.mockResolvedValue({});
     prisma.carts.update.mockResolvedValue({});
     prisma.orders.findUnique.mockResolvedValue(mockOrderFromDB);
+    prisma.notifications.create.mockResolvedValue({});
 
     const result = await createOrderService(1, {
       cartId: 1,
@@ -275,7 +279,7 @@ describe("createOrderService", () => {
     prisma.orderItems.createMany.mockResolvedValue({});
     prisma.carts.update.mockResolvedValue({});
     prisma.orders.findUnique.mockResolvedValue(mockOrderFromDB);
-
+    prisma.notifications.create.mockResolvedValue({});
     const result = await createOrderService(1, {
       cartId: 1,
       addressId: null,
@@ -299,6 +303,7 @@ describe("createOrderService", () => {
     prisma.orderItems.createMany.mockResolvedValue({});
     prisma.carts.update.mockResolvedValue({});
     prisma.orders.findUnique.mockResolvedValue(mockOrderFromDB);
+    prisma.notifications.create.mockResolvedValue({});
 
     await createOrderService(1, { cartId: 1, addressId: null, notes: null, total: 300 });
 
@@ -323,7 +328,7 @@ describe("createOrderService", () => {
     prisma.orderItems.createMany.mockResolvedValue({});
     prisma.carts.update.mockResolvedValue({});
     prisma.orders.findUnique.mockResolvedValue(mockOrderFromDB);
-
+    prisma.notifications.create.mockResolvedValue({});
     await createOrderService(1, { cartId: 1, addressId: null, notes: null });
 
     const itemsCreated = prisma.orderItems.createMany.mock.calls[0][0].data;
@@ -536,6 +541,7 @@ describe("updateOrderStatusService", () => {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({}),
         },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       })
     );
 
@@ -556,6 +562,7 @@ describe("updateOrderStatusService", () => {
         orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "CANCELLED" }) },
         deliveries: { findFirst: vi.fn() },
         deliveryAssignments: { findFirst: vi.fn(), create: vi.fn() },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       })
     );
 
@@ -576,6 +583,7 @@ describe("updateOrderStatusService", () => {
         orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "SHIPPED" }) },
         deliveries: { findFirst: vi.fn() },
         deliveryAssignments: { findFirst: vi.fn(), create: vi.fn() },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       })
     );
 
@@ -625,6 +633,7 @@ describe("updateOrderStatusService", () => {
         orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "DELIVERED" }) },
         deliveries: { findFirst: vi.fn() },
         deliveryAssignments: { findFirst: vi.fn(), create: vi.fn() },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       })
     );
 
@@ -668,6 +677,7 @@ describe("updateOrderStatusService", () => {
         orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "CANCELLED" }) },
         deliveries: { findFirst: vi.fn() },
         deliveryAssignments: { findFirst: vi.fn(), create: vi.fn() },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       })
     );
 
@@ -731,6 +741,7 @@ describe("updateOrderStatusService", () => {
             assignment_sequence: 1,
           }),
         },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       });
     });
 
@@ -763,6 +774,7 @@ describe("updateOrderStatusService", () => {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn(),
         },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       });
     });
 
