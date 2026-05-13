@@ -1,3 +1,4 @@
+//store-category.routes.js
 import { Router } from "express";
 import { getStoreCategories } from "./store-category.controller.js";
 

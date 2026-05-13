@@ -1,4 +1,6 @@
 //import { PrismaClient } from "@prisma/client";
+
+//session.controllers.js
 import { prisma } from "../../../../src/lib/prisma.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
