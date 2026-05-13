@@ -24,8 +24,9 @@ const mockProduct = {
   status: true,
   created_at: new Date("2025-01-01"),
   updated_at: new Date("2025-01-01"),
-  fk_product_category: 1,
-  product_category: { id_product_category: 1, name: "Periféricos", status: true },
+  product_categories: [
+    { category: { id_category: 1, name: "Periféricos", status: true } }
+  ],
   store: { id_store: 1, name: "TechStore" },
   product_tag_relations: [],
   product_reviews: []
@@ -69,7 +70,7 @@ describe("GET /products/:id", () => {
     const res = await request(app).get("/products/1");
 
     expect(res.status).toBe(200);
-    expect(res.body.category).toMatchObject({ id: 1, name: "Periféricos" });
+    expect(res.body.categories[0]).toMatchObject({ id: 1, name: "Periféricos" });
     expect(res.body.commerce).toMatchObject({ id: 1, name: "TechStore" });
   });
 

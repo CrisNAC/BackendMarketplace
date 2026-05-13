@@ -454,18 +454,18 @@ describe("FilterProductCategoryDTO", () => {
 });
 
 describe("ProductCategoryResponseDTO", () => {
-  const data = { id_product_category: 3, name: "Electrónica", created_at: NOW, updated_at: NOW };
+  const data = { id_category: 3, name: "Electrónica", created_at: NOW, updated_at: NOW };
 
-  it("mapea id_product_category y name correctamente", () => {
+  it("mapea id_category y name correctamente", () => {
     const dto = new ProductCategoryResponseDTO(data);
-    expect(dto.id_product_category).toBe(3);
+    expect(dto.id_category).toBe(3);
     expect(dto.name).toBe("Electrónica");
     expect(dto.id).toBe(3);
   });
 
   it("static map() y mapList() funcionan", () => {
     expect(ProductCategoryResponseDTO.map(data)).toBeInstanceOf(ProductCategoryResponseDTO);
-    const list = ProductCategoryResponseDTO.mapList([data, { ...data, id_product_category: 4 }]);
+    const list = ProductCategoryResponseDTO.mapList([data, { ...data, id_category: 4 }]);
     expect(list).toHaveLength(2);
   });
 });

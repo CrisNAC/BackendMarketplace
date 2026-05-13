@@ -16,12 +16,22 @@ export class StoreProductItemDTO {
         this.visible = data.visible;
         this.image_url = data.image_url ?? null; 
         this.created_at = data.created_at;
-        this.product_category = data.product_category
-            ? {
-                id_product_category: data.product_category.id_product_category,
-                name: data.product_category.name
-            }
+        const primaryCategory = data.category ?? null;
+        const categoriesSource = Array.isArray(data.categories)
+            ? data.categories
+            : Array.isArray(data.product_categories)
+                ? data.product_categories.map((relation) => relation.category ?? relation)
+                : [];
+
+        this.category = primaryCategory
+            ? { id: primaryCategory.id_category ?? primaryCategory.id, name: primaryCategory.name }
             : null;
+        this.categories = categoriesSource
+            .filter((category) => category && (category.id_category || category.id))
+            .map((category) => ({
+                id: category.id_category ?? category.id,
+                name: category.name
+            }));
     }
 
     static map(data) {

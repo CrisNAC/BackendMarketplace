@@ -43,7 +43,6 @@ beforeAll(() => {
 const mockStore = {
   id_store: 1,
   fk_user: 1,
-  fk_store_category: 1,
   name: "Tienda Test",
   email: "tienda@test.com",
   phone: "0981000000",

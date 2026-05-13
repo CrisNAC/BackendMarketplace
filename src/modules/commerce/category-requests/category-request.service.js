@@ -26,7 +26,7 @@ export const validateCategoryName = (name) => {
  * @throws {ConflictError} Si la categoría ya existe o ya tiene solicitud pendiente
  */
 export const checkExistingCategoryOrPendingRequest = async (name) => {
-  const existingCategory = await prisma.productCategories.findFirst({
+  const existingCategory = await prisma.categories.findFirst({
     where: {
       name: {
         equals: name,
@@ -60,15 +60,14 @@ export const createCategoryRequestService = async (name) => {
 
   await checkExistingCategoryOrPendingRequest(normalizedName);
 
-  // Se crea en ProductCategories como solicitud pendiente (visible=false)
-  const categoryRequest = await prisma.productCategories.create({
+  const categoryRequest = await prisma.categories.create({
     data: {
       name: normalizedName,
       visible: false,
       status: true
     },
     select: {
-      id_product_category: true,
+      id_category: true,
       name: true,
       visible: true,
       status: true,
@@ -78,7 +77,7 @@ export const createCategoryRequestService = async (name) => {
   });
 
   return {
-    id: categoryRequest.id_product_category,
+    id: categoryRequest.id_category,
     name: categoryRequest.name,
     visible: categoryRequest.visible,
     status: categoryRequest.status,

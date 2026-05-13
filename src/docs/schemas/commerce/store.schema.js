@@ -3,7 +3,7 @@ export const storeSchemas = {
     CreateStoreRequest: {
         type: "object",
         required: [
-            "fk_store_category",
+            "category_ids",
             "name",
             "email",
             "phone",
@@ -14,7 +14,7 @@ export const storeSchemas = {
             "distance_price"
         ],
         properties: {
-            fk_store_category: { type: "integer", example: 2 },
+            category_ids: { type: "array", items: { type: "integer" }, example: [2, 4] },
             name: { type: "string", maxLength: 100, example: "Mi Comercio" },
             email: { type: "string", format: "email", example: "comercio@mail.com" },
             phone: { type: "string", maxLength: 20, example: "0981123456" },
@@ -37,7 +37,7 @@ export const storeSchemas = {
     UpdateStoreRequest: {
         type: "object",
         properties: {
-            fk_store_category: { type: "integer", example: 2 },
+            category_ids: { type: "array", items: { type: "integer" }, example: [2, 4] },
             name: { type: "string", maxLength: 100, example: "Mi Comercio Actualizado" },
             email: { type: "string", format: "email", example: "nuevo@mail.com" },
             phone: { type: "string", maxLength: 20, example: "0981999999" },
@@ -65,12 +65,22 @@ export const storeSchemas = {
             price: { type: "number", example: 150000 },
             quantity: { type: "integer", nullable: true, example: 50 },
             visible: { type: "boolean", example: true },
-            product_category: {
+            category: {
                 type: "object",
                 nullable: true,
                 properties: {
-                    id_product_category: { type: "integer", example: 3 },
+                    id: { type: "integer", example: 3 },
                     name: { type: "string", example: "Audio" }
+                }
+            },
+            categories: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        id: { type: "integer", example: 3 },
+                        name: { type: "string", example: "Audio" }
+                    }
                 }
             }
         }
@@ -99,12 +109,15 @@ export const storeSchemas = {
                     email: { type: "string", example: "juan@mail.com" }
                 }
             },
-            store_category: {
-                type: "object",
-                nullable: true,
-                properties: {
-                    id_store_category: { type: "integer", example: 2 },
-                    name: { type: "string", example: "Electrónica" }
+            categories: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        id_category: { type: "integer", example: 2 },
+                        name: { type: "string", example: "Electrónica" },
+                        status: { type: "boolean", example: true }
+                    }
                 }
             },
             products: {
@@ -135,14 +148,17 @@ export const storeSchemas = {
             description: { type: "string", nullable: true },
             logo: { type: "string", nullable: true },
             status: { type: "boolean", example: true },
-            store_category: {
-                type: "object",
-                nullable: true,
-                properties: {
-                    id_store_category: { type: "integer", example: 2 },
-                    name: { type: "string", example: "Electrónica" }
+            categories: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        id_category: { type: "integer", example: 2 },
+                        name: { type: "string", example: "Electrónica" },
+                        status: { type: "boolean", example: true }
+                    }
                 }
-            }
+            },
         }
     },
 
@@ -156,12 +172,22 @@ export const storeSchemas = {
             quantity: { type: "integer", nullable: true },
             visible: { type: "boolean", example: true },
             created_at: { type: "string", format: "date-time" },
-            product_category: {
+            category: {
                 type: "object",
                 nullable: true,
                 properties: {
-                    id_product_category: { type: "integer", example: 3 },
+                    id: { type: "integer", example: 3 },
                     name: { type: "string", example: "Audio" }
+                }
+            },
+            categories: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        id: { type: "integer", example: 3 },
+                        name: { type: "string", example: "Audio" }
+                    }
                 }
             }
         }

@@ -45,15 +45,15 @@ export const FilterProductCategoryDTO = z.object({
 });
 // ─── RESPONSE ────────────────────────────────────────────────────
 export class ProductCategoryResponseDTO extends BaseResponseDTO {
-    id_product_category;
+    id_category;
     name;
     constructor(data) {
         super({
-            id: data.id_product_category,
+            id: data.id_category,
             created_at: data.created_at,
             updated_at: data.updated_at
         });
-        this.id_product_category = data.id_product_category;
+        this.id_category = data.id_category;
         this.name = data.name;
     }
     static map(data) {

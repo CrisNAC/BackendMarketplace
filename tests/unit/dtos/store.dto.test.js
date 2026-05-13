@@ -6,7 +6,7 @@ import {
 } from "../../../src/modules/global/dtos/commerce/store.request.dto.js";
 import {
   StoreResponseDTO,
-  StoreCategoryNestedDTO,
+  CategoryNestedDTO,
 } from "../../../src/modules/global/dtos/commerce/store.response.dto.js";
 import { FilterStoreProductsDTO } from "../../../src/modules/global/dtos/commerce/filter-store-products.dto.js";
 
@@ -23,32 +23,36 @@ const validStoreData = {
   instagram_url: null,
   tiktok_url: null,
   fk_user: 5,
-  store_category: { id_store_category: 2, name: "Electrónica" },
+  categories: [{ id_category: 2, name: "Electrónica", status: true }],
   created_at: NOW,
   updated_at: NOW,
+};
+
+const baseCreatePayload = {
+  fk_user: 1,
+  category_ids: [2],
+  name: "TechStore",
+  email: "tech@store.com",
+  phone: "+56912345678",
+  address: "Av. España 1234",
+  latitude: -25.2961,
+  longitude: -57.6222,
+  base_price: 2500,
+  distance_price: 4000,
 };
 
 // ─── CreateStoreDTO ──────────────────────────────────────────────────────────
 
 describe("CreateStoreDTO", () => {
   it("acepta datos válidos mínimos", () => {
-    const result = CreateStoreDTO.safeParse({
-      fk_user: 1,
-      fk_store_category: 2,
-      name: "TechStore",
-      email: "tech@store.com",
-      phone: "+56912345678",
-    });
+    const result = CreateStoreDTO.safeParse(baseCreatePayload);
     expect(result.success).toBe(true);
   });
 
   it("acepta datos válidos completos con URLs", () => {
     const result = CreateStoreDTO.safeParse({
-      fk_user: 1,
-      fk_store_category: 2,
-      name: "TechStore",
-      email: "tech@store.com",
-      phone: "+56912345678",
+      ...baseCreatePayload,
+      category_ids: [2, 4],
       description: "Descripción",
       logo: "https://img.example.com/logo.png",
       website_url: "https://techstore.com",
@@ -59,48 +63,48 @@ describe("CreateStoreDTO", () => {
   });
 
   it("falla cuando falta fk_user", () => {
-    const result = CreateStoreDTO.safeParse({ fk_store_category: 1, name: "S", email: "s@s.com", phone: "123" });
+    const { fk_user, ...rest } = baseCreatePayload;
+    const result = CreateStoreDTO.safeParse(rest);
+    expect(result.success).toBe(false);
+  });
+
+  it("falla cuando falta category_ids", () => {
+    const { category_ids, ...rest } = baseCreatePayload;
+    const result = CreateStoreDTO.safeParse(rest);
     expect(result.success).toBe(false);
   });
 
   it("falla cuando falta name", () => {
-    const result = CreateStoreDTO.safeParse({ fk_user: 1, fk_store_category: 1, email: "s@s.com", phone: "123" });
+    const { name, ...rest } = baseCreatePayload;
+    const result = CreateStoreDTO.safeParse(rest);
     expect(result.success).toBe(false);
   });
 
   it("falla con email inválido", () => {
-    const result = CreateStoreDTO.safeParse({ fk_user: 1, fk_store_category: 1, name: "S", email: "no-email", phone: "123" });
+    const result = CreateStoreDTO.safeParse({ ...baseCreatePayload, email: "no-email" });
     expect(result.success).toBe(false);
     const messages = result.error.issues.map((i) => i.message);
     expect(messages.some((m) => m.includes("formato válido"))).toBe(true);
   });
 
   it("falla cuando falta phone", () => {
-    const result = CreateStoreDTO.safeParse({ fk_user: 1, fk_store_category: 1, name: "S", email: "s@s.com" });
+    const { phone, ...rest } = baseCreatePayload;
+    const result = CreateStoreDTO.safeParse(rest);
     expect(result.success).toBe(false);
   });
 
   it("falla cuando logo no es URL válida", () => {
-    const result = CreateStoreDTO.safeParse({
-      fk_user: 1, fk_store_category: 1, name: "S", email: "s@s.com", phone: "123",
-      logo: "no-es-url",
-    });
+    const result = CreateStoreDTO.safeParse({ ...baseCreatePayload, logo: "no-es-url" });
     expect(result.success).toBe(false);
   });
 
   it("falla cuando website_url no es URL válida", () => {
-    const result = CreateStoreDTO.safeParse({
-      fk_user: 1, fk_store_category: 1, name: "S", email: "s@s.com", phone: "123",
-      website_url: "no-es-url",
-    });
+    const result = CreateStoreDTO.safeParse({ ...baseCreatePayload, website_url: "no-es-url" });
     expect(result.success).toBe(false);
   });
 
   it("acepta logo y URLs null o sin enviar", () => {
-    const result = CreateStoreDTO.safeParse({
-      fk_user: 1, fk_store_category: 1, name: "S", email: "s@s.com", phone: "123",
-      logo: null, website_url: null,
-    });
+    const result = CreateStoreDTO.safeParse({ ...baseCreatePayload, logo: null, website_url: null });
     expect(result.success).toBe(true);
   });
 });
@@ -151,10 +155,10 @@ describe("FilterStoreDTO", () => {
     expect(result.data.limit).toBe(10);
   });
 
-  it("transforma fk_store_category de string a número", () => {
-    const result = FilterStoreDTO.safeParse({ fk_store_category: "3" });
+  it("transforma categoryId de string a número", () => {
+    const result = FilterStoreDTO.safeParse({ categoryId: "3" });
     expect(result.success).toBe(true);
-    expect(result.data.fk_store_category).toBe(3);
+    expect(result.data.categoryId).toBe(3);
   });
 
   it("falla con limit mayor a 100", () => {
@@ -168,12 +172,12 @@ describe("FilterStoreDTO", () => {
   });
 });
 
-// ─── StoreCategoryNestedDTO ──────────────────────────────────────────────────
+// ─── CategoryNestedDTO ───────────────────────────────────────────────────────
 
-describe("StoreCategoryNestedDTO", () => {
-  it("asigna id_store_category y name", () => {
-    const dto = new StoreCategoryNestedDTO({ id_store_category: 2, name: "Electrónica" });
-    expect(dto.id_store_category).toBe(2);
+describe("CategoryNestedDTO", () => {
+  it("asigna id_category y name", () => {
+    const dto = new CategoryNestedDTO({ id_category: 2, name: "Electrónica", status: true });
+    expect(dto.id_category).toBe(2);
     expect(dto.name).toBe("Electrónica");
   });
 });
@@ -207,17 +211,6 @@ describe("StoreResponseDTO", () => {
     expect(dto.website_url).toBeNull();
     expect(dto.instagram_url).toBeNull();
     expect(dto.tiktok_url).toBeNull();
-  });
-
-  it("store_category es instancia de StoreCategoryNestedDTO cuando existe", () => {
-    const dto = new StoreResponseDTO(validStoreData);
-    expect(dto.store_category).toBeInstanceOf(StoreCategoryNestedDTO);
-    expect(dto.store_category.name).toBe("Electrónica");
-  });
-
-  it("store_category es null cuando no se provee", () => {
-    const dto = new StoreResponseDTO({ ...validStoreData, store_category: null });
-    expect(dto.store_category).toBeNull();
   });
 
   it("static map() retorna instancia de StoreResponseDTO", () => {

@@ -5,23 +5,20 @@ import { prisma } from "../../src/lib/prisma.js";
 
 vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
-    productCategories: {
-      findMany: vi.fn(),
-    },
-    storeCategories: {
+    categories: {
       findMany: vi.fn(),
     },
   },
 }));
 
 const mockProductCategories = [
-  { id_product_category: 1, name: "Electrónica", status: true, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" },
-  { id_product_category: 2, name: "Ropa", status: true, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" },
+  { id_category: 1, name: "Electrónica", status: true, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" },
+  { id_category: 2, name: "Ropa", status: true, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" },
 ];
 
 const mockStoreCategories = [
-  { id_store_category: 1, name: "Tecnología", status: true, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" },
-  { id_store_category: 2, name: "Moda", status: true, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" },
+  { id_category: 1, name: "Tecnología", status: true, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" },
+  { id_category: 2, name: "Moda", status: true, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" },
 ];
 
 // ─── GET /api/categories/products ────────────────────────────────────────────
@@ -30,7 +27,7 @@ describe("GET /api/categories/products", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("devuelve 200 con un array de categorías de productos", async () => {
-    prisma.productCategories.findMany.mockResolvedValue(mockProductCategories);
+    prisma.categories.findMany.mockResolvedValue(mockProductCategories);
 
     const res = await request(app).get("/api/categories/products");
 
@@ -40,7 +37,7 @@ describe("GET /api/categories/products", () => {
   });
 
   it("cada categoría tiene las propiedades id, name, status, createdAt, updatedAt", async () => {
-    prisma.productCategories.findMany.mockResolvedValue(mockProductCategories);
+    prisma.categories.findMany.mockResolvedValue(mockProductCategories);
 
     const res = await request(app).get("/api/categories/products");
 
@@ -54,7 +51,7 @@ describe("GET /api/categories/products", () => {
   });
 
   it("devuelve array vacío cuando no hay categorías", async () => {
-    prisma.productCategories.findMany.mockResolvedValue([]);
+    prisma.categories.findMany.mockResolvedValue([]);
 
     const res = await request(app).get("/api/categories/products");
 
@@ -64,7 +61,7 @@ describe("GET /api/categories/products", () => {
 
   it("filtra categorías por nombre con el parámetro search", async () => {
     const filtered = [mockProductCategories[0]];
-    prisma.productCategories.findMany.mockResolvedValue(filtered);
+    prisma.categories.findMany.mockResolvedValue(filtered);
 
     const res = await request(app).get("/api/categories/products?search=elec");
 
@@ -79,7 +76,7 @@ describe("GET /api/categories/stores", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("devuelve 200 con un array de categorías de comercios", async () => {
-    prisma.storeCategories.findMany.mockResolvedValue(mockStoreCategories);
+    prisma.categories.findMany.mockResolvedValue(mockStoreCategories);
 
     const res = await request(app).get("/api/categories/stores");
 
@@ -89,7 +86,7 @@ describe("GET /api/categories/stores", () => {
   });
 
   it("cada categoría tiene las propiedades id, name, status, createdAt, updatedAt", async () => {
-    prisma.storeCategories.findMany.mockResolvedValue(mockStoreCategories);
+    prisma.categories.findMany.mockResolvedValue(mockStoreCategories);
 
     const res = await request(app).get("/api/categories/stores");
 
@@ -103,7 +100,7 @@ describe("GET /api/categories/stores", () => {
   });
 
   it("devuelve array vacío cuando no hay categorías", async () => {
-    prisma.storeCategories.findMany.mockResolvedValue([]);
+    prisma.categories.findMany.mockResolvedValue([]);
 
     const res = await request(app).get("/api/categories/stores");
 
@@ -119,7 +116,7 @@ describe("GET /api/commerces/categories", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("devuelve 200 con un array de categorías de comercios", async () => {
-    prisma.storeCategories.findMany.mockResolvedValue(mockStoreCategories);
+    prisma.categories.findMany.mockResolvedValue(mockStoreCategories);
 
     const res = await request(app).get("/api/commerces/categories");
 
@@ -129,7 +126,7 @@ describe("GET /api/commerces/categories", () => {
   });
 
   it("soporta filtrado por nombre con el parámetro search", async () => {
-    prisma.storeCategories.findMany.mockResolvedValue([mockStoreCategories[0]]);
+    prisma.categories.findMany.mockResolvedValue([mockStoreCategories[0]]);
 
     const res = await request(app).get("/api/commerces/categories?search=tec");
 
@@ -139,13 +136,13 @@ describe("GET /api/commerces/categories", () => {
   });
 
   it("respeta el parámetro limit (máximo 100)", async () => {
-    prisma.storeCategories.findMany.mockResolvedValue([mockStoreCategories[0]]);
+    prisma.categories.findMany.mockResolvedValue([mockStoreCategories[0]]);
 
     const res = await request(app).get("/api/commerces/categories?limit=1");
 
     expect(res.status).toBe(200);
     // Vitest verifica que el mock fue llamado con take: 1
-    expect(prisma.storeCategories.findMany).toHaveBeenCalledWith(
+    expect(prisma.categories.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ take: 1 })
     );
   });
