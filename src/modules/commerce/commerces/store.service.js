@@ -21,12 +21,12 @@ const mapStoreCategories = (storeCategories) => {
           }
 
           return {
-            id_category: category.id_category,
+            id: category.id_category,
             name: category.name,
             status: category.status
           };
         })
-        .filter((category) => category && Number.isInteger(category.id_category) && category.name)
+        .filter((category) => category && Number.isInteger(category.id) && category.name)
     : [];
 
   return { categories };
@@ -83,6 +83,7 @@ const STORE_RESPONSE_SELECT = {
       image_url: true,
       product_categories: {
         where: { status: true },
+        orderBy: { fk_category: "asc" },
         select: {
           category: {
             select: {
@@ -344,27 +345,19 @@ const parseBooleanField = (value, fieldName) => {
 };
 
 const mapStoreProductPricing = (product) => {
+  const { product_categories, ...rest } = product;
   const pricing = getProductPricing(product);
-  const categories = Array.isArray(product.product_categories)
-    ? product.product_categories
+  const categories = Array.isArray(product_categories)
+    ? product_categories
         .map((relation) => relation?.category)
         .filter((category) => category && Number.isInteger(category.id_category) && category.name)
     : [];
-  const primaryCategory = categories[0] ?? null;
-
   return {
-    ...product,
+    ...rest,
     price: pricing.price,
     original_price: pricing.originalPrice,
     offer_price: pricing.offerPrice,
     is_offer: pricing.isOffer,
-    category: primaryCategory
-      ? {
-          id: primaryCategory.id_category,
-          name: primaryCategory.name,
-          status: primaryCategory.status
-        }
-      : null,
     categories: categories.map((category) => ({
       id: category.id_category,
       name: category.name,
@@ -1072,6 +1065,7 @@ export const getAllProductsByStoreService = async (id) => {
         created_at: true,
         product_categories: {
           where: { status: true },
+          orderBy: { fk_category: "asc" },
           select: {
             category: {
               select: { id_category: true, name: true, status: true }
@@ -1245,6 +1239,7 @@ export const filterStoreProductsService = async (id, filters, pagination) => {
         created_at: true,
         product_categories: {
           where: { status: true },
+          orderBy: { fk_category: "asc" },
           select: {
             category: {
               select: { id_category: true, name: true, status: true }

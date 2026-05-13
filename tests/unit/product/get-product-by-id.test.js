@@ -70,7 +70,7 @@ describe("GET /products/:id", () => {
     const res = await request(app).get("/products/1");
 
     expect(res.status).toBe(200);
-    expect(res.body.category).toMatchObject({ id: 1, name: "Periféricos" });
+    expect(res.body.categories[0]).toMatchObject({ id: 1, name: "Periféricos" });
     expect(res.body.commerce).toMatchObject({ id: 1, name: "TechStore" });
   });
 

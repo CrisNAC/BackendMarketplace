@@ -54,7 +54,6 @@ describe("E2E GET /products/filter", () => {
       expect(product).toHaveProperty("offer_price");
       expect(product).toHaveProperty("is_offer");
       expect(product).toHaveProperty("quantity");
-      expect(product).toHaveProperty("category");
       expect(product).toHaveProperty("categories");
       expect(Array.isArray(product.categories)).toBe(true);
       expect(product).toHaveProperty("store");

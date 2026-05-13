@@ -361,26 +361,18 @@ const mapProductResponse = (product) => {
         .map((relation) => relation?.category)
         .filter((category) => category && Number.isInteger(category.id_category) && category.name)
     : [];
-  const primaryCategory = categories[0] ?? null;
 
   return {
     id: product.id_product,
     name: product.name,
     description: product.description,
-    imageUrl: product.image_url ?? null,  
+    imageUrl: product.image_url ?? null,
     price: pricing.price,
     originalPrice: pricing.originalPrice,
     offerPrice: pricing.offerPrice,
     isOffer: pricing.isOffer,
     quantity: product.quantity,
-    categoryId: primaryCategory?.id_category ?? null,
-    category: primaryCategory
-      ? {
-          id: primaryCategory.id_category,
-          name: primaryCategory.name,
-          status: primaryCategory.status
-        }
-      : null,
+    categoryId: categories[0]?.id_category ?? null,
     categories: categories.map((category) => ({
       id: category.id_category,
       name: category.name,
@@ -913,18 +905,11 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
           name: category.name,
           status: category.status
         })) ?? [],
-      category: product.product_categories?.[0]?.category
-        ? {
-            id: product.product_categories[0].category.id_category,
-            name: product.product_categories[0].category.name,
-            status: product.product_categories[0].category.status
-          }
-        : null,
       store: product.store
         ? {
             id_store: product.store.id_store,
             name: product.store.name,
-            logo: product.store.logo ?? null 
+            logo: product.store.logo ?? null
           }
         : null
     })),
@@ -1079,13 +1064,6 @@ export const filterProductsService = async (filters, pagination) => {
       offer_price: getOfferProductPrice(product),
       is_offer: Boolean(product.is_offer),
       quantity: product.quantity,
-      category: product.product_categories?.[0]?.category
-        ? {
-            id: product.product_categories[0].category.id_category,
-            name: product.product_categories[0].category.name,
-            status: product.product_categories[0].category.status
-          }
-        : null,
       categories: product.product_categories
         ?.map((relation) => relation.category)
         .filter((category) => category)

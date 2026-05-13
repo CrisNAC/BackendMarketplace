@@ -186,7 +186,8 @@ describe("GET /products/:id", () => {
       isOffer: false,
       status: "active"
     });
-    expect(res.body).toHaveProperty("category");
+    expect(res.body).toHaveProperty("categories");
+    expect(Array.isArray(res.body.categories)).toBe(true);
   });
 
   it("devuelve el precio de oferta como price cuando el producto esta en oferta", async () => {

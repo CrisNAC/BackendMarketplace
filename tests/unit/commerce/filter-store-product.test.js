@@ -101,7 +101,8 @@ describe("GET /api/commerces/products/filter/:id", () => {
     expect(product).toHaveProperty("is_offer");
     expect(product).toHaveProperty("quantity");
     expect(product).toHaveProperty("visible");
-    expect(product).toHaveProperty("category");
+    expect(product).toHaveProperty("categories");
+    expect(Array.isArray(product.categories)).toBe(true);
   });
 
   it("devuelve 404 cuando no hay productos con los filtros aplicados", async () => {
