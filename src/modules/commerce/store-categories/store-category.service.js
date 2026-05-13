@@ -1,3 +1,4 @@
+//store-category.service.js
 import { prisma } from "../../../lib/prisma.js";
 
 const parsePositiveInteger = (value, fieldName) => {

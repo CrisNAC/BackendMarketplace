@@ -1,3 +1,4 @@
+//store-category.controller.js
 import { getStoreCategoriesService } from "./store-category.service.js";
 
 export const getStoreCategories = async (req, res) => {

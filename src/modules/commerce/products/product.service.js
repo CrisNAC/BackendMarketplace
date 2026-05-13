@@ -1,3 +1,4 @@
+//product.service.js
 import { prisma } from "../../../lib/prisma.js";
 import {
   getEffectiveProductPrice,
@@ -1078,4 +1079,53 @@ export const filterProductsService = async (filters, pagination) => {
     })),
     totalProducts
   };
+};
+
+export const getRelatedProductsService = async (productId, limit = 8) => {
+  const resolvedProductId = parsePositiveInteger(productId, "ID de producto");
+  const resolvedLimit = Math.min(Math.max(1, Number(limit) || 8), 20);
+ 
+  // Obtener el producto actual para extraer sus categorías
+  const currentProduct = await prisma.products.findUnique({
+    where: { id_product: resolvedProductId },
+    select: {
+      id_product: true,
+      product_categories: {
+        where: { status: true },
+        select: { fk_category: true }
+      }
+    }
+  });
+ 
+  if (!currentProduct) {
+    throw { status: 404, message: "Producto no encontrado" };
+  }
+ 
+  // Extraer IDs de categorías
+  const categoryIds = currentProduct.product_categories.map((pc) => pc.fk_category);
+ 
+  if (categoryIds.length === 0) {
+    // Si no tiene categorías, retornar array vacío
+    return [];
+  }
+ 
+  // Buscar productos de las mismas categorías, excluyendo el actual
+  const relatedProducts = await prisma.products.findMany({
+    where: {
+      id_product: { not: resolvedProductId },
+      status: true,
+      visible: true,
+      product_categories: {
+        some: {
+          fk_category: { in: categoryIds },
+          status: true
+        }
+      }
+    },
+    select: PRODUCT_RESPONSE_SELECT,
+    orderBy: { created_at: "desc" },
+    take: resolvedLimit
+  });
+ 
+  return relatedProducts.map(mapProductResponse);
 };

@@ -1,3 +1,4 @@
+//product-tag.controller.js
 import { getProductTagsService } from "./product-tag.service.js";
 
 export const getProductTags = async (req, res) => {

@@ -1,3 +1,4 @@
+//jwt.config.js
 import jwt from 'jsonwebtoken';
 
 const authenticate = (req, res, next) => {
