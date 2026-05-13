@@ -50,6 +50,7 @@ model Notifications {
   title           String    @db.VarChar(100)
   message         String?   @db.Text
   read            Boolean   @default(false)
+  reference_id    Int?      // ID de referencia para redirigir (orden, producto, etc.)
   status          Boolean   @default(true)
   created_at      DateTime  @default(now()) @db.Timestamptz
   updated_at      DateTime  @updatedAt @db.Timestamptz
