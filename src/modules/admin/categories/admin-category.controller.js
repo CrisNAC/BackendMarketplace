@@ -8,7 +8,7 @@ import {
   processAdminCategoryRequestService,
   createAdminProductCategoryService
 } from "./admin-category.service.js";
-import { PAGINATION } from "../../../utils/contants/pagination.constant.js";
+import { PAGINATION } from "../../../../constants/pagination.constant.js";
 
 export const createAdminProductCategory = async (req, res, next) => {
   try {

@@ -5,7 +5,7 @@ import {
   getOriginalProductPrice,
   getOfferProductPrice
 } from "../../../lib/product-pricing.js";
-import { PAGINATION } from "../../../utils/contants/pagination.constant.js";
+import { PAGINATION } from "../../../../constants/pagination.constant.js";
 
 const DEFAULT_CATEGORY_ID = 1;
 
