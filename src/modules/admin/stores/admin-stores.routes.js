@@ -3,7 +3,7 @@ import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
 import { parsePagination } from "../../../middlewares/pagination.middleware.js";
 import { approveStore, getPendingStores, rejectStore } from "./admin-stores.controller.js";
-import { ROLES } from "../../../utils/contants/roles.constant.js";
+import { ROLES } from "../../../constants/roles.constant.js";
 
 const router = Router();
 

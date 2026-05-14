@@ -43,7 +43,7 @@ const mockDbProduct = {
   description: "Descripcion de prueba",
   price: 25,
   offer_price: null,
-  quantity: null,
+  quantity: 0,
   image_url: null,
   fk_store: 1,
   visible: true,
@@ -306,7 +306,7 @@ describe("POST /products", () => {
     const res = await request(app)
       .post("/products")
       .set("Cookie", `userToken=${sellerToken}`)
-      .send({ name: "Test", price: 10, categoryId: 1, visible: "invalido" });
+      .send({ name: "Test", price: 10, categoryId: 1, quantity: 5, visible: "invalido" });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/visible/i);
@@ -316,7 +316,7 @@ describe("POST /products", () => {
     const res = await request(app)
       .post("/products")
       .set("Cookie", `userToken=${sellerToken}`)
-      .send({ name: "Test", price: 10, categoryId: 1, tags: "no-array" });
+      .send({ name: "Test", price: 10, categoryId: 1, quantity: 5, tags: "no-array" });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/tags/i);
@@ -348,7 +348,7 @@ describe("POST /products", () => {
     const res = await request(app)
       .post("/products")
       .set("Cookie", `userToken=${sellerToken}`)
-      .send({ name: "Producto Test", price: 25, categoryId: 1 });
+      .send({ name: "Producto Test", price: 25, categoryId: 1, quantity: 10 });
 
     expect(res.status).toBe(201);
     expect(res.body).toHaveProperty("id");
@@ -394,7 +394,8 @@ describe("POST /products", () => {
         price: 30,
         offerPrice: 22.5,
         isOffer: true,
-        categoryId: 1
+        categoryId: 1,
+        quantity: 10
       });
 
     expect(res.status).toBe(201);

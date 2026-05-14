@@ -600,11 +600,11 @@ describe("updatedCartItemQuantityService", () => {
     );
   });
 
-  it("actualiza correctamente cuando el producto no tiene límite de stock (quantity null)", async () => {
+  it("actualiza correctamente cuando el producto tiene stock suficiente", async () => {
     prisma.cartItems.findFirst.mockResolvedValue({
       id_cart_item: 1,
       fk_cart: 1,
-      product: { quantity: null }, // sin límite de stock
+      product: { quantity: 9999 },
     });
     prisma.cartItems.update.mockResolvedValue({});
     prisma.carts.findUnique.mockResolvedValue(mockCartFull);

@@ -1,0 +1,1 @@
+ALTER TABLE "Notifications" ADD COLUMN "reference_id" INTEGER;

@@ -95,7 +95,7 @@ describe("createProductService", () => {
     prisma.users.findUnique.mockResolvedValue(mockSeller);
     mockTx.products.findFirst.mockResolvedValue(mockFullProduct);
 
-    const result = await createProductService(1, { name: "Laptop", price: 1500000, categoryId: 1 });
+    const result = await createProductService(1, { name: "Laptop", price: 1500000, categoryId: 1, quantity: 10 });
     expect(result).toMatchObject({ name: "Laptop" });
     expect(mockTx.productTagRelations.createMany).not.toHaveBeenCalled();
   });
@@ -105,7 +105,7 @@ describe("createProductService", () => {
     parseProductTagIdsService.mockReturnValue([1, 2]);
     mockTx.products.findFirst.mockResolvedValue(mockFullProduct);
 
-    await createProductService(1, { name: "Laptop", price: 1500000, categoryId: 1, tags: "1,2" });
+    await createProductService(1, { name: "Laptop", price: 1500000, categoryId: 1, quantity: 10, tags: "1,2" });
     expect(mockTx.productTagRelations.createMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.arrayContaining([expect.objectContaining({ fk_product_tag: 1 })]) })
     );
@@ -116,7 +116,7 @@ describe("createProductService", () => {
     mockTx.products.findFirst.mockResolvedValue(null);
 
     await expect(
-      createProductService(1, { name: "Laptop", price: 1500000, categoryId: 1 })
+      createProductService(1, { name: "Laptop", price: 1500000, categoryId: 1, quantity: 10 })
     ).rejects.toMatchObject({ status: 500, message: "No se pudo recuperar el producto creado" });
   });
 });

@@ -32,7 +32,7 @@ const PRODUCT_RESPONSE_SELECT = {
   fk_store: true,
   visible: true,
   is_offer: true,
-  image_url: true, 
+  image_url: true,
   created_at: true,
   updated_at: true,
   product_categories: {
@@ -359,8 +359,8 @@ const mapProductResponse = (product) => {
   const pricing = getProductPricing(product);
   const categories = Array.isArray(product.product_categories)
     ? product.product_categories
-        .map((relation) => relation?.category)
-        .filter((category) => category && Number.isInteger(category.id_category) && category.name)
+      .map((relation) => relation?.category)
+      .filter((category) => category && Number.isInteger(category.id_category) && category.name)
     : [];
 
   return {
@@ -482,6 +482,9 @@ const buildCreateProductData = async (payload) => {
   const name = validateRequiredStringField(payload?.name, "name", 100);
   const price = validatePriceField(payload?.price);
   const categoryIds = await parseProductCategoryIds(payload);
+  if (payload?.quantity === undefined || payload?.quantity === null || payload?.quantity === "") {
+    throw { status: 400, message: "quantity es requerido" };
+  }
   const quantity = parseQuantityField(payload?.quantity);
   const description = normalizeOptionalStringField(payload?.description) ?? null;
   const visibilityOverride = parseVisibilityOverride({ visible: payload?.visible });
@@ -496,7 +499,7 @@ const buildCreateProductData = async (payload) => {
       description,
       price,
       offer_price,
-      quantity: quantity ?? null,
+      quantity,
       is_offer
     },
     categoryIds,
@@ -767,7 +770,7 @@ export const getProductsSearchService = async (filters) => {
   const search = filters.search?.toString().trim();
   const categoryIdRaw = filters.categoryId ?? filters.category_id;
   const isOfferRaw = filters.isOffer ?? filters.is_offer;
-  
+
   //Paginacion
   const page = sanitizePaginationValue(filters.page, DEFAULT_PRODUCTS_PAGE);
   const requestedLimit = sanitizePaginationValue(
@@ -779,7 +782,7 @@ export const getProductsSearchService = async (filters) => {
 
   const where = { status: true, visible: true };
 
-  let orderBy = {id_product: 'desc'}; // orden por defecto
+  let orderBy = { id_product: 'desc' }; // orden por defecto
 
   // filtro por categoria (id de ProductCategories)
   if (categoryIdRaw !== undefined && categoryIdRaw !== null && String(categoryIdRaw).trim() !== "") {
@@ -800,27 +803,27 @@ export const getProductsSearchService = async (filters) => {
   }
   // Después del bloque de isOffer, antes del bloque de search:
 
-if (filters.minPrice !== undefined && filters.minPrice !== null && String(filters.minPrice).trim() !== "") {
-  const minPrice = Number(filters.minPrice);
-  if (!Number.isFinite(minPrice) || minPrice <= 0) {
-    throw { status: 400, message: "minPrice debe ser un número mayor a 0" };
+  if (filters.minPrice !== undefined && filters.minPrice !== null && String(filters.minPrice).trim() !== "") {
+    const minPrice = Number(filters.minPrice);
+    if (!Number.isFinite(minPrice) || minPrice <= 0) {
+      throw { status: 400, message: "minPrice debe ser un número mayor a 0" };
+    }
+    where.price = { ...where.price, gte: minPrice };
   }
-  where.price = { ...where.price, gte: minPrice };
-}
 
-if (filters.maxPrice !== undefined && filters.maxPrice !== null && String(filters.maxPrice).trim() !== "") {
-  const maxPrice = Number(filters.maxPrice);
-  if (!Number.isFinite(maxPrice) || maxPrice <= 0) {
-    throw { status: 400, message: "maxPrice debe ser un número mayor a 0" };
+  if (filters.maxPrice !== undefined && filters.maxPrice !== null && String(filters.maxPrice).trim() !== "") {
+    const maxPrice = Number(filters.maxPrice);
+    if (!Number.isFinite(maxPrice) || maxPrice <= 0) {
+      throw { status: 400, message: "maxPrice debe ser un número mayor a 0" };
+    }
+    where.price = { ...where.price, lte: maxPrice };
   }
-  where.price = { ...where.price, lte: maxPrice };
-}
 
-if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
-  if (where.price.gte > where.price.lte) {
-    throw { status: 400, message: "minPrice no puede ser mayor que maxPrice" };
+  if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
+    if (where.price.gte > where.price.lte) {
+      throw { status: 400, message: "minPrice no puede ser mayor que maxPrice" };
+    }
   }
-}
 
   //si se le pasa un search, se busca en name y description
   if (search) {
@@ -841,12 +844,12 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
     // cambia el orden, solo si se busca o filtra por algun parametro
     orderBy = safeSearch
       ? {
-          _relevance: {
-            fields: ["name"],
-            search: safeSearch,
-            sort: "desc"
-          }
+        _relevance: {
+          fields: ["name"],
+          search: safeSearch,
+          sort: "desc"
         }
+      }
       : orderBy;
   }
 
@@ -881,7 +884,7 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
           select: {
             id_store: true,
             name: true,
-            logo: true 
+            logo: true
           }
         }
       }
@@ -893,7 +896,7 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
       id_product: product.id_product,
       name: product.name,
       description: product.description,
-      image_url: product.image_url ?? null, 
+      image_url: product.image_url ?? null,
       price: getEffectiveProductPrice(product),
       original_price: getOriginalProductPrice(product),
       offer_price: getOfferProductPrice(product),
@@ -908,10 +911,10 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
         })) ?? [],
       store: product.store
         ? {
-            id_store: product.store.id_store,
-            name: product.store.name,
-            logo: product.store.logo ?? null
-          }
+          id_store: product.store.id_store,
+          name: product.store.name,
+          logo: product.store.logo ?? null
+        }
         : null
     })),
     pagination: {
@@ -1084,7 +1087,7 @@ export const filterProductsService = async (filters, pagination) => {
 export const getRelatedProductsService = async (productId, limit = 8) => {
   const resolvedProductId = parsePositiveInteger(productId, "ID de producto");
   const resolvedLimit = Math.min(Math.max(1, Number(limit) || 8), 20);
- 
+
   // Obtener el producto actual para extraer sus categorías
   const currentProduct = await prisma.products.findUnique({
     where: { id_product: resolvedProductId },
@@ -1096,19 +1099,19 @@ export const getRelatedProductsService = async (productId, limit = 8) => {
       }
     }
   });
- 
+
   if (!currentProduct) {
     throw { status: 404, message: "Producto no encontrado" };
   }
- 
+
   // Extraer IDs de categorías
   const categoryIds = currentProduct.product_categories.map((pc) => pc.fk_category);
- 
+
   if (categoryIds.length === 0) {
     // Si no tiene categorías, retornar array vacío
     return [];
   }
- 
+
   // Buscar productos de las mismas categorías, excluyendo el actual
   const relatedProducts = await prisma.products.findMany({
     where: {
@@ -1126,6 +1129,6 @@ export const getRelatedProductsService = async (productId, limit = 8) => {
     orderBy: { created_at: "desc" },
     take: resolvedLimit
   });
- 
+
   return relatedProducts.map(mapProductResponse);
 };

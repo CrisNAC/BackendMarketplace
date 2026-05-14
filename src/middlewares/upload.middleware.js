@@ -1,6 +1,6 @@
 import multer from 'multer'
 import { ValidationError } from '../lib/errors.js'
-import { IMAGE } from '../utils/contants/image.constant.js'
+import { IMAGE } from '../constants/image.constant.js'
 
 export const upload = multer({
   storage: multer.memoryStorage(),
