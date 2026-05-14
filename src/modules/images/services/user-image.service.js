@@ -1,7 +1,7 @@
 import { prisma } from '../../../lib/prisma.js'
 import { uploadImage, deleteImage, extractFilePath } from './image.service.js'
 import { NotFoundError, ForbiddenError, ValidationError } from '../../../lib/errors.js'
-import { ROLES } from '../../../../constants/roles.constant.js'
+import { ROLES } from '../../../constants/roles.constant.js'
 
 const BUCKET = process.env.SUPABASE_BUCKET_USERS
 

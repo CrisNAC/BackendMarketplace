@@ -2,7 +2,7 @@ import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
 import { createCategoryRequest } from "./category-request.controller.js";
-import { ROLES } from "../../../../constants/roles.constant.js";
+import { ROLES } from "../../../constants/roles.constant.js";
 
 const router = Router();
 

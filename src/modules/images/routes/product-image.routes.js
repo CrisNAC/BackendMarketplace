@@ -8,7 +8,7 @@ import {
   updateProductImage,
   deleteProductImage
 } from '../controllers/product-image.controller.js'
-import { ROLES } from '../../../../constants/roles.constant.js'
+import { ROLES } from '../../../constants/roles.constant.js'
 
 const router = Router()
 
