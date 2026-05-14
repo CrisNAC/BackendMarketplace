@@ -265,7 +265,8 @@ export const createOrderService = async (
               offer_price: true,
               is_offer: true,
               status: true,
-              visible: true
+              visible: true,
+              quantity: true
             }
           }
         }
@@ -293,6 +294,14 @@ export const createOrderService = async (
   );
   if (unavailable.length > 0) {
     throw new ValidationError("Uno o más productos del carrito ya no están disponibles");
+  }
+
+  const outOfStock = cart.items.filter(
+    (item) => item.product.quantity < item.quantity
+  );
+  if (outOfStock.length > 0) {
+    const names = outOfStock.map((item) => item.product.name ?? `ID ${item.fk_product}`).join(", ");
+    throw new ValidationError(`Stock insuficiente para: ${names}`);
   }
 
   if (normalizedShippingMethod === "standard" && !resolvedAddressId) {
@@ -374,6 +383,13 @@ export const createOrderService = async (
         ...item
       }))
     });
+
+    for (const item of cart.items) {
+      await tx.products.update({
+        where: { id_product: item.fk_product },
+        data: { quantity: { decrement: item.quantity } }
+      });
+    }
 
     //marcar el carrito como CHECKED_OUT
     await tx.carts.update({
@@ -918,6 +934,20 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
 
     if (!updatedOrder) {
       throw new ConflictError("El pedido fue modificado por otra solicitud, intente nuevamente");
+    }
+
+    if (order_status === "CANCELLED") {
+      const orderItems = await tx.orderItems.findMany({
+        where: { fk_order: resolvedOrderId, status: true },
+        select: { fk_product: true, quantity: true }
+      });
+
+      for (const item of orderItems) {
+        await tx.products.update({
+          where: { id_product: item.fk_product },
+          data: { quantity: { increment: item.quantity } }
+        });
+      }
     }
 
     if (order_status === "PROCESSING") {
