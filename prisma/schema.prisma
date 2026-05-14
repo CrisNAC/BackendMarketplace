@@ -145,9 +145,9 @@ model Products {
   description          String?   @db.Text
   image_url            String?   @db.VarChar(500)
   price                Decimal   @db.Decimal(10, 2)   //Precio fijo del producto
-  offer_price          Decimal?   @db.Decimal(10, 2)  //Precio del producto en oferta
+  offer_price          Decimal?  @db.Decimal(10, 2)  //Precio del producto en oferta
   visible              Boolean   @default(true)
-  quantity             Int?
+  quantity             Int       @default(0)
   is_offer             Boolean   @default(false)  //Describe si un producto esta en oferta o no
   approval_status      ApprovalStatus @default(PENDING) //Estado de aprobación del producto
   rejection_reason     String?   @db.Text //Motivo del rechazo si aplica
