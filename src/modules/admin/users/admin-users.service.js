@@ -1,6 +1,6 @@
 import { prisma } from "../../../lib/prisma.js";
 import { ValidationError } from "../../../lib/errors.js";
-import { ROLES } from "../../../utils/contants/roles.constant.js";
+import { ROLES } from "../../../constants/roles.constant.js";
 
 const VALID_ROLES = Object.values(ROLES);
 

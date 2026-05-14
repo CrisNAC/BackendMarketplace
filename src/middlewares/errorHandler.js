@@ -1,5 +1,5 @@
 import { AppError } from "../lib/errors.js";
-import { IMAGE } from "../utils/contants/image.constant.js";
+import { IMAGE } from "../constants/image.constant.js";
 
 /**
  * Middleware global de manejo de errores.
