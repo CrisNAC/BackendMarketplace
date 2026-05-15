@@ -27,7 +27,7 @@ export const approveStoreService = async (storeId) => {
 
   const store = await prisma.stores.findUnique({
     where: { id_store: id },
-    select: { id_store: true, name: true, store_status: true, status: true }
+    select: { id_store: true, name: true, store_status: true, status: true, fk_user: true }
   });
 
   if (!store || !store.status) {
@@ -36,6 +36,10 @@ export const approveStoreService = async (storeId) => {
 
   if (store.store_status === "ACTIVE") {
     throw { status: 400, message: "El comercio ya está aprobado" };
+  }
+
+  if (store.store_status !== "INACTIVE") {
+    throw { status: 400, message: "El comercio no esta pendiente de aprobacion" };
   }
 
   await prisma.$transaction([
@@ -47,6 +51,14 @@ export const approveStoreService = async (storeId) => {
     prisma.products.updateMany({
       where: { fk_store: id, status: true },
       data: { visible: true }
+    }),
+    prisma.notifications.create({
+      data: {
+        fk_user: store.fk_user,
+        title: "Comercio aprobado",
+        message: `Tu comercio "${store.name}" fue aprobado y ya esta visible para los compradores.`,
+        reference_id: store.id_store
+      }
     })
   ]);
 
@@ -163,6 +175,7 @@ export const rejectStoreService = async (storeId, reason) => {
         fk_user: store.fk_user,
         title: "Solicitud de comercio rechazada",
         message: `Tu solicitud para registrar el comercio "${store.name}" ha sido rechazada. Motivo: ${reason}`,
+        reference_id: store.id_store
       }
     })
   ]);
