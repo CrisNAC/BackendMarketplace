@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeEach, beforeAll } from "vitest";
+import { vi, describe, it, expect, beforeEach, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../../src/app.js";
@@ -133,7 +133,10 @@ const setupStatefulPrisma = () => {
   });
 };
 
+let originalJwtSecret;
+
 beforeAll(() => {
+  originalJwtSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = TEST_JWT_SECRET;
   adminToken = jwt.sign(
     { id_user: 1, email: "admin@test.com", role: "ADMIN" },
@@ -143,6 +146,14 @@ beforeAll(() => {
     { id_user: SELLER_ID, email: "seller@test.com", role: "SELLER" },
     TEST_JWT_SECRET
   );
+});
+
+afterAll(() => {
+  if (originalJwtSecret === undefined) {
+    delete process.env.JWT_SECRET;
+  } else {
+    process.env.JWT_SECRET = originalJwtSecret;
+  }
 });
 
 describe("flujo e2e de aprobacion de comercio con rechazo y reenvio", () => {

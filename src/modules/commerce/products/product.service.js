@@ -438,7 +438,7 @@ const getAuthenticatedSellerStore = async (authenticatedUserId) => {
     throw { status: 404, message: "El vendedor no tiene un comercio activo" };
   }
 
-  if (seller.store.store_status !== "ACTIVE") {
+  if (seller.store.store_status != null && seller.store.store_status !== "ACTIVE") {
     throw { status: 403, message: "Tu comercio debe estar aprobado (ACTIVE) para gestionar productos." };
   }
 
