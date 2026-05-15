@@ -1,4 +1,5 @@
 import { vi, describe, it, expect, beforeEach, beforeAll, afterAll } from "vitest";
+import { randomBytes } from "crypto";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../../src/app.js";
@@ -25,7 +26,7 @@ vi.mock("../../src/lib/prisma.js", () => ({
   },
 }));
 
-const TEST_JWT_SECRET = "test-secret-store-approval-flow";
+const TEST_JWT_SECRET = randomBytes(32).toString("hex");
 const STORE_ID = 50;
 const SELLER_ID = 10;
 
