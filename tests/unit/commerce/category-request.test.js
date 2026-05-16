@@ -5,7 +5,7 @@ import { prisma } from "../../../src/lib/prisma.js";
 
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
-    productCategories: {
+    categories: {
       findFirst: vi.fn(),
       create: vi.fn(),
     },
@@ -29,7 +29,7 @@ vi.mock("jsonwebtoken", async () => {
 });
 
 const mockCategoryRequest = {
-  id_product_category: 1,
+  id_category: 1,
   name: "Electrónica",
   visible: false,
   status: true,
@@ -44,8 +44,8 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
   beforeEach(() => vi.clearAllMocks());
 
   it("devuelve 201 Created cuando la solicitud es válida", async () => {
-    prisma.productCategories.findFirst.mockResolvedValue(null);
-    prisma.productCategories.create.mockResolvedValue(mockCategoryRequest);
+    prisma.categories.findFirst.mockResolvedValue(null);
+    prisma.categories.create.mockResolvedValue(mockCategoryRequest);
 
     const res = await request(app)
       .post("/api/commerces/category-requests")
@@ -103,8 +103,8 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
   });
 
   it("devuelve 409 Conflict cuando la categoría ya existe (aprobada)", async () => {
-    prisma.productCategories.findFirst.mockResolvedValue({
-      id_product_category: 1,
+    prisma.categories.findFirst.mockResolvedValue({
+      id_category: 1,
       name: "Electrónica",
       visible: true,
       status: true,
@@ -120,8 +120,8 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
   });
 
   it("devuelve 409 Conflict cuando ya existe una solicitud pendiente con ese nombre", async () => {
-    prisma.productCategories.findFirst.mockResolvedValue({
-      id_product_category: 2,
+    prisma.categories.findFirst.mockResolvedValue({
+      id_category: 2,
       name: "Electrónica",
       visible: false,
       status: true,
@@ -137,8 +137,8 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
   });
 
   it("detecta categorías existentes sin importar mayúsculas/minúsculas", async () => {
-    prisma.productCategories.findFirst.mockResolvedValue({
-      id_product_category: 1,
+    prisma.categories.findFirst.mockResolvedValue({
+      id_category: 1,
       name: "ELECTRÓNICA",
       visible: true,
       status: true,
@@ -181,8 +181,8 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
   });
 
   it("trimea espacios en blanco del nombre", async () => {
-    prisma.productCategories.findFirst.mockResolvedValue(null);
-    prisma.productCategories.create.mockResolvedValue({
+    prisma.categories.findFirst.mockResolvedValue(null);
+    prisma.categories.create.mockResolvedValue({
       ...mockCategoryRequest,
       name: "Electrónica"
     });
@@ -193,7 +193,7 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
       .send({ name: "  Electrónica  " });
 
     expect(res.status).toBe(201);
-    expect(prisma.productCategories.create).toHaveBeenCalledWith(
+    expect(prisma.categories.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           name: "Electrónica",
@@ -205,8 +205,8 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
   });
 
   it("devuelve la estructura correcta de respuesta", async () => {
-    prisma.productCategories.findFirst.mockResolvedValue(null);
-    prisma.productCategories.create.mockResolvedValue(mockCategoryRequest);
+    prisma.categories.findFirst.mockResolvedValue(null);
+    prisma.categories.create.mockResolvedValue(mockCategoryRequest);
 
     const res = await request(app)
       .post("/api/commerces/category-requests")

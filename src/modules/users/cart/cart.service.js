@@ -69,7 +69,7 @@ const mapCartResponse = (cart) => {
       : null,
     status: cart.cart_status,
     items: cart.items.map((item) => {
-      
+
       const pricing = getProductPricing(item.product);
       return {
         id: item.id_cart_item,
@@ -190,11 +190,7 @@ export const addCartItemService = async (
 
     const newTotalQty = currentQtyInCart + resolvedQuantity;
 
-    if (
-      product.quantity != null &&
-      Number.isFinite(Number(product.quantity)) &&
-      newTotalQty > Number(product.quantity)
-    ) {
+    if (newTotalQty > product.quantity) {
       throw new ValidationError("No hay stock suficiente para esta cantidad");
     }
 
@@ -255,7 +251,7 @@ export const getCartItemsByIdService = async (authenticatedUserId, cartId) => {
       cart_status: "ACTIVE"
     }
   });
- 
+
   //se valida que el carrito exista, sea del user autenticado y este activo
   if (!cart) throw new NotFoundError("Carrito no encontrado.");
 
@@ -272,7 +268,7 @@ export const getCartItemsByIdService = async (authenticatedUserId, cartId) => {
           offer_price: true,
           is_offer: true,
           store: {
-            select: { name: true}
+            select: { name: true }
           }
         }
       }
@@ -317,7 +313,7 @@ export const removeCartItemService = async (authenticatedUserId, cartItemId) => 
         cart_status: "ACTIVE"
       }
     },
-    select: {id_cart_item: true, fk_cart: true }
+    select: { id_cart_item: true, fk_cart: true }
   });
 
   if (!cartItem) throw new NotFoundError("Item de carrito no encontrado.");
@@ -365,8 +361,7 @@ export const updatedCartItemQuantityService = async (authenticatedUserId, cartIt
   if (!cartItem) throw new NotFoundError("Item de carrito no encontrado.");
 
   //validar que el producto tenga stock suficiente para la cantidad nueva
-  const stock = cartItem.product.quantity;
-  if(stock != null && Number.isFinite(Number(stock)) && resolvedQuantity > Number(stock))
+  if (resolvedQuantity > cartItem.product.quantity)
     throw new ValidationError("No hay stock suficiente para esta cantidad");
 
   await prisma.cartItems.update({

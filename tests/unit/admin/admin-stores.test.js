@@ -140,7 +140,7 @@ describe("getPendingStoresService", () => {
         status: true,
         created_at: new Date("2024-01-15"),
         user: { id_user: 1, name: "Juan", email: "juan@test.com" },
-        store_category: { id_store_category: 1, name: "Tecnología" }
+        store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Tecnología", status: true } }]
       }
     ];
 

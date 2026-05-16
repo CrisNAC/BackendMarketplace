@@ -3,7 +3,7 @@ import { BaseResponseDTO } from "../base/base.response.dto.js";
 // ─── NESTED DTOs ─────────────────────────────────────────────────
 export class ProductCategoryNestedDTO {
   constructor(data) {
-    this.id_product_category = data.id_product_category;
+    this.id = data.id ?? data.id_category;
     this.name = data.name;
   }
 }
@@ -39,9 +39,18 @@ export class ProductResponseDTO extends BaseResponseDTO {
     this.quantity = data.quantity ?? null;
     this.visible = data.visible;
     this.fk_store = data.fk_store;
-    this.product_category = data.product_category
-      ? new ProductCategoryNestedDTO(data.product_category)
+    const primaryCategory = data.category ?? null;
+    const categoriesSource = Array.isArray(data.categories)
+      ? data.categories
+      : Array.isArray(data.product_categories)
+        ? data.product_categories.map((relation) => relation.category ?? relation)
+        : [];
+    this.category = primaryCategory
+      ? new ProductCategoryNestedDTO(primaryCategory)
       : null;
+    this.categories = categoriesSource
+      .filter((category) => category && (category.id_category || category.id))
+      .map((category) => new ProductCategoryNestedDTO(category));
     this.tags =
       data.product_tag_relations?.map(
         (r) => new ProductTagNestedDTO(r.product_tag)

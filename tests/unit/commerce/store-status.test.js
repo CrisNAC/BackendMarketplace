@@ -55,7 +55,7 @@ describe("GET /api/commerces/:id — ruta pública", () => {
         prisma.stores.findUnique.mockResolvedValue({
             ...mockInactiveStore,
             user: { id_user: 1, name: "Test", email: "test@test.com" },
-            store_category: { id_store_category: 1, name: "Tecnología" },
+            store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Tecnología", status: true } }],
             products: [],
             addresses: [],
         });
@@ -70,7 +70,7 @@ describe("GET /api/commerces/:id — ruta pública", () => {
         prisma.stores.findUnique.mockResolvedValue({
             ...mockActiveStore,
             user: { id_user: 1, name: "Test", email: "test@test.com" },
-            store_category: { id_store_category: 1, name: "Tecnología" },
+            store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Tecnología", status: true } }],
             products: [],
             addresses: [],
         });
@@ -99,7 +99,7 @@ describe("GET /api/commerces/my/:id — ruta autenticada", () => {
         prisma.stores.findUnique.mockResolvedValue({
             ...mockInactiveStore,
             user: { id_user: 1, name: "Test", email: "test@test.com" },
-            store_category: { id_store_category: 1, name: "Tecnología" },
+            store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Tecnología", status: true } }],
             products: [],
             addresses: [],
         });
@@ -117,7 +117,7 @@ describe("GET /api/commerces/my/:id — ruta autenticada", () => {
             ...mockActiveStore,
             fk_user: 99,
             user: { id_user: 99, name: "Otro", email: "otro@test.com" },
-            store_category: { id_store_category: 1, name: "Tecnología" },
+            store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Tecnología", status: true } }],
             products: [],
             addresses: [],
         });

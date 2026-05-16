@@ -28,7 +28,9 @@ const mockProduct = {
   quantity: 10,
   visible: true,
   created_at: "2026-01-01T00:00:00.000Z",
-  product_category: { id_product_category: 1, name: "Categoria Test" }
+  product_categories: [
+    { category: { id_category: 1, name: "Categoria Test" } }
+  ]
 };
 
 const mockOfferProduct = {
@@ -99,7 +101,8 @@ describe("GET /api/commerces/products/filter/:id", () => {
     expect(product).toHaveProperty("is_offer");
     expect(product).toHaveProperty("quantity");
     expect(product).toHaveProperty("visible");
-    expect(product).toHaveProperty("product_category");
+    expect(product).toHaveProperty("categories");
+    expect(Array.isArray(product.categories)).toBe(true);
   });
 
   it("devuelve 404 cuando no hay productos con los filtros aplicados", async () => {
@@ -159,7 +162,9 @@ describe("GET /api/commerces/products/filter/:id", () => {
     expect(res.status).toBe(200);
     expect(prisma.products.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ fk_product_category: 1 })
+        where: expect.objectContaining({
+          product_categories: { some: { fk_category: 1, status: true } }
+        })
       })
     );
   });

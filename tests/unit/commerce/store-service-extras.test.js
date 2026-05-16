@@ -9,7 +9,7 @@ vi.mock("../../../src/lib/prisma.js", () => ({
 }));
 
 vi.mock("../../../src/modules/commerce/store-categories/store-category.service.js", () => ({
-  validateStoreCategoryService: vi.fn().mockResolvedValue(undefined),
+  validateStoreCategoriesService: vi.fn().mockResolvedValue([]),
 }));
 
 import {
@@ -30,7 +30,9 @@ const mockProduct = {
   quantity: 10,
   visible: true,
   created_at: "2026-01-01T00:00:00.000Z",
-  product_category: { id_product_category: 1, name: "Electrónica" },
+  product_categories: [
+    { category: { id_category: 1, name: "Electrónica" } }
+  ],
 };
 
 const mockPagination = { page: 1, limit: 20, skip: 0 };
@@ -165,7 +167,13 @@ describe("getStoresService", () => {
     prisma.stores.findMany.mockResolvedValue([]);
     await getStoresService({ storeCategoryId: "2" });
     expect(prisma.stores.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ fk_store_category: 2 }) })
+      expect.objectContaining({
+        where: expect.objectContaining({
+          store_categories: expect.objectContaining({
+            some: expect.objectContaining({ fk_category: 2, status: true })
+          })
+        })
+      })
     );
   });
 

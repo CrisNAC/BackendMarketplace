@@ -19,11 +19,10 @@ vi.mock("../../../src/lib/prisma.js", () => ({
         users: {
             findUnique: vi.fn(),
         },
-        storeCategories: {
-            findUnique: vi.fn(),
+        categories: {
+            findMany: vi.fn(),
         },
         $transaction: vi.fn(async (cb) => {
-            // Mock transaction consistente con create/update de store.service
             const txMock = {
                 addresses: {
                     create: vi.fn().mockResolvedValue(mockAddress),
@@ -42,6 +41,10 @@ vi.mock("../../../src/lib/prisma.js", () => ({
                 shippingZones: {
                     create: vi.fn().mockResolvedValue({ status: true }),
                     update: vi.fn().mockResolvedValue({ status: true }),
+                },
+                storeCategories: {
+                    createMany: vi.fn().mockResolvedValue({ count: 1 }),
+                    deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
                 },
                 users: {
                     update: vi.fn().mockResolvedValue(mockUser),
@@ -71,7 +74,7 @@ const mockUser = {
 };
 
 const mockCategory = {
-    id_store_category: 1,
+    id_category: 1,
     name: "Tecnología",
     status: true,
 };
@@ -88,7 +91,6 @@ const mockAddress = {
 const mockStore = {
     id_store: 1,
     fk_user: 1,
-    fk_store_category: 1,
     name: "Mi Tienda",
     email: "store@test.com",
     phone: "0971234567",
@@ -109,7 +111,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
         process.env.ORS_API_KEY = "test-key";
         prisma.users.findUnique.mockResolvedValue(mockUser);
         prisma.stores.findUnique.mockResolvedValue(null);
-        prisma.storeCategories.findUnique.mockResolvedValue(mockCategory);
+        prisma.categories.findMany.mockResolvedValue([mockCategory]);
     });
 
     afterEach(() => {
@@ -120,7 +122,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
     it("valida que el nombre sea requerido", async () => {
         const payload = {
             fk_user: 1,
-            fk_store_category: 1,
+            category_ids: [1],
             name: "",  // vacío
             email: "store@test.com",
             phone: "0971234567",
@@ -132,7 +134,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
         };
 
         prisma.users.findUnique.mockResolvedValueOnce(mockUser);
-        prisma.storeCategories.findUnique.mockResolvedValueOnce(mockCategory);
+        prisma.categories.findMany.mockResolvedValueOnce([mockCategory]);
 
         await expect(createStoreService(payload)).rejects.toThrow(/falta|obligatorio/i);
     });
@@ -140,7 +142,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
     it("valida que el email sea válido", async () => {
         const payload = {
             fk_user: 1,
-            fk_store_category: 1,
+            category_ids: [1],
             name: "Mi Tienda",
             email: "email-inválido",  // sin @
             phone: "0971234567",
@@ -152,7 +154,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
         };
 
         prisma.users.findUnique.mockResolvedValueOnce(mockUser);
-        prisma.storeCategories.findUnique.mockResolvedValueOnce(mockCategory);
+        prisma.categories.findMany.mockResolvedValueOnce([mockCategory]);
 
         await expect(createStoreService(payload)).rejects.toThrow(/email/i);
     });
@@ -160,7 +162,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
     it("valida que el teléfono sea requerido", async () => {
         const payload = {
             fk_user: 1,
-            fk_store_category: 1,
+            category_ids: [1],
             name: "Mi Tienda",
             email: "store@test.com",
             phone: "",  // vacío
@@ -172,7 +174,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
         };
 
         prisma.users.findUnique.mockResolvedValueOnce(mockUser);
-        prisma.storeCategories.findUnique.mockResolvedValueOnce(mockCategory);
+        prisma.categories.findMany.mockResolvedValueOnce([mockCategory]);
 
         await expect(createStoreService(payload)).rejects.toThrow(/faltan campos obligatorios/i);
     });
@@ -181,7 +183,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
     it("valida que la latitud esté dentro del rango válido", async () => {
         const payload = {
             fk_user: 1,
-            fk_store_category: 1,
+            category_ids: [1],
             name: "Mi Tienda",
             email: "store@test.com",
             phone: "0971234567",
@@ -193,7 +195,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
         };
 
         prisma.users.findUnique.mockResolvedValueOnce(mockUser);
-        prisma.storeCategories.findUnique.mockResolvedValueOnce(mockCategory);
+        prisma.categories.findMany.mockResolvedValueOnce([mockCategory]);
 
         await expect(createStoreService(payload)).rejects.toThrow(
             /latitud.*inv[áa]lida/i
@@ -203,7 +205,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
     it("valida que la longitud esté dentro del rango válido", async () => {
         const payload = {
             fk_user: 1,
-            fk_store_category: 1,
+            category_ids: [1],
             name: "Mi Tienda",
             email: "store@test.com",
             phone: "0971234567",
@@ -215,7 +217,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
         };
 
         prisma.users.findUnique.mockResolvedValueOnce(mockUser);
-        prisma.storeCategories.findUnique.mockResolvedValueOnce(mockCategory);
+        prisma.categories.findMany.mockResolvedValueOnce([mockCategory]);
 
         await expect(createStoreService(payload)).rejects.toThrow(
             /longitud.*inv[áa]lida/i
@@ -225,7 +227,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
     it("rechaza coordenadas no numéricas", async () => {
         const payload = {
             fk_user: 1,
-            fk_store_category: 1,
+            category_ids: [1],
             name: "Mi Tienda",
             email: "store@test.com",
             phone: "0971234567",
@@ -237,7 +239,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
         };
 
         prisma.users.findUnique.mockResolvedValueOnce(mockUser);
-        prisma.storeCategories.findUnique.mockResolvedValueOnce(mockCategory);
+        prisma.categories.findMany.mockResolvedValueOnce([mockCategory]);
 
         await expect(createStoreService(payload)).rejects.toThrow(/latitud.*inv[áa]lida/i);
     });
@@ -246,7 +248,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
     it("crea tienda exitosamente con validación de ubicación", async () => {
         const payload = {
             fk_user: 1,
-            fk_store_category: 1,
+            category_ids: [1],
             name: "Mi Tienda",
             email: "store@test.com",
             phone: "0971234567",
@@ -259,7 +261,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
         };
 
         prisma.users.findUnique.mockResolvedValueOnce(mockUser);
-        prisma.storeCategories.findUnique.mockResolvedValueOnce(mockCategory);
+        prisma.categories.findMany.mockResolvedValueOnce([mockCategory]);
 
         const result = await createStoreService(payload);
 
@@ -269,7 +271,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
     it("valida máxima longitud del nombre (100 caracteres)", async () => {
         const payload = {
             fk_user: 1,
-            fk_store_category: 1,
+            category_ids: [1],
             name: "a".repeat(101),  // 101 caracteres
             email: "store@test.com",
             phone: "0971234567",
@@ -281,7 +283,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
         };
 
         prisma.users.findUnique.mockResolvedValueOnce(mockUser);
-        prisma.storeCategories.findUnique.mockResolvedValueOnce(mockCategory);
+        prisma.categories.findMany.mockResolvedValueOnce([mockCategory]);
 
         await expect(createStoreService(payload)).rejects.toThrow(/demasiado largo/i);
     });
@@ -289,7 +291,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
     it("valida máxima longitud del teléfono (20 caracteres)", async () => {
         const payload = {
             fk_user: 1,
-            fk_store_category: 1,
+            category_ids: [1],
             name: "Mi Tienda",
             base_price: 20000,
             distance_price: 5000,
@@ -301,7 +303,7 @@ describe("Store Service — createStoreService (con ubicación)", () => {
         };
 
         prisma.users.findUnique.mockResolvedValueOnce(mockUser);
-        prisma.storeCategories.findUnique.mockResolvedValueOnce(mockCategory);
+        prisma.categories.findMany.mockResolvedValueOnce([mockCategory]);
 
         await expect(createStoreService(payload)).rejects.toThrow(/demasiado largo/i);
     });

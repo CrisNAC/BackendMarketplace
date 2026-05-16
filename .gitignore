@@ -1,6 +1,8 @@
 node_modules
 .env
+.env.test
 generated
 /generated/prisma
 dist/
 coverage/
+.claude/

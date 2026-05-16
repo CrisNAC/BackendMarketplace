@@ -1,10 +1,10 @@
 import { prisma } from "../../../../lib/prisma.js";
 
 export const getStoreCategoriesService = async () => {
-  const categories = await prisma.storeCategories.findMany({
+  const categories = await prisma.categories.findMany({
     where: { status: true },
     select: {
-      id_store_category: true,
+      id_category: true,
       name: true,
       status: true,
       created_at: true,
@@ -14,7 +14,7 @@ export const getStoreCategoriesService = async () => {
   });
 
   return categories.map((category) => ({
-    id: category.id_store_category,
+    id: category.id_category,
     name: category.name,
     status: category.status,
     createdAt: category.created_at,

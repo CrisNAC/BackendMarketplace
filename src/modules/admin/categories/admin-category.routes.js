@@ -10,7 +10,7 @@ import {
   updateAdminProductCategory,
   processAdminCategoryRequest
 } from "./admin-category.controller.js";
-import { ROLES } from "../../../utils/contants/roles.constant.js";
+import { ROLES } from "../../../constants/roles.constant.js";
 
 const router = Router();
 

@@ -6,14 +6,52 @@ export const validateProductCategoryService = async (categoryId) => {
     throw new ValidationError("categoryId debe ser un numero valido");
   }
 
-  const category = await prisma.productCategories.findUnique({
-    where: { id_product_category: categoryId },
-    select: { id_product_category: true, status: true }
+  const category = await prisma.categories.findUnique({
+    where: { id_category: categoryId },
+    select: { id_category: true, status: true }
   });
 
   if (!category || !category.status) {
     throw new NotFoundError("categoryId no es valida");
   }
+};
+
+export const validateProductCategoriesService = async (categoryData) => {
+  if (categoryData === undefined || categoryData === null) {
+    return [];
+  }
+
+  const categoryIds = Array.isArray(categoryData)
+    ? categoryData
+    : [categoryData];
+
+  const normalizedCategoryIds = [...new Set(
+    categoryIds
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value > 0)
+  )];
+
+  if (normalizedCategoryIds.length === 0) {
+    throw new ValidationError("categoryIds debe contener al menos un numero valido");
+  }
+
+  if (normalizedCategoryIds.length > 3) {
+    throw new ValidationError("Un producto no puede tener mas de 3 categorias");
+  }
+
+  const categories = await prisma.categories.findMany({
+    where: {
+      id_category: { in: normalizedCategoryIds },
+      status: true
+    },
+    select: { id_category: true }
+  });
+
+  if (categories.length !== normalizedCategoryIds.length) {
+    throw new NotFoundError("Una o mas categories no son validas");
+  }
+
+  return normalizedCategoryIds;
 };
 
 export const getProductCategoriesService = async (filters = {}) => {
@@ -23,15 +61,16 @@ export const getProductCategoriesService = async (filters = {}) => {
     ? Math.min(limitRaw, 100)
     : 100;
 
-  const categories = await prisma.productCategories.findMany({
+  const categories = await prisma.categories.findMany({
     where: {
       status: true,
+      visible: true,
       ...(search
         ? { name: { contains: search, mode: "insensitive" } }
         : {})
     },
     select: {
-      id_product_category: true,
+      id_category: true,
       name: true,
       status: true,
       created_at: true,
@@ -42,7 +81,7 @@ export const getProductCategoriesService = async (filters = {}) => {
   });
 
   return categories.map((category) => ({
-    id: category.id_product_category,
+    id: category.id_category,
     name: category.name,
     status: category.status,
     createdAt: category.created_at,

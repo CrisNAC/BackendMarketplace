@@ -1,10 +1,12 @@
+//product.controller.js
 import {
   createProductService,
   filterProductsService,
   getProductsSearchService,
   getProductByIdService,
   updateProductService,
-  deleteProductService
+  deleteProductService,
+  getRelatedProductsService
 } from "./product.service.js";
 import { PaginatedResponseDTO } from "../../global/dtos/base/base.response.dto.js";
 
@@ -189,6 +191,21 @@ export const filterProducts = async (req, res) => {
         : 500;
     return res.status(status).json({
       message: status < 500 ? error.message : "Error interno del servidor"
+    });
+  }
+};
+export const getRelatedProducts = async (request, response) => {
+  try {
+    const { id } = request.params;
+    const { limit } = request.query;
+ 
+    const relatedProducts = await getRelatedProductsService(id, limit);
+ 
+    return response.status(200).json(relatedProducts);
+  } catch (error) {
+    console.error("Error al obtener productos relacionados:", error);
+    return response.status(error.status || 500).json({
+      message: error.message || "Error interno del servidor"
     });
   }
 };
