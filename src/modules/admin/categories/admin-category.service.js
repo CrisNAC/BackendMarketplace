@@ -379,6 +379,7 @@ export const updateAdminProductCategoryService = async (id, payload) => {
     select: {
       id_category: true,
       name: true,
+      icon: true,
       visible: true,
       created_at: true,
       updated_at: true
@@ -388,6 +389,7 @@ export const updateAdminProductCategoryService = async (id, payload) => {
   return {
     id: updated.id_category,
     name: updated.name,
+    icon: updated.icon,
     visible: updated.visible,
     createdAt: updated.created_at,
     updatedAt: updated.updated_at
