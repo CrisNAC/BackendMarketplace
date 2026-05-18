@@ -141,7 +141,7 @@ export const getAllCategories = async (filters = {}, categoryPagination = {}) =>
     data: categories.map((c) => ({
       id: c.id_category,
       name: c.name,
-      icon: c.icon,
+      icon: c.icon ?? null,
       status: c.status,
       visible: c.visible,
       productCount: c._count.product_categories
@@ -214,6 +214,7 @@ export const filterCategoriesWithProducts = async (
       select: {
         id_category: true,
         name: true,
+        icon: true,
         status: true,
         visible: true,
         product_categories: {
@@ -263,6 +264,7 @@ export const filterCategoriesWithProducts = async (
       return {
         id: c.id_category,
         name: c.name,
+        icon: c.icon ?? null,
         status: c.status,
         visible: c.visible,
         productCount,
