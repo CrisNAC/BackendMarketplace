@@ -6,6 +6,8 @@ import {
   getCartItemsByIdService,
   removeCartItemService,
   updatedCartItemQuantityService,
+  deleteCartService,
+  deleteAllCartsService,
 } from "../../../src/modules/users/cart/cart.service.js";
 import {
   ForbiddenError,
@@ -28,6 +30,7 @@ vi.mock("../../../src/lib/prisma.js", () => ({
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     products: {
       findFirst: vi.fn(),
@@ -633,5 +636,437 @@ describe("updatedCartItemQuantityService", () => {
     await expect(
       updatedCartItemQuantityService(1, -1, 3)
     ).rejects.toThrow(ValidationError);
+  });
+});
+
+// ─── deleteCartService ────────────────────────────────────────────────────────
+
+describe("deleteCartService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("lanza ForbiddenError cuando el usuario autenticado no es el customerId", async () => {
+    await expect(
+      deleteCartService(1, 2, 1)
+    ).rejects.toThrow(ForbiddenError);
+  });
+
+  it("lanza NotFoundError cuando el carrito no existe", async () => {
+    prisma.carts.findFirst.mockResolvedValue(null);
+
+    await expect(
+      deleteCartService(1, 1, 99)
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it("aplica borrado lógico (status: false) a todos los items del carrito", async () => {
+    prisma.carts.findFirst.mockResolvedValue({ id_cart: 1 });
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 2 });
+
+    await deleteCartService(1, 1, 1);
+
+    expect(prisma.cartItems.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          fk_cart: 1,
+          status: true,
+        },
+        data: { status: false },
+      })
+    );
+  });
+
+  it("retorna objeto con success=true y mensaje apropiado", async () => {
+    prisma.carts.findFirst.mockResolvedValue({ id_cart: 1 });
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 2 });
+
+    const result = await deleteCartService(1, 1, 1);
+
+    expect(result).toEqual({
+      success: true,
+      message: "Carrito eliminado correctamente",
+    });
+  });
+
+  it("valida que el carrito tenga status ACTIVE", async () => {
+    prisma.carts.findFirst.mockResolvedValue(null);
+
+    await expect(
+      deleteCartService(1, 1, 1)
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it("lanza ValidationError cuando cartId no es un entero positivo", async () => {
+    await expect(
+      deleteCartService(1, 1, -1)
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it("lanza ValidationError cuando customerId no es un entero positivo", async () => {
+    await expect(
+      deleteCartService(1, -1, 1)
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it("elimina todos los items activos del carrito", async () => {
+    prisma.carts.findFirst.mockResolvedValue({ id_cart: 5 });
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 3 });
+
+    await deleteCartService(1, 1, 5);
+
+    expect(prisma.cartItems.updateMany).toHaveBeenCalledWith({
+      where: {
+        fk_cart: 5,
+        status: true,
+      },
+      data: { status: false },
+    });
+  });
+
+  it("no elimina items ya inactivos", async () => {
+    prisma.carts.findFirst.mockResolvedValue({ id_cart: 1 });
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 2 });
+
+    await deleteCartService(1, 1, 1);
+
+    // Solo actualiza items con status: true
+    expect(prisma.cartItems.updateMany).toHaveBeenCalledWith({
+      where: {
+        fk_cart: 1,
+        status: true, // solo activos
+      },
+      data: { status: false },
+    });
+  });
+
+  it("maneja correctamente cuando el carrito tiene 0 items", async () => {
+    prisma.carts.findFirst.mockResolvedValue({ id_cart: 1 });
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await deleteCartService(1, 1, 1);
+
+    expect(result.success).toBe(true);
+  });
+});
+
+// ─── deleteAllCartsService ────────────────────────────────────────────────────
+
+describe("deleteAllCartsService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("lanza ForbiddenError cuando el usuario autenticado no es el customerId", async () => {
+    await expect(
+      deleteAllCartsService(1, 2)
+    ).rejects.toThrow(ForbiddenError);
+  });
+
+  it("lanza NotFoundError cuando el usuario no tiene carritos para eliminar", async () => {
+    prisma.carts.findMany.mockResolvedValue([]);
+
+    await expect(
+      deleteAllCartsService(1, 1)
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it("aplica borrado lógico a todos los items de todos los carritos del usuario", async () => {
+    prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }, { id_cart: 2 }]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 5 });
+
+    await deleteAllCartsService(1, 1);
+
+    expect(prisma.cartItems.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          fk_cart: { in: [1, 2] },
+          status: true,
+        },
+        data: { status: false },
+      })
+    );
+  });
+
+  it("retorna objeto con success=true y mensaje apropiado", async () => {
+    prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 2 });
+
+    const result = await deleteAllCartsService(1, 1);
+
+    expect(result).toEqual({
+      success: true,
+      message: "Todos los carritos fueron eliminados correctamente",
+    });
+  });
+
+  it("solo elimina carritos ACTIVE", async () => {
+    prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }, { id_cart: 2 }]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 0 });
+
+    await deleteAllCartsService(1, 1);
+
+    // Verifica que findMany fue llamado con los filtros correctos
+    expect(prisma.carts.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          fk_user: 1,
+          status: true,
+          cart_status: "ACTIVE",
+        },
+      })
+    );
+  });
+
+  it("maneja correctamente cuando hay múltiples carritos", async () => {
+    prisma.carts.findMany.mockResolvedValue([
+      { id_cart: 1 },
+      { id_cart: 2 },
+      { id_cart: 3 },
+    ]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 8 });
+
+    const result = await deleteAllCartsService(1, 1);
+
+    expect(result.success).toBe(true);
+    expect(prisma.cartItems.updateMany).toHaveBeenCalledWith({
+      where: {
+        fk_cart: { in: [1, 2, 3] },
+        status: true,
+      },
+      data: { status: false },
+    });
+  });
+
+  it("lanza ValidationError cuando customerId no es un entero positivo", async () => {
+    await expect(
+      deleteAllCartsService(1, -1)
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it("maneja correctamente cuando el usuario tiene solo 1 carrito", async () => {
+    prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 3 });
+
+    const result = await deleteAllCartsService(1, 1);
+
+    expect(result).toEqual({
+      success: true,
+      message: "Todos los carritos fueron eliminados correctamente",
+    });
+  });
+
+  it("no elimina items ya inactivos", async () => {
+    prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }, { id_cart: 2 }]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 4 });
+
+    await deleteAllCartsService(1, 1);
+
+    // Solo actualiza items con status: true
+    expect(prisma.cartItems.updateMany).toHaveBeenCalledWith({
+      where: {
+        fk_cart: { in: [1, 2] },
+        status: true, // solo activos
+      },
+      data: { status: false },
+    });
+  });
+
+  it("retorna mensaje diferenciado cuando elimina todos vs uno", async () => {
+    // Comparar deleteCartService vs deleteAllCartsService
+    prisma.carts.findFirst.mockResolvedValue({ id_cart: 1 });
+    prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 2 });
+
+    const resultOne = await deleteCartService(1, 1, 1);
+    const resultAll = await deleteAllCartsService(1, 1);
+
+    expect(resultOne.message).toBe("Carrito eliminado correctamente");
+    expect(resultAll.message).toBe("Todos los carritos fueron eliminados correctamente");
+  });
+});
+
+// ─── deleteCartService ────────────────────────────────────────────────────────
+
+describe("deleteCartService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("lanza ForbiddenError cuando el usuario autenticado no es el customerId", async () => {
+    await expect(
+      deleteCartService(1, 2, 1)
+    ).rejects.toThrow(ForbiddenError);
+  });
+
+  it("lanza NotFoundError cuando el carrito no existe", async () => {
+    prisma.carts.findFirst.mockResolvedValue(null);
+
+    await expect(
+      deleteCartService(1, 1, 99)
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it("aplica borrado lógico (status: false) a todos los items del carrito", async () => {
+    prisma.carts.findFirst.mockResolvedValue({ id_cart: 1 });
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 2 });
+
+    await deleteCartService(1, 1, 1);
+
+    expect(prisma.cartItems.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          fk_cart: 1,
+          status: true,
+        },
+        data: { status: false },
+      })
+    );
+  });
+
+  it("retorna objeto con success=true y mensaje apropiado", async () => {
+    prisma.carts.findFirst.mockResolvedValue({ id_cart: 1 });
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 2 });
+
+    const result = await deleteCartService(1, 1, 1);
+
+    expect(result).toEqual({
+      success: true,
+      message: "Carrito eliminado correctamente",
+    });
+  });
+
+  it("valida que el carrito tenga status ACTIVE", async () => {
+    prisma.carts.findFirst.mockResolvedValue(null);
+
+    await expect(
+      deleteCartService(1, 1, 1)
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it("lanza ValidationError cuando cartId no es un entero positivo", async () => {
+    await expect(
+      deleteCartService(1, 1, -1)
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it("lanza ValidationError cuando customerId no es un entero positivo", async () => {
+    await expect(
+      deleteCartService(1, -1, 1)
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it("elimina todos los items activos del carrito", async () => {
+    prisma.carts.findFirst.mockResolvedValue({ id_cart: 5 });
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 3 });
+
+    await deleteCartService(1, 1, 5);
+
+    expect(prisma.cartItems.updateMany).toHaveBeenCalledWith({
+      where: {
+        fk_cart: 5,
+        status: true,
+      },
+      data: { status: false },
+    });
+  });
+});
+
+// ─── deleteAllCartsService ────────────────────────────────────────────────────
+
+describe("deleteAllCartsService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("lanza ForbiddenError cuando el usuario autenticado no es el customerId", async () => {
+    await expect(
+      deleteAllCartsService(1, 2)
+    ).rejects.toThrow(ForbiddenError);
+  });
+
+  it("lanza NotFoundError cuando el usuario no tiene carritos para eliminar", async () => {
+    prisma.carts.findMany.mockResolvedValue([]);
+
+    await expect(
+      deleteAllCartsService(1, 1)
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it("aplica borrado lógico a todos los items de todos los carritos del usuario", async () => {
+    prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }, { id_cart: 2 }]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 5 });
+
+    await deleteAllCartsService(1, 1);
+
+    expect(prisma.cartItems.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          fk_cart: { in: [1, 2] },
+          status: true,
+        },
+        data: { status: false },
+      })
+    );
+  });
+
+  it("retorna objeto con success=true y mensaje apropiado", async () => {
+    prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 2 });
+
+    const result = await deleteAllCartsService(1, 1);
+
+    expect(result).toEqual({
+      success: true,
+      message: "Todos los carritos fueron eliminados correctamente",
+    });
+  });
+
+  it("solo elimina carritos ACTIVE", async () => {
+    prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }, { id_cart: 2 }]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 0 });
+
+    await deleteAllCartsService(1, 1);
+
+    // Verifica que findMany fue llamado con los filtros correctos
+    expect(prisma.carts.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          fk_user: 1,
+          status: true,
+          cart_status: "ACTIVE",
+        },
+      })
+    );
+  });
+
+  it("maneja correctamente cuando hay múltiples carritos", async () => {
+    prisma.carts.findMany.mockResolvedValue([
+      { id_cart: 1 },
+      { id_cart: 2 },
+      { id_cart: 3 },
+    ]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 8 });
+
+    const result = await deleteAllCartsService(1, 1);
+
+    expect(result.success).toBe(true);
+    expect(prisma.cartItems.updateMany).toHaveBeenCalledWith({
+      where: {
+        fk_cart: { in: [1, 2, 3] },
+        status: true,
+      },
+      data: { status: false },
+    });
+  });
+
+  it("lanza ValidationError cuando customerId no es un entero positivo", async () => {
+    await expect(
+      deleteAllCartsService(1, -1)
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it("maneja correctamente cuando el usuario tiene solo 1 carrito", async () => {
+    prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }]);
+    prisma.cartItems.updateMany.mockResolvedValue({ count: 3 });
+
+    const result = await deleteAllCartsService(1, 1);
+
+    expect(result).toEqual({
+      success: true,
+      message: "Todos los carritos fueron eliminados correctamente",
+    });
   });
 });

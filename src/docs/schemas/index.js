@@ -21,3 +21,6 @@ export * from "./session/session.schema.js";
 
 // Admin schemas
 export * from "./admin/admin-category.schema.js";
+
+// Users schemas
+export * from "./users/cart.schema.js"
