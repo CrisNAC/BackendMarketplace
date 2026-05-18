@@ -28,7 +28,7 @@ const normalizeAdminCategoryName = (name) => {
   return normalizedName;
 };
 
-export const createAdminProductCategoryService = async (name) => {
+export const createAdminProductCategoryService = async (name, icon = null) => {
   const normalizedName = normalizeAdminCategoryName(name);
 
   const existingCategory = await prisma.categories.findFirst({
@@ -49,12 +49,14 @@ export const createAdminProductCategoryService = async (name) => {
   const createdCategory = await prisma.categories.create({
     data: {
       name: normalizedName,
+      icon: icon ?? null,
       visible: true,
       status: true
     },
     select: {
       id_category: true,
       name: true,
+      icon: true,
       visible: true,
       status: true,
       created_at: true
@@ -64,6 +66,7 @@ export const createAdminProductCategoryService = async (name) => {
   return {
     id: createdCategory.id_category,
     name: createdCategory.name,
+    icon: createdCategory.icon,
     visible: createdCategory.visible,
     status: createdCategory.status,
     createdAt: createdCategory.created_at
@@ -76,6 +79,7 @@ export const getAdminProductCategoryService = async (id) => {
     select: {
       id_category: true,
       name: true,
+      icon: true,
       status: true,
       visible: true,
       created_at: true,
@@ -89,6 +93,7 @@ export const getAdminProductCategoryService = async (id) => {
   return {
     id: category.id_category,
     name: category.name,
+    icon: category.icon,
     status: category.status,
     visible: category.visible,
     productCount: category._count.product_categories,
@@ -124,6 +129,7 @@ export const getAllCategories = async (filters = {}, categoryPagination = {}) =>
       select: {
         id_category: true,
         name: true,
+        icon: true,
         status: true,
         visible: true,
         _count: { select: { product_categories: true } }
@@ -135,6 +141,7 @@ export const getAllCategories = async (filters = {}, categoryPagination = {}) =>
     data: categories.map((c) => ({
       id: c.id_category,
       name: c.name,
+      icon: c.icon,
       status: c.status,
       visible: c.visible,
       productCount: c._count.product_categories
@@ -339,6 +346,13 @@ const normalizeUpdatePayload = (payload) => {
     }
     data.visible = payload.visible;
   }
+
+  if (payload.icon !== undefined) {
+    if (payload.icon !== null && typeof payload.icon !== "string") {
+      throw new ValidationError("icon debe ser texto o null");
+    }
+    data.icon = payload.icon ?? null;
+  }
  
   if (Object.keys(data).length === 0) {
     throw new ValidationError("Debe enviar al menos uno: name o visible");
@@ -365,6 +379,7 @@ export const updateAdminProductCategoryService = async (id, payload) => {
     select: {
       id_category: true,
       name: true,
+      icon: true,
       visible: true,
       created_at: true,
       updated_at: true
@@ -374,6 +389,7 @@ export const updateAdminProductCategoryService = async (id, payload) => {
   return {
     id: updated.id_category,
     name: updated.name,
+    icon: updated.icon,
     visible: updated.visible,
     createdAt: updated.created_at,
     updatedAt: updated.updated_at
