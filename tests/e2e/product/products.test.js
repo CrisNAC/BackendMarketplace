@@ -248,7 +248,7 @@ describe("POST /products", () => {
       id_user: 1,
       role: "SELLER",
       status: true,
-      store: { id_store: 1, status: true }
+      store: { id_store: 1, status: true, store_status: "ACTIVE" }
     });
     prisma.categories.findMany.mockResolvedValue([{ id_category: 1 }]);
   });
@@ -327,7 +327,7 @@ describe("POST /products", () => {
       id_user: 1,
       role: "SELLER",
       status: true,
-      store: { id_store: 1, status: true }
+      store: { id_store: 1, status: true, store_status: "ACTIVE" }
     });
     prisma.categories.findMany.mockResolvedValue([{ id_category: 1 }]);
     prisma.$transaction.mockImplementation(async (fn) =>
@@ -362,7 +362,7 @@ describe("POST /products", () => {
       id_user: 1,
       role: "SELLER",
       status: true,
-      store: { id_store: 1, status: true }
+      store: { id_store: 1, status: true, store_status: "ACTIVE" }
     });
     prisma.categories.findMany.mockResolvedValue([{ id_category: 1 }]);
     prisma.$transaction.mockImplementation(async (fn) =>

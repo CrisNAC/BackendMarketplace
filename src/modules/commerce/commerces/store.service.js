@@ -448,7 +448,9 @@ export const getAuthorizedStoreOwnerService = async (
       id_store: true,
       fk_user: true,
       logo: true,
+      name: true,
       status: true,
+      store_status: true,
       user: {
         select: {
           id_user: true,
@@ -831,6 +833,12 @@ export const updateStoreService = async (
     };
   }
 
+  let shouldResubmit = false;
+  if (store.store_status === "SUSPENDED") {
+    dataToUpdate.store_status = "INACTIVE";
+    shouldResubmit = true;
+  }
+
   let addressId = null;
   let shippingZoneId = null;
 
@@ -937,6 +945,13 @@ export const updateStoreService = async (
             ...shippingZoneDataToUpdate,
             status: true
           }
+        });
+      }
+
+      if (shouldResubmit) {
+        await tx.products.updateMany({
+          where: { fk_store: store.id_store, status: true },
+          data: { visible: false }
         });
       }
 
@@ -1282,6 +1297,13 @@ export const updateStoreStatusService = async (authenticatedUserId, storeId, sto
     const ALLOWED_STATUSES = ["ACTIVE", "INACTIVE"];
     if (!ALLOWED_STATUSES.includes(store_status)) {
         throw { status: 400, message: "store_status debe ser ACTIVE o INACTIVE" };
+    }
+
+    if (store.store_status === "SUSPENDED") {
+        throw {
+            status: 400,
+            message: "El comercio rechazado debe reenviarse a revision antes de habilitarse"
+        };
     }
 
     await prisma.$transaction([
