@@ -1,5 +1,6 @@
 //delivery.controller.js
 import { ZodError } from 'zod';
+import jwt from 'jsonwebtoken';
 import {
   registerDeliverySchema,
   updateDeliveryStatusSchema,
@@ -18,6 +19,26 @@ export const registerDelivery = async (req, res) => {
   try {
     const validData = registerDeliverySchema.parse(req.body);
     const result = await registerDeliveryService(req.user, validData);
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw { status: 500, message: 'Error interno del servidor' };
+    }
+    const token = jwt.sign(
+      {
+        id_user: result.user.id_user,
+        email: result.user.email,
+        role: result.user.role
+      },
+      secret,
+      { expiresIn: "30m" }
+    );
+
+    res.cookie('userToken', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+    });
+
     res.status(200).json(result);
   } catch (error) {
     if (error instanceof ZodError) {
