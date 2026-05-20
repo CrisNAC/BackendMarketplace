@@ -1,0 +1,4 @@
+export const DELIVERY_ASSIGNMENT_RESPONSE = {
+  MIN_MINUTES: 5,
+  MAX_MINUTES: 10,
+};

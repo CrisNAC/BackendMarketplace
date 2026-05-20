@@ -391,6 +391,7 @@ model DeliveryAssignments  {
   assignment_status         AssignmentStatus @default(PENDING)  
   assignment_sequence       Int      @default(1)  
   assigned_at               DateTime @default(now()) @db.Timestamptz
+  response_deadline         DateTime? @db.Timestamptz
   status                    Boolean  @default(true)
   created_at                DateTime @default(now()) @db.Timestamptz  
   updated_at                DateTime @updatedAt @db.Timestamptz 
@@ -419,6 +420,7 @@ enum AssignmentStatus {
   PENDING
   ACCEPTED
   REJECTED
+  EXPIRED
   DELIVERED
 }
 
@@ -434,6 +436,7 @@ model Orders {
   total             Decimal       @db.Decimal(10, 2)
   order_status      OrderStatus   @default(PENDING) // por defecto se crea en estado pendiente
   notes             String?       @db.Text
+  delivery_unavailable Boolean    @default(false)
   status            Boolean       @default(true)
   created_at        DateTime      @default(now()) @db.Timestamptz
   updated_at        DateTime      @updatedAt @db.Timestamptz

@@ -15,7 +15,7 @@ export const respondToAssignmentSchema = z.object({
 
 export const deliveryOrderHistoryQuerySchema = z.object({
   period: z.enum(["7d", "15d", "1m", "all"]).optional(),
-  assignment_status: z.enum(["PENDING", "ACCEPTED", "REJECTED", "DELIVERED"]).optional(),
+  assignment_status: z.enum(["PENDING", "ACCEPTED", "REJECTED", "EXPIRED", "DELIVERED"]).optional(),
   orderId: z
     .string()
     .regex(/^\d+$/, "orderId debe ser un número")
