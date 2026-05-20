@@ -2,12 +2,13 @@ import { prisma } from "../../../lib/prisma.js";
 import { createNotificationService } from "../../notifications/notification.service.js";
 import { NOTIFICATION_MESSAGES } from "../../notifications/notification.constant.js";
 import { DELIVERY_ASSIGNMENT_RESPONSE } from "../../../utils/contants/delivery-assignment.constant.js";
+import crypto from "crypto";
 
 export function computeAssignmentResponseDeadline(now = new Date()) {
   const minMs = DELIVERY_ASSIGNMENT_RESPONSE.MIN_MINUTES * 60 * 1000;
   const maxMs = DELIVERY_ASSIGNMENT_RESPONSE.MAX_MINUTES * 60 * 1000;
   const span = maxMs - minMs;
-  const offset = minMs + Math.floor(Math.random() * (span + 1));
+  const offset = minMs + crypto.randomInt(span + 1);
   return new Date(now.getTime() + offset);
 }
 
