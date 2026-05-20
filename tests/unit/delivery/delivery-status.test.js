@@ -1,25 +1,43 @@
-//delivery-status.test.js
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
 import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
 
+const mockPrisma = vi.hoisted(() => ({
+  deliveries: {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  },
+  deliveryAssignments: {
+    findMany: vi.fn(),
+  },
+  stores: {
+    findUnique: vi.fn(),
+  },
+  notifications: {
+    create: vi.fn(),
+  },
+}));
+
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
-    deliveries: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
-    },
+    ...mockPrisma,
+    $transaction: vi.fn((callback) => callback(mockPrisma)),
   },
 }));
 
 vi.mock("jsonwebtoken", async () => {
   const actual = await vi.importActual("jsonwebtoken");
+
   return {
     default: {
       ...actual.default,
       verify: vi.fn((token, secret, callback) => {
-        callback(null, { id_user: 10, email: "delivery@test.com", role: "DELIVERY" });
+        callback(null, {
+          id_user: 10,
+          email: "delivery@test.com",
+          role: "DELIVERY",
+        });
       }),
     },
   };
@@ -35,7 +53,15 @@ const mockDelivery = {
 };
 
 describe("PATCH /api/deliveries/:id/status", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockPrisma.deliveryAssignments.findMany.mockResolvedValue([]);
+    mockPrisma.stores.findUnique.mockResolvedValue({ fk_user: 1 });
+    mockPrisma.notifications.create.mockResolvedValue({
+      id_notification: 1,
+    });
+  });
 
   it("devuelve 400 cuando delivery_status no se envía", async () => {
     const res = await request(app)
@@ -67,8 +93,13 @@ describe("PATCH /api/deliveries/:id/status", () => {
 
   it("devuelve 403 cuando el rol no es DELIVERY", async () => {
     const jwt = await import("jsonwebtoken");
+
     jwt.default.verify.mockImplementationOnce((token, secret, callback) => {
-      callback(null, { id_user: 10, email: "admin@test.com", role: "ADMIN" });
+      callback(null, {
+        id_user: 10,
+        email: "admin@test.com",
+        role: "ADMIN",
+      });
     });
 
     const res = await request(app)
@@ -109,6 +140,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
 
   it("devuelve 200 y actualiza el estado correctamente", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
+
     prisma.deliveries.update.mockResolvedValue({
       id_delivery: 1,
       delivery_status: "INACTIVE",
@@ -123,6 +155,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.message).toMatch(/actualizado exitosamente/i);
+
     expect(res.body.data).toMatchObject({
       id_delivery: 1,
       delivery_status: "INACTIVE",
