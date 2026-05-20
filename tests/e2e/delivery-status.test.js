@@ -4,38 +4,54 @@ import jwt from "jsonwebtoken";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
 
-const deliveriesMock = {
-  findUnique: vi.fn(),
-  update: vi.fn(),
-};
+const {
+  deliveriesMock,
+  deliveryAssignmentsMock,
+  ordersMock,
+  storesMock,
+  notificationsMock,
+  mockTx,
+} = vi.hoisted(() => {
+  const deliveriesMock = {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  };
 
-const deliveryAssignmentsMock = {
-  findMany: vi.fn(),
-  findFirst: vi.fn(),
-  update: vi.fn(),
-  create: vi.fn(),
-};
+  const deliveryAssignmentsMock = {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    update: vi.fn(),
+    create: vi.fn(),
+  };
 
-const ordersMock = {
-  update: vi.fn(),
-  findUnique: vi.fn(),
-};
+  const ordersMock = {
+    update: vi.fn(),
+    findUnique: vi.fn(),
+  };
 
-const storesMock = {
-  findUnique: vi.fn(),
-};
+  const storesMock = {
+    findUnique: vi.fn(),
+  };
 
-const notificationsMock = {
-  create: vi.fn(),
-};
+  const notificationsMock = {
+    create: vi.fn(),
+  };
 
-const mockTx = {
-  deliveries: deliveriesMock,
-  deliveryAssignments: deliveryAssignmentsMock,
-  orders: ordersMock,
-  stores: storesMock,
-  notifications: notificationsMock,
-};
+  return {
+    deliveriesMock,
+    deliveryAssignmentsMock,
+    ordersMock,
+    storesMock,
+    notificationsMock,
+    mockTx: {
+      deliveries: deliveriesMock,
+      deliveryAssignments: deliveryAssignmentsMock,
+      orders: ordersMock,
+      stores: storesMock,
+      notifications: notificationsMock,
+    },
+  };
+});
 
 vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
@@ -83,9 +99,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
 
     deliveryAssignmentsMock.findMany.mockResolvedValue([]);
     storesMock.findUnique.mockResolvedValue({ fk_user: 1 });
-    notificationsMock.create.mockResolvedValue({
-      id_notification: 1,
-    });
+    notificationsMock.create.mockResolvedValue({ id_notification: 1 });
   });
 
   it("retorna 400 cuando delivery_status no se envía", async () => {
@@ -95,9 +109,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(
-      /delivery_status es requerido/i
-    );
+    expect(res.body.error.message).toMatch(/delivery_status es requerido/i);
   });
 
   it("retorna 400 cuando delivery_status es inválido", async () => {
@@ -107,9 +119,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({ delivery_status: "PAUSED" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(
-      /ACTIVE o INACTIVE/i
-    );
+    expect(res.body.error.message).toMatch(/ACTIVE o INACTIVE/i);
   });
 
   it("retorna 403 cuando el rol no es DELIVERY", async () => {
@@ -141,9 +151,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({ delivery_status: "ACTIVE" });
 
     expect(res.status).toBe(404);
-    expect(res.body.error.message).toMatch(
-      /delivery no encontrado/i
-    );
+    expect(res.body.error.message).toMatch(/delivery no encontrado/i);
   });
 
   it("retorna 403 cuando intenta actualizar otro delivery", async () => {
@@ -158,15 +166,11 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({ delivery_status: "INACTIVE" });
 
     expect(res.status).toBe(403);
-    expect(res.body.error.message).toMatch(
-      /actualizar este delivery/i
-    );
+    expect(res.body.error.message).toMatch(/actualizar este delivery/i);
   });
 
   it("retorna 200 y actualiza el estado a ACTIVE", async () => {
-    prisma.deliveries.findUnique.mockResolvedValue(
-      mockDelivery
-    );
+    prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
 
     deliveriesMock.update.mockResolvedValue({
       ...mockDelivery,
@@ -182,8 +186,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
     expect(res.status).toBe(200);
 
     expect(res.body).toMatchObject({
-      message:
-        "Estado del delivery actualizado exitosamente",
+      message: "Estado del delivery actualizado exitosamente",
       data: {
         id_delivery: 1,
         fk_user: 10,

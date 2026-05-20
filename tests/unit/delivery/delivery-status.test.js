@@ -1,41 +1,56 @@
-//delivery-status.test.js
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
 import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
 
-const deliveriesMock = {
-  findUnique: vi.fn(),
-  update: vi.fn(),
-};
+const {
+  deliveriesMock,
+  deliveryAssignmentsMock,
+  ordersMock,
+  storesMock,
+  notificationsMock,
+  mockTx,
+} = vi.hoisted(() => {
+  const deliveriesMock = {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  };
 
-const deliveryAssignmentsMock = {
-  findMany: vi.fn(),
-  findFirst: vi.fn(),
-  update: vi.fn(),
-  create: vi.fn(),
-};
+  const deliveryAssignmentsMock = {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    update: vi.fn(),
+    create: vi.fn(),
+  };
 
-const ordersMock = {
-  update: vi.fn(),
-  findUnique: vi.fn(),
-};
+  const ordersMock = {
+    update: vi.fn(),
+    findUnique: vi.fn(),
+  };
 
-const storesMock = {
-  findUnique: vi.fn(),
-};
+  const storesMock = {
+    findUnique: vi.fn(),
+  };
 
-const notificationsMock = {
-  create: vi.fn(),
-};
+  const notificationsMock = {
+    create: vi.fn(),
+  };
 
-const mockTx = {
-  deliveries: deliveriesMock,
-  deliveryAssignments: deliveryAssignmentsMock,
-  orders: ordersMock,
-  stores: storesMock,
-  notifications: notificationsMock,
-};
+  return {
+    deliveriesMock,
+    deliveryAssignmentsMock,
+    ordersMock,
+    storesMock,
+    notificationsMock,
+    mockTx: {
+      deliveries: deliveriesMock,
+      deliveryAssignments: deliveryAssignmentsMock,
+      orders: ordersMock,
+      stores: storesMock,
+      notifications: notificationsMock,
+    },
+  };
+});
 
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
@@ -92,9 +107,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(
-      /delivery_status es requerido/i
-    );
+    expect(res.body.error.message).toMatch(/delivery_status es requerido/i);
   });
 
   it("devuelve 400 cuando delivery_status es inválido", async () => {
@@ -118,15 +131,13 @@ describe("PATCH /api/deliveries/:id/status", () => {
   it("devuelve 403 cuando el rol no es DELIVERY", async () => {
     const jwt = await import("jsonwebtoken");
 
-    jwt.default.verify.mockImplementationOnce(
-      (token, secret, callback) => {
-        callback(null, {
-          id_user: 10,
-          email: "admin@test.com",
-          role: "ADMIN",
-        });
-      }
-    );
+    jwt.default.verify.mockImplementationOnce((token, secret, callback) => {
+      callback(null, {
+        id_user: 10,
+        email: "admin@test.com",
+        role: "ADMIN",
+      });
+    });
 
     const res = await request(app)
       .patch("/api/deliveries/1/status")
@@ -161,9 +172,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({ delivery_status: "INACTIVE" });
 
     expect(res.status).toBe(403);
-    expect(res.body.error.message).toMatch(
-      /actualizar este delivery/i
-    );
+    expect(res.body.error.message).toMatch(/actualizar este delivery/i);
   });
 
   it("devuelve 200 y actualiza el estado correctamente", async () => {
