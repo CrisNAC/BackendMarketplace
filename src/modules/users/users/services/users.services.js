@@ -470,27 +470,22 @@ export const resetPasswordService = async (token, newPassword) => {
         throw { status: 400, message: "La nueva contraseña debe tener al menos 8 caracteres" };
     }
 
-    const user = await prisma.users.findFirst({
+    const password_hash = await bcrypt.hash(newPassword.trim(), SALT_ROUNDS);
+
+    const result = await prisma.users.updateMany({
         where: {
             password_reset_token: token,
             password_reset_token_expires: { gt: new Date() },
             status: true,
         },
-        select: { id_user: true },
-    });
-
-    if (!user) {
-        throw { status: 400, message: "El enlace de recuperación no es válido o ha expirado" };
-    }
-
-    const password_hash = await bcrypt.hash(newPassword.trim(), SALT_ROUNDS);
-
-    await prisma.users.update({
-        where: { id_user: user.id_user },
         data: {
             password_hash,
             password_reset_token: null,
             password_reset_token_expires: null,
         },
     });
+
+    if (result.count === 0) {
+        throw { status: 400, message: "El enlace de recuperación no es válido o ha expirado" };
+    }
 };

@@ -148,11 +148,11 @@ export const requestPasswordReset = async (req, res) => {
 
 export const validateResetToken = async (req, res) => {
     try {
-        const { token } = req.params;
+        const { token } = req.body;
         const result = await validateResetTokenService(token);
         return res.status(200).json({ success: true, ...result });
     } catch (error) {
-        const statusCode = error.statusCode || error.status || 400;
+        const statusCode = error.statusCode || error.status || 500;
         return res.status(statusCode).json({ success: false, message: error.message });
     }
 };

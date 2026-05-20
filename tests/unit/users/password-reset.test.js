@@ -15,6 +15,7 @@ vi.mock("../../../src/lib/prisma.js", () => ({
             findUnique: vi.fn(),
             findFirst: vi.fn(),
             update: vi.fn(),
+            updateMany: vi.fn(),
         },
     },
 }));
@@ -183,7 +184,8 @@ describe("resetPasswordService", () => {
     });
 
     it("lanza 400 cuando el token no existe o ya expiró", async () => {
-        prisma.users.findFirst.mockResolvedValue(null);
+        prisma.users.updateMany.mockResolvedValue({ count: 0 });
+        bcrypt.hash.mockResolvedValue("hash");
 
         await expect(resetPasswordService("tokeninvalido", "nuevaPass123")).rejects.toMatchObject({
             status: 400,
@@ -191,16 +193,19 @@ describe("resetPasswordService", () => {
         });
     });
 
-    it("actualiza el hash de contraseña y limpia el token cuando todo es válido", async () => {
-        prisma.users.findFirst.mockResolvedValue(mockActiveUser);
+    it("actualiza el hash de contraseña y limpia el token en una sola operación atómica", async () => {
         bcrypt.hash.mockResolvedValue("nuevo_hash_hasheado");
-        prisma.users.update.mockResolvedValue({});
+        prisma.users.updateMany.mockResolvedValue({ count: 1 });
 
         await resetPasswordService(VALID_TOKEN, "nuevaPassword123");
 
         expect(bcrypt.hash).toHaveBeenCalledWith("nuevaPassword123", 10);
-        expect(prisma.users.update).toHaveBeenCalledWith({
-            where: { id_user: mockActiveUser.id_user },
+        expect(prisma.users.updateMany).toHaveBeenCalledWith({
+            where: {
+                password_reset_token: VALID_TOKEN,
+                password_reset_token_expires: { gt: expect.any(Date) },
+                status: true,
+            },
             data: {
                 password_hash: "nuevo_hash_hasheado",
                 password_reset_token: null,
@@ -210,9 +215,8 @@ describe("resetPasswordService", () => {
     });
 
     it("elimina los espacios al inicio y fin de la contraseña antes de hashear", async () => {
-        prisma.users.findFirst.mockResolvedValue(mockActiveUser);
         bcrypt.hash.mockResolvedValue("hash");
-        prisma.users.update.mockResolvedValue({});
+        prisma.users.updateMany.mockResolvedValue({ count: 1 });
 
         await resetPasswordService(VALID_TOKEN, "  nuevaPass123  ");
 
@@ -220,9 +224,10 @@ describe("resetPasswordService", () => {
     });
 
     it("no actualiza la BD si el token es inválido", async () => {
-        prisma.users.findFirst.mockResolvedValue(null);
+        bcrypt.hash.mockResolvedValue("hash");
+        prisma.users.updateMany.mockResolvedValue({ count: 0 });
 
         await expect(resetPasswordService("invalido", "nuevaPass123")).rejects.toThrow();
-        expect(prisma.users.update).not.toHaveBeenCalled();
+        expect(prisma.users.updateMany).toHaveBeenCalledTimes(1);
     });
 });

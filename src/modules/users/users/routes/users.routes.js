@@ -17,7 +17,7 @@ router.post("/register", registerUser);
 
 // Password reset (sin autenticación)
 router.post("/forgot-password", requestPasswordReset);
-router.get("/validate-reset-token/:token", validateResetToken);
+router.post("/validate-reset-token", validateResetToken);
 router.post("/reset-password", resetPassword);
 
 router.put("/:id_user", authenticate, updateUser);
