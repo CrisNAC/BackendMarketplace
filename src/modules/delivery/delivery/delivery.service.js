@@ -1,5 +1,10 @@
 //delivery.service.js
 import { prisma } from '../../../lib/prisma.js';
+import {
+  activePendingAssignmentWhere,
+  closePendingAndReassign,
+  expireStalePendingAssignments,
+} from '../delivery-assignments/delivery-assignment-workflow.service.js';
 import { upsertUserImage } from '../../images/services/user-image.service.js';
 
 // Registrar delivery con usuario autenticado
@@ -72,9 +77,31 @@ export const updateDeliveryStatusService = async (authenticatedUserId, id_delive
     throw { status: 403, message: "No tienes permiso para actualizar este delivery" };
   }
 
-  const updated = await prisma.deliveries.update({
-    where: { id_delivery },
-    data: { delivery_status: nuevoStatus }
+  const updated = await prisma.$transaction(async (tx) => {
+    const deliveryRow = await tx.deliveries.update({
+      where: { id_delivery },
+      data: { delivery_status: nuevoStatus },
+    });
+
+    if (nuevoStatus === "INACTIVE") {
+      await expireStalePendingAssignments({ fk_delivery: id_delivery }, tx);
+
+      const pendingAssignments = await tx.deliveryAssignments.findMany({
+        where: {
+          fk_delivery: id_delivery,
+          ...activePendingAssignmentWhere(),
+        },
+        include: {
+          order: { select: { id_order: true, fk_store: true } },
+        },
+      });
+
+      for (const assignment of pendingAssignments) {
+        await closePendingAndReassign(tx, assignment, "REJECTED", { reason: "offline" });
+      }
+    }
+
+    return deliveryRow;
   });
 
   return updated;
@@ -82,6 +109,8 @@ export const updateDeliveryStatusService = async (authenticatedUserId, id_delive
 
 // Obtener asignaciones pendientes del delivery
 export const getPendingAssignmentsService = async (id_delivery, authUserId) => {
+  await expireStalePendingAssignments({ fk_delivery: id_delivery });
+
   const delivery = await prisma.deliveries.findFirst({
     where: {
       id_delivery,
@@ -92,7 +121,7 @@ export const getPendingAssignmentsService = async (id_delivery, authUserId) => {
       user: { select: { id_user: true, name: true, email: true } },
       store: { select: { id_store: true, name: true, store_status: true } },
       delivery_assignments: {
-        where: { assignment_status: "PENDING", status: true },
+        where: activePendingAssignmentWhere(),
         include: {
           order: {
             select: {

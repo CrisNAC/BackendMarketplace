@@ -9,10 +9,10 @@ import {
 import { parsePositiveInteger } from "../../../lib/validators.js";
 import { createNotificationService } from "../../notifications/notification.service.js";
 import { NOTIFICATION_MESSAGES } from "../../notifications/notification.constant.js";
-
 const mapOrderResponse = (order) => ({
   id: order.id_order,
   status: order.order_status,
+  deliveryUnavailable: Boolean(order.delivery_unavailable),
   total: Number(order.total),
   shippingCost: Number(order.shipping_cost ?? 0),
   shippingDistanceKm:
@@ -787,6 +787,7 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
       select: {
         id_order: true,
         order_status: true,
+        delivery_unavailable: true,
         total: true,
         shipping_cost: true,
         shipping_distance_km: true,
@@ -804,7 +805,10 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
             price: true,
             original_price: true,
             is_offer_applied: true,
-            subtotal: true
+            subtotal: true,
+            product: {
+              select: { name: true }
+            }
           }
         }
       }
@@ -948,47 +952,6 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
           data: { quantity: { increment: item.quantity } }
         });
       }
-    }
-
-    if (order_status === "PROCESSING") {
-      const existingPending = await tx.deliveryAssignments.findFirst({
-        where: { fk_order: resolvedOrderId, assignment_status: "PENDING", status: true }
-      });
-
-      if (existingPending) {
-        throw new ConflictError("Ya hay una asignación pendiente para este pedido");
-      }
-
-      const delivery = await tx.deliveries.findFirst({
-        where: {
-          fk_store: order.fk_store,
-          delivery_status: "ACTIVE",
-          status: true,
-          delivery_assignments: {
-            none: { assignment_status: "PENDING" }
-          }
-        }
-      });
-
-      if (!delivery) {
-        throw new ValidationError("No hay deliveries disponibles para este comercio");
-      }
-
-      const lastAssignment = await tx.deliveryAssignments.findFirst({
-        where: { fk_order: resolvedOrderId },
-        orderBy: { assignment_sequence: "desc" },
-        select: { assignment_sequence: true }
-      });
-
-      await tx.deliveryAssignments.create({
-        data: {
-          fk_order: resolvedOrderId,
-          fk_delivery: delivery.id_delivery,
-          assignment_status: "PENDING",
-          assignment_sequence: (lastAssignment?.assignment_sequence || 0) + 1,
-          status: true
-        }
-      });
     }
 
     return updatedOrder;

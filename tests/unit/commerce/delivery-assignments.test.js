@@ -73,7 +73,10 @@ const mockDeliveries = [
 ];
  
 describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.deliveryAssignments.findMany.mockResolvedValue([]);
+  });
  
   it("devuelve 401 cuando no hay autenticación", async () => {
     const res = await request(app)
@@ -130,8 +133,9 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
     prisma.deliveryAssignments.findFirst.mockResolvedValue({
       id_delivery_assignment: 1,
       assignment_status: "PENDING",
+      response_deadline: new Date(Date.now() + 8 * 60 * 1000),
       delivery: {
-        delivery_status: "ACTIVE" // Delivery activo -> bloquear
+        delivery_status: "ACTIVE"
       }
     });
  
@@ -231,20 +235,32 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) => {
       const tx = {
         deliveryAssignments: {
+          findMany: vi.fn().mockResolvedValue([]),
           findFirst: vi.fn()
-            .mockResolvedValueOnce({ assignment_sequence: 1 }) // último sequence
-            .mockResolvedValueOnce(mockPendingWithInactiveDelivery), // pending assignment
-          update: vi.fn().mockResolvedValueOnce({
+            .mockResolvedValueOnce(mockPendingWithInactiveDelivery)
+            .mockResolvedValueOnce(null),
+          update: vi.fn().mockResolvedValue({
             ...mockPendingWithInactiveDelivery,
-            assignment_status: "REJECTED"
+            assignment_status: "REJECTED",
+            status: false,
           }),
-          create: vi.fn().mockResolvedValueOnce({
+          create: vi.fn().mockResolvedValue({
             id_delivery_assignment: 11,
             fk_order: 100,
             fk_delivery: 5,
             assignment_status: "PENDING",
-            assignment_sequence: 2
+            assignment_sequence: 2,
           }),
+        },
+        deliveries: {
+          findUnique: vi.fn().mockResolvedValue({
+            id_delivery: 5,
+            delivery_status: "ACTIVE",
+            status: true,
+          }),
+        },
+        orders: {
+          update: vi.fn().mockResolvedValue({ id_order: 100 }),
         },
       };
       return await callback(tx);
@@ -281,9 +297,8 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) => {
       const tx = {
         deliveryAssignments: {
-          findFirst: vi.fn()
-            .mockResolvedValueOnce({ assignment_sequence: 1 }) // último sequence
-            .mockResolvedValueOnce(mockPendingWithActiveDelivery), // pending assignment ACTIVE
+          findMany: vi.fn().mockResolvedValue([]),
+          findFirst: vi.fn().mockResolvedValue(mockPendingWithActiveDelivery),
           update: vi.fn(),
           create: vi.fn(),
         },

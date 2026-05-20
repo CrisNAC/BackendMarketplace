@@ -16,30 +16,48 @@ import {
 const mockTx = {
   deliveryAssignments: {
     findFirst: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     update: vi.fn(),
   },
   orders: {
+    findUnique: vi.fn(),
     update: vi.fn(),
   },
   deliveries: {
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
+  },
+  stores: {
+    findUnique: vi.fn(),
+  },
+  notifications: {
+    create: vi.fn(),
   },
 };
+
+vi.mock("../../../src/modules/notifications/notification.service.js", () => ({
+  createNotificationService: vi.fn().mockResolvedValue({}),
+}));
 
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
     orders: {
       findUnique: vi.fn(),
+      update: vi.fn().mockResolvedValue({}),
     },
     deliveries: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
     },
+    stores: {
+      findUnique: vi.fn().mockResolvedValue({ fk_user: 1 }),
+    },
     deliveryAssignments: {
       findFirst: vi.fn(),
-      findMany: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
+      update: vi.fn(),
       count: vi.fn(),
     },
     $transaction: vi.fn((callbackOrArray) => {
@@ -73,6 +91,7 @@ const mockAssignmentPending = {
   fk_delivery: 1,
   assignment_status: "PENDING",
   assignment_sequence: 1,
+  response_deadline: new Date(Date.now() + 8 * 60 * 1000),
   delivery: { fk_user: 5 },
   order: { fk_store: 10 },
 };
@@ -107,9 +126,11 @@ describe("createAssignmentService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockTx.deliveryAssignments.findFirst.mockReset();
+    mockTx.deliveryAssignments.findMany.mockReset().mockResolvedValue([]);
     mockTx.deliveryAssignments.create.mockReset();
     mockTx.orders.update.mockReset();
     mockTx.deliveries.findFirst.mockReset();
+    mockTx.stores.findUnique.mockReset();
   });
 
   it("lanza error 404 cuando el pedido no existe", async () => {
@@ -131,7 +152,9 @@ describe("createAssignmentService", () => {
 
   it("lanza error 404 cuando no se pasa fk_delivery y no hay deliveries disponibles", async () => {
     prisma.orders.findUnique.mockResolvedValue(mockOrder);
-    prisma.deliveries.findFirst.mockResolvedValue(null);
+    mockTx.deliveryAssignments.findFirst.mockResolvedValue(null);
+    mockTx.deliveries.findFirst.mockResolvedValue(null);
+    mockTx.orders.update.mockResolvedValue({});
 
     await expect(
       createAssignmentService({ fk_order: 1 })
@@ -141,9 +164,11 @@ describe("createAssignmentService", () => {
   it("lanza error 409 cuando ya hay una asignación PENDING para el pedido", async () => {
     prisma.orders.findUnique.mockResolvedValue(mockOrder);
     prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
-    mockTx.deliveryAssignments.findFirst
-      .mockResolvedValueOnce(null) // lastAssignment
-      .mockResolvedValueOnce(mockAssignmentPending); // pendingAssignment
+    mockTx.deliveryAssignments.findFirst.mockResolvedValue({
+      ...mockAssignmentPending,
+      response_deadline: new Date(Date.now() + 8 * 60 * 1000),
+      delivery: { delivery_status: "ACTIVE" },
+    });
 
     await expect(
       createAssignmentService({ fk_order: 1, fk_delivery: 1 })
@@ -152,7 +177,7 @@ describe("createAssignmentService", () => {
 
   it("crea asignación correctamente con fk_delivery explícito", async () => {
     prisma.orders.findUnique.mockResolvedValue(mockOrder);
-    prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
+    mockTx.deliveries.findUnique.mockResolvedValue(mockDelivery);
     mockTx.deliveryAssignments.findFirst
       .mockResolvedValueOnce(null) // lastAssignment
       .mockResolvedValueOnce(null); // pendingAssignment
@@ -180,10 +205,10 @@ describe("createAssignmentService", () => {
 
   it("crea asignación correctamente sin fk_delivery (busca automáticamente)", async () => {
     prisma.orders.findUnique.mockResolvedValue(mockOrder);
-    prisma.deliveries.findFirst.mockResolvedValue(mockDelivery);
+    mockTx.deliveries.findFirst.mockResolvedValue(mockDelivery);
     mockTx.deliveryAssignments.findFirst
-      .mockResolvedValueOnce(null) // lastAssignment
-      .mockResolvedValueOnce(null); // pendingAssignment
+      .mockResolvedValueOnce(null) // pendingAssignment
+      .mockResolvedValueOnce(null); // lastAssignment in createPending
     mockTx.deliveryAssignments.create.mockResolvedValue({
       id_delivery_assignment: 1,
       fk_order: 1,
@@ -224,7 +249,7 @@ describe("respondToAssignmentService", () => {
   });
 
   it("lanza error 404 cuando no hay asignación PENDING para la orden", async () => {
-    prisma.deliveryAssignments.findFirst.mockResolvedValue(null);
+    mockTx.deliveryAssignments.findFirst.mockResolvedValue(null);
 
     await expect(
       respondToAssignmentService(1, 5, "ACCEPT")
@@ -232,9 +257,9 @@ describe("respondToAssignmentService", () => {
   });
 
   it("lanza error 403 cuando el delivery autenticado no es el asignado", async () => {
-    prisma.deliveryAssignments.findFirst.mockResolvedValue({
+    mockTx.deliveryAssignments.findFirst.mockResolvedValue({
       ...mockAssignmentPending,
-      delivery: { fk_user: 99 }, // diferente al autenticado
+      delivery: { fk_user: 99 },
     });
 
     await expect(
@@ -245,7 +270,7 @@ describe("respondToAssignmentService", () => {
   // ─── ACCEPT ────────────────────────────────────────────────────────────────
 
   it("ACCEPT actualiza assignment_status a ACCEPTED y order_status a SHIPPED", async () => {
-    prisma.deliveryAssignments.findFirst.mockResolvedValue(mockAssignmentPending);
+    mockTx.deliveryAssignments.findFirst.mockResolvedValue(mockAssignmentPending);
     mockTx.deliveryAssignments.update.mockResolvedValue({
       ...mockAssignmentPending,
       assignment_status: "ACCEPTED",
@@ -261,7 +286,7 @@ describe("respondToAssignmentService", () => {
     );
     expect(mockTx.orders.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { order_status: "SHIPPED" },
+        data: { order_status: "SHIPPED", delivery_unavailable: false },
       })
     );
     expect(result.assignment_status).toBe("ACCEPTED");
@@ -270,13 +295,19 @@ describe("respondToAssignmentService", () => {
   // ─── REJECT ────────────────────────────────────────────────────────────────
 
   it("REJECT actualiza a REJECTED y asigna el siguiente delivery disponible", async () => {
-    prisma.deliveryAssignments.findFirst.mockResolvedValue(mockAssignmentPending);
-    mockTx.deliveryAssignments.update.mockResolvedValue({
+    const assignmentWithDeadline = {
       ...mockAssignmentPending,
+      response_deadline: new Date(Date.now() + 10 * 60 * 1000),
+    };
+    mockTx.deliveryAssignments.findFirst
+      .mockResolvedValueOnce(assignmentWithDeadline)
+      .mockResolvedValueOnce({ assignment_sequence: 1 });
+    mockTx.deliveryAssignments.update.mockResolvedValue({
+      ...assignmentWithDeadline,
       assignment_status: "REJECTED",
     });
+    mockTx.deliveryAssignments.findMany.mockResolvedValue([{ fk_delivery: 1 }]);
     mockTx.deliveries.findFirst.mockResolvedValue({ id_delivery: 2 });
-    mockTx.deliveryAssignments.findFirst.mockResolvedValue({ assignment_sequence: 1 });
     mockTx.deliveryAssignments.create.mockResolvedValue({
       id_delivery_assignment: 2,
       fk_order: 1,
@@ -284,6 +315,7 @@ describe("respondToAssignmentService", () => {
       assignment_status: "PENDING",
       assignment_sequence: 2,
     });
+    mockTx.orders.update.mockResolvedValue({ id_order: 1 });
 
     const result = await respondToAssignmentService(1, 5, "REJECT");
 
@@ -297,27 +329,38 @@ describe("respondToAssignmentService", () => {
         data: expect.objectContaining({
           fk_delivery: 2,
           assignment_status: "PENDING",
+          response_deadline: expect.any(Date),
         }),
       })
     );
+    expect(result.assignment_status).toBe("PENDING");
   });
 
-  it("REJECT sin deliveries disponibles vuelve order_status a PENDING y lanza error", async () => {
-    prisma.deliveryAssignments.findFirst.mockResolvedValue(mockAssignmentPending);
-    mockTx.deliveryAssignments.update.mockResolvedValue({
+  it("REJECT sin deliveries disponibles marca pedido sin repartidor y responde éxito", async () => {
+    const assignmentWithDeadline = {
       ...mockAssignmentPending,
+      response_deadline: new Date(Date.now() + 10 * 60 * 1000),
+    };
+    mockTx.deliveryAssignments.findFirst.mockResolvedValue(assignmentWithDeadline);
+    mockTx.deliveryAssignments.update.mockResolvedValue({
+      ...assignmentWithDeadline,
       assignment_status: "REJECTED",
     });
+    mockTx.deliveryAssignments.findMany.mockResolvedValue([{ fk_delivery: 1 }]);
     mockTx.deliveries.findFirst.mockResolvedValue(null);
-    mockTx.orders.update.mockResolvedValue({ id_order: 1, order_status: "PENDING" });
+    mockTx.orders.update.mockResolvedValue({ id_order: 1, delivery_unavailable: true });
+    mockTx.stores.findUnique.mockResolvedValue({ fk_user: 99 });
 
-    await expect(
-      respondToAssignmentService(1, 5, "REJECT")
-    ).rejects.toMatchObject({ status: 404, message: /no hay deliveries disponibles/i });
+    const result = await respondToAssignmentService(1, 5, "REJECT");
 
+    expect(result).toMatchObject({
+      assignment_status: "REJECTED",
+      reassigned: false,
+      delivery_unavailable: true,
+    });
     expect(mockTx.orders.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { order_status: "PENDING" },
+        data: { delivery_unavailable: true },
       })
     );
   });
@@ -491,7 +534,7 @@ describe("getDeliveryOrderHistoryService", () => {
     );
   });
 
-  it("sin filtros retorna todos los registros", async () => {
+  it("sin filtros excluye PENDING y EXPIRED del historial", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(mockDeliveryForHistory);
     prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentHistory]);
     prisma.deliveryAssignments.count.mockResolvedValue(1);
@@ -500,16 +543,9 @@ describe("getDeliveryOrderHistoryService", () => {
 
     expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.not.objectContaining({
-          created_at: expect.anything()
-        })
-      })
-    );
-    expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.not.objectContaining({
-          assignment_status: expect.anything()
-        })
+        where: expect.objectContaining({
+          assignment_status: { notIn: ["PENDING", "EXPIRED"] },
+        }),
       })
     );
   });
@@ -518,7 +554,10 @@ describe("getDeliveryOrderHistoryService", () => {
 // ─── getOrderAssignmentsService ───────────────────────────────────────────────
 
 describe("getOrderAssignmentsService", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.deliveryAssignments.findMany.mockResolvedValue([]);
+  });
 
   it("lanza 404 cuando el pedido no existe", async () => {
     prisma.orders.findUnique.mockResolvedValue(null);
@@ -527,7 +566,9 @@ describe("getOrderAssignmentsService", () => {
 
   it("retorna las asignaciones del pedido", async () => {
     prisma.orders.findUnique.mockResolvedValue(mockOrder);
-    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentPending]);
+    prisma.deliveryAssignments.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockAssignmentPending]);
     const result = await getOrderAssignmentsService(1);
     expect(result).toEqual([mockAssignmentPending]);
   });
@@ -536,7 +577,10 @@ describe("getOrderAssignmentsService", () => {
 // ─── getDeliveryAssignmentsService ───────────────────────────────────────────
 
 describe("getDeliveryAssignmentsService", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.deliveryAssignments.findMany.mockResolvedValue([]);
+  });
 
   it("lanza 404 cuando el delivery no existe", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(null);
@@ -545,14 +589,18 @@ describe("getDeliveryAssignmentsService", () => {
 
   it("retorna asignaciones sin filtro de status", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
-    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentPending]);
+    prisma.deliveryAssignments.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockAssignmentPending]);
     const result = await getDeliveryAssignmentsService(1);
     expect(result).toEqual([mockAssignmentPending]);
   });
 
   it("retorna asignaciones filtradas por status", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
-    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentPending]);
+    prisma.deliveryAssignments.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockAssignmentPending]);
     await getDeliveryAssignmentsService(1, "PENDING");
     expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ assignment_status: "PENDING" }) })
@@ -563,7 +611,10 @@ describe("getDeliveryAssignmentsService", () => {
 // ─── getDeliveryPendingAssignmentsService ────────────────────────────────────
 
 describe("getDeliveryPendingAssignmentsService", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.deliveryAssignments.findMany.mockResolvedValue([]);
+  });
 
   it("lanza 404 cuando el delivery no existe", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(null);
@@ -572,7 +623,9 @@ describe("getDeliveryPendingAssignmentsService", () => {
 
   it("retorna las asignaciones pendientes del delivery", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
-    prisma.deliveryAssignments.findMany.mockResolvedValue([mockAssignmentPending]);
+    prisma.deliveryAssignments.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockAssignmentPending]);
     const result = await getDeliveryPendingAssignmentsService(1);
     expect(result).toEqual([mockAssignmentPending]);
     expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
