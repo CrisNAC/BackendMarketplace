@@ -85,7 +85,25 @@ model Stores {
   deliveries          Deliveries[]  //Un comercio puede tener asociado muchos deliveries que trabajan con el mismo
   carts               Carts[]
   order               Orders[]
+  business_hours      StoreBusinessHours[]
   //wishlist_items      WishlistItems[]
+}
+
+//------------------------------------HORARIOS COMERCIO----------------------------------------
+model StoreBusinessHours {
+  id_store_business_hour  Int       @id @default(autoincrement())
+  fk_store                Int
+  day_of_week             Int       // 0=Lunes ... 6=Domingo
+  open_time               String?   @db.VarChar(5)  // HH:mm
+  close_time              String?   @db.VarChar(5)  // HH:mm
+  is_closed               Boolean   @default(true)
+  status                  Boolean   @default(true)
+  created_at              DateTime  @default(now()) @db.Timestamptz
+  updated_at              DateTime  @updatedAt @db.Timestamptz
+
+  store Stores @relation(fields: [fk_store], references: [id_store])
+
+  @@unique([fk_store, day_of_week])
 }
 
 //------------------------------------COMERCIOS-CATEGORIAS----------------------------------------
