@@ -3,63 +3,26 @@ import request from "supertest";
 import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
 
-const {
-  deliveriesMock,
-  deliveryAssignmentsMock,
-  ordersMock,
-  storesMock,
-  notificationsMock,
-  mockTx,
-} = vi.hoisted(() => {
-  const deliveriesMock = {
+const mockPrisma = vi.hoisted(() => ({
+  deliveries: {
     findUnique: vi.fn(),
     update: vi.fn(),
-  };
-
-  const deliveryAssignmentsMock = {
+  },
+  deliveryAssignments: {
     findMany: vi.fn(),
-    findFirst: vi.fn(),
-    update: vi.fn(),
-    create: vi.fn(),
-  };
-
-  const ordersMock = {
-    update: vi.fn(),
+  },
+  stores: {
     findUnique: vi.fn(),
-  };
-
-  const storesMock = {
-    findUnique: vi.fn(),
-  };
-
-  const notificationsMock = {
+  },
+  notifications: {
     create: vi.fn(),
-  };
-
-  return {
-    deliveriesMock,
-    deliveryAssignmentsMock,
-    ordersMock,
-    storesMock,
-    notificationsMock,
-    mockTx: {
-      deliveries: deliveriesMock,
-      deliveryAssignments: deliveryAssignmentsMock,
-      orders: ordersMock,
-      stores: storesMock,
-      notifications: notificationsMock,
-    },
-  };
-});
+  },
+}));
 
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
-    deliveries: deliveriesMock,
-    deliveryAssignments: deliveryAssignmentsMock,
-    orders: ordersMock,
-    stores: storesMock,
-    notifications: notificationsMock,
-    $transaction: vi.fn((callback) => callback(mockTx)),
+    ...mockPrisma,
+    $transaction: vi.fn((callback) => callback(mockPrisma)),
   },
 }));
 
@@ -93,9 +56,9 @@ describe("PATCH /api/deliveries/:id/status", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    deliveryAssignmentsMock.findMany.mockResolvedValue([]);
-    storesMock.findUnique.mockResolvedValue({ fk_user: 1 });
-    notificationsMock.create.mockResolvedValue({
+    mockPrisma.deliveryAssignments.findMany.mockResolvedValue([]);
+    mockPrisma.stores.findUnique.mockResolvedValue({ fk_user: 1 });
+    mockPrisma.notifications.create.mockResolvedValue({
       id_notification: 1,
     });
   });
@@ -178,7 +141,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
   it("devuelve 200 y actualiza el estado correctamente", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
 
-    deliveriesMock.update.mockResolvedValue({
+    prisma.deliveries.update.mockResolvedValue({
       id_delivery: 1,
       delivery_status: "INACTIVE",
       status: true,
