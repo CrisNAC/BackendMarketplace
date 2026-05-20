@@ -71,9 +71,9 @@ export const getCartItemsById = async (req, res, next) => {
       });
     }
     const { cartId } = req.params;
-    const cartItems = await getCartItemsByIdService(req.user.id_user,cartId);
+    const cartItems = await getCartItemsByIdService(req.user.id_user, cartId);
     return res.status(200).json(cartItems);
-  
+
   } catch (error) {
     next(error);
   }

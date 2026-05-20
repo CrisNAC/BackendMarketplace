@@ -123,11 +123,14 @@ describe("OM-489: GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
     prisma.stores.findUnique.mockResolvedValue(mockStore1);
     prisma.orders.findFirst.mockResolvedValue(mockOrder);
     prisma.deliveryAssignments.findFirst.mockResolvedValue(null);
-    // findMany retorna asignaciones activas: delivery 1 tiene PENDING, delivery 2 tiene ACCEPTED
-    prisma.deliveryAssignments.findMany.mockResolvedValue([
-      { fk_delivery: 1, assignment_status: "PENDING" },
-      { fk_delivery: 2, assignment_status: "ACCEPTED" },
-    ]);
+    // Primera llamada: expireStalePendingAssignments (sin vencidos)
+    // Segunda llamada: deliveries ocupados con asignación activa
+    prisma.deliveryAssignments.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { fk_delivery: 1, assignment_status: "PENDING" },
+        { fk_delivery: 2, assignment_status: "ACCEPTED" },
+      ]);
     // Se retornan ambos deliveries, pero el endpoint debe filtrar los con asignaciones activas
     prisma.deliveries.findMany.mockResolvedValue([mockDeliveryActive1, mockDeliveryActive2]);
 

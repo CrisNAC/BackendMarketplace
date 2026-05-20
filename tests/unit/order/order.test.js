@@ -54,7 +54,9 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     },
     deliveryAssignments: {
       findFirst: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
+      update: vi.fn(),
     },
     notifications: {
       create: vi.fn()
@@ -568,9 +570,12 @@ describe("updateOrderStatusService", () => {
     prisma.stores.findFirst.mockResolvedValue({ id_store: 10 });
     prisma.$transaction.mockImplementation(async (fn) =>
       fn({
-        orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "PROCESSING" }) },
+        orders: {
+          update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "PROCESSING" }),
+        },
         deliveries: { findFirst: vi.fn().mockResolvedValue({ id_delivery: 1 }) },
         deliveryAssignments: {
+          findMany: vi.fn().mockResolvedValue([]),
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({}),
         },
@@ -746,9 +751,7 @@ describe("updateOrderStatusService", () => {
     ).rejects.toThrow(ForbiddenError);
   });
 
-  // ─── ASIGNACIÓN AUTOMÁTICA AL CONFIRMAR ──────────────────────────────────────
-
-  it("SELLER al pasar a PROCESSING asigna automáticamente el primer delivery disponible", async () => {
+  it("SELLER al pasar a PROCESSING no crea asignación automática de delivery", async () => {
     prisma.users.findFirst.mockResolvedValue({ role: "SELLER" });
     prisma.orders.findFirst.mockResolvedValue({
       id_order: 100,
@@ -756,6 +759,8 @@ describe("updateOrderStatusService", () => {
       fk_store: 10,
     });
     prisma.stores.findFirst.mockResolvedValue({ id_store: 10 });
+
+    const mockAssignmentCreate = vi.fn();
     prisma.$transaction.mockImplementation(async (fn) => {
       return fn({
         orders: {
@@ -763,61 +768,19 @@ describe("updateOrderStatusService", () => {
             ...mockOrderFromDB,
             order_status: "PROCESSING",
             fk_store: 10,
+            order_items: [],
           }),
-        },
-        deliveries: {
-          findFirst: vi.fn().mockResolvedValue({ id_delivery: 1 }),
         },
         deliveryAssignments: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({
-            id_delivery_assignment: 1,
-            fk_order: 100,
-            fk_delivery: 1,
-            assignment_status: "PENDING",
-            assignment_sequence: 1,
-          }),
+          create: mockAssignmentCreate,
         },
-        notifications: { create: vi.fn().mockResolvedValue({}) },
       });
     });
 
     const result = await updateOrderStatusService(1, 100, "PROCESSING");
 
     expect(result.status).toBe("PROCESSING");
-  });
-
-  it("lanza ValidationError cuando SELLER pasa a PROCESSING y no hay deliveries disponibles", async () => {
-    prisma.users.findFirst.mockResolvedValue({ role: "SELLER" });
-    prisma.orders.findFirst.mockResolvedValue({
-      id_order: 100,
-      order_status: "PENDING",
-      fk_store: 10,
-    });
-    prisma.stores.findFirst.mockResolvedValue({ id_store: 10 });
-    prisma.$transaction.mockImplementation(async (fn) => {
-      return fn({
-        orders: {
-          update: vi.fn().mockResolvedValue({
-            ...mockOrderFromDB,
-            order_status: "PROCESSING",
-            fk_store: 10,
-          }),
-        },
-        deliveries: {
-          findFirst: vi.fn().mockResolvedValue(null),
-        },
-        deliveryAssignments: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn(),
-        },
-        notifications: { create: vi.fn().mockResolvedValue({}) },
-      });
-    });
-
-    await expect(
-      updateOrderStatusService(1, 100, "PROCESSING")
-    ).rejects.toThrow(ValidationError);
+    expect(mockAssignmentCreate).not.toHaveBeenCalled();
   });
 
   it("restaura el stock al cancelar un pedido (SELLER cancela desde PENDING)", async () => {

@@ -50,7 +50,8 @@ const getCartWithItems = async (cartId) => {
               price: true,
               offer_price: true,
               is_offer: true,
-              image_url: true
+              image_url: true,
+              quantity: true
             }
           }
         }
@@ -82,7 +83,8 @@ const mapCartResponse = (cart) => {
           originalPrice: pricing.originalPrice,
           offerPrice: pricing.offerPrice,
           isOffer: pricing.isOffer,
-          imageUrl: item.product.image_url ?? null
+          imageUrl: item.product.image_url ?? null,
+          stock: item.product.quantity
         }
       };
     })
@@ -268,6 +270,7 @@ export const getCartItemsByIdService = async (authenticatedUserId, cartId) => {
           price: true,
           offer_price: true,
           is_offer: true,
+          quantity: true,
           store: {
             select: { name: true }
           }
@@ -288,7 +291,8 @@ export const getCartItemsByIdService = async (authenticatedUserId, cartId) => {
         originalPrice: pricing.originalPrice,
         offerPrice: pricing.offerPrice,
         isOffer: pricing.isOffer,
-        storeName: item.product.store?.name ?? null
+        storeName: item.product.store?.name ?? null,
+        stock: item.product.quantity
       }
     };
   });
