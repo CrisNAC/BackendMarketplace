@@ -3,7 +3,10 @@ import {
     createUserService,
     updateUserPasswordService,
     updateUserService,
-    getUserProfileService
+    getUserProfileService,
+    requestPasswordResetService,
+    validateResetTokenService,
+    resetPasswordService,
 } from "../services/users.services.js";
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -121,3 +124,52 @@ export const getUserProfile = async (req,res) => {
     }
 
 }
+
+export const requestPasswordReset = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: "El email es requerido" });
+        }
+
+        await requestPasswordResetService(email);
+
+        // Respuesta genérica para no revelar si el email existe en el sistema
+        return res.status(200).json({
+            success: true,
+            message: "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.",
+        });
+    } catch (error) {
+        const statusCode = error.statusCode || error.status || 500;
+        return res.status(statusCode).json({ success: false, message: error.message || "Error interno del servidor" });
+    }
+};
+
+export const validateResetToken = async (req, res) => {
+    try {
+        const { token } = req.params;
+        const result = await validateResetTokenService(token);
+        return res.status(200).json({ success: true, ...result });
+    } catch (error) {
+        const statusCode = error.statusCode || error.status || 400;
+        return res.status(statusCode).json({ success: false, message: error.message });
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+
+        if (!token || !newPassword) {
+            return res.status(400).json({ success: false, message: "Token y nueva contraseña son requeridos" });
+        }
+
+        await resetPasswordService(token, newPassword);
+
+        return res.status(200).json({ success: true, message: "Contraseña restablecida exitosamente" });
+    } catch (error) {
+        const statusCode = error.statusCode || error.status || 500;
+        return res.status(statusCode).json({ success: false, message: error.message || "Error interno del servidor" });
+    }
+};

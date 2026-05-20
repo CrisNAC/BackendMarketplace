@@ -13,7 +13,11 @@ vi.mock("../../../src/lib/prisma.js", () => ({
         products: {
             updateMany: vi.fn(),
         },
+        storeBusinessHours: {
+            findMany: vi.fn().mockResolvedValue([]),
+        },
         $transaction: vi.fn(),
+        $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     }
 }));
 

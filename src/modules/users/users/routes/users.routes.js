@@ -5,13 +5,21 @@ import {
     registerUser,
     updateUser,
     updateUserPassword,
-    getUserProfile
+    getUserProfile,
+    requestPasswordReset,
+    validateResetToken,
+    resetPassword,
 } from "../controllers/users.controllers.js";
 
 const router = Router();
 
-// POST /api/users/register
 router.post("/register", registerUser);
+
+// Password reset (sin autenticación)
+router.post("/forgot-password", requestPasswordReset);
+router.get("/validate-reset-token/:token", validateResetToken);
+router.post("/reset-password", resetPassword);
+
 router.put("/:id_user", authenticate, updateUser);
 router.put("/:id_user/password", authenticate, updateUserPassword);
 router.get("/:id_user", authenticate, getUserProfile);

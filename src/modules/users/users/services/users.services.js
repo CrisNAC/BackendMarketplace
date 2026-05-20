@@ -2,6 +2,8 @@
 //users.services.js
 import { prisma } from "../../../../lib/prisma.js";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
+import { sendPasswordResetEmail } from "../../../../lib/email.service.js";
 
 //const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
@@ -407,4 +409,88 @@ const getAuthorizedUserForUpdateService = async (
     }
 
     return user; // sin restricción de rol
+};
+
+const RESET_TOKEN_EXPIRY_MS = 10 * 60 * 1000; // 10 minutos
+
+export const requestPasswordResetService = async (email) => {
+    if (!email || !EMAIL_REGEX.test(email.trim())) {
+        throw { status: 400, message: "El formato del email no es válido" };
+    }
+
+    const user = await prisma.users.findUnique({
+        where: { email: email.trim().toLowerCase() },
+        select: { id_user: true, status: true },
+    });
+
+    // No se retorna nada para no dar info de si el correo existe en la database
+    if (!user || !user.status) return;
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
+
+    await prisma.users.update({
+        where: { id_user: user.id_user },
+        data: {
+            password_reset_token: token,
+            password_reset_token_expires: expires,
+        },
+    });
+
+    await sendPasswordResetEmail(email.trim().toLowerCase(), token);
+};
+
+export const validateResetTokenService = async (token) => {
+    if (!token) {
+        throw { status: 400, message: "Token requerido" };
+    }
+
+    const user = await prisma.users.findFirst({
+        where: {
+            password_reset_token: token,
+            password_reset_token_expires: { gt: new Date() },
+            status: true,
+        },
+        select: { id_user: true },
+    });
+
+    if (!user) {
+        throw { status: 400, message: "El enlace de recuperación no es válido o ha expirado" };
+    }
+
+    return { valid: true };
+};
+
+export const resetPasswordService = async (token, newPassword) => {
+    if (!token) {
+        throw { status: 400, message: "Token requerido" };
+    }
+
+    if (!newPassword || newPassword.trim().length < 8) {
+        throw { status: 400, message: "La nueva contraseña debe tener al menos 8 caracteres" };
+    }
+
+    const user = await prisma.users.findFirst({
+        where: {
+            password_reset_token: token,
+            password_reset_token_expires: { gt: new Date() },
+            status: true,
+        },
+        select: { id_user: true },
+    });
+
+    if (!user) {
+        throw { status: 400, message: "El enlace de recuperación no es válido o ha expirado" };
+    }
+
+    const password_hash = await bcrypt.hash(newPassword.trim(), SALT_ROUNDS);
+
+    await prisma.users.update({
+        where: { id_user: user.id_user },
+        data: {
+            password_hash,
+            password_reset_token: null,
+            password_reset_token_expires: null,
+        },
+    });
 };
