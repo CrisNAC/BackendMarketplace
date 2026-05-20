@@ -6,6 +6,7 @@ import { getProductPricing } from "../../../lib/product-pricing.js";
 import {
   validateStoreCategoriesService
 } from "../store-categories/store-category.service.js";
+import { buildStoreBusinessHoursResponse } from "../business-hours/services/business-hours.services.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALLOWED_LOCAL_LOGO_DIRECTORIES = new Set(["uploads", "storage", "public"]);
@@ -388,6 +389,22 @@ const mapStoreWithPricedProducts = (store) => {
           distance_threshold_km: DISTANCE_THRESHOLD_KM
         }))
       : []
+  };
+};
+
+const enrichStoreWithBusinessHours = async (store) => {
+  if (!store?.id_store) {
+    return store;
+  }
+
+  const businessHours = await buildStoreBusinessHoursResponse(store.id_store);
+
+  return {
+    ...store,
+    business_hours: businessHours.schedules,
+    is_open: businessHours.is_open,
+    open_time: businessHours.open_time,
+    close_time: businessHours.close_time,
   };
 };
 
@@ -1026,7 +1043,8 @@ export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}
         : []
     };
 
-    return mapStoreWithPricedProducts(storeWithCoordinates);
+    const mappedStore = mapStoreWithPricedProducts(storeWithCoordinates);
+    return enrichStoreWithBusinessHours(mappedStore);
 
   } catch (error) {
     if (error.status) {

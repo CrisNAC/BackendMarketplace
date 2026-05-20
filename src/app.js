@@ -9,6 +9,7 @@ import helmet from "helmet";
 
 import storeRoutes from "./modules/commerce/commerces/store.routes.js";
 import commerceAddressRoutes from "./modules/commerce/addresses/routes/addresses.routes.js";
+import commerceBusinessHoursRoutes from "./modules/commerce/business-hours/routes/business-hours.routes.js";
 import { deliveryRouter, storeDeliveryRouter } from "./modules/commerce/deliveries/delivery.routes.js";
 import storeCategoryRoutes from "./modules/commerce/store-categories/store-category.routes.js";
 import productRoutes from "./modules/commerce/products/product.routes.js";
@@ -85,6 +86,7 @@ app.use("/api/commerces/category-requests", categoryRequestRoutes);
 app.use("/api/commerces/categories", storeCategoryRoutes);
 app.use("/api/commerces", storeRoutes);
 app.use("/api/commerces", commerceAddressRoutes);
+app.use("/api/commerces", commerceBusinessHoursRoutes);
 
 // Rutas de delivery
 app.use("/api/deliveries", deliveryRouter);
