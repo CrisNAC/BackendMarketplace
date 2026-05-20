@@ -39,7 +39,13 @@ export const registerDelivery = async (req, res) => {
       sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
     });
 
-    res.status(200).json(result);
+    res.status(200).json({
+      ...result,
+      user: {
+        ...result.user,
+        id_delivery: result.delivery.id_delivery,
+      },
+    });
   } catch (error) {
     if (error instanceof ZodError) {
       return res.status(400).json({
