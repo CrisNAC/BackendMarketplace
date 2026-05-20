@@ -4,12 +4,52 @@ import jwt from "jsonwebtoken";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
 
+const mockTx = {
+  deliveries: {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  },
+  deliveryAssignments: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    update: vi.fn(),
+    create: vi.fn(),
+  },
+  orders: {
+    update: vi.fn(),
+    findUnique: vi.fn(),
+  },
+  stores: {
+    findUnique: vi.fn(),
+  },
+  notifications: {
+    create: vi.fn(),
+  },
+};
+
 vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
     deliveries: {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    deliveryAssignments: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      create: vi.fn(),
+    },
+    orders: {
+      update: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    stores: {
+      findUnique: vi.fn(),
+    },
+    notifications: {
+      create: vi.fn(),
+    },
+    $transaction: vi.fn((callback) => callback(mockTx)),
   },
 }));
 
@@ -45,6 +85,9 @@ const mockDelivery = {
 describe("PATCH /api/deliveries/:id/status", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTx.deliveryAssignments.findMany.mockResolvedValue([]);
+    mockTx.stores.findUnique.mockResolvedValue({ fk_user: 1 });
+    mockTx.notifications.create.mockResolvedValue({ id_notification: 1 });
   });
 
   it("retorna 400 cuando delivery_status no se envía", async () => {
@@ -116,7 +159,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
 
   it("retorna 200 y actualiza el estado a ACTIVE", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
-    prisma.deliveries.update.mockResolvedValue({
+    mockTx.deliveries.update.mockResolvedValue({
       ...mockDelivery,
       delivery_status: "ACTIVE",
       updated_at: new Date("2026-05-04T00:00:00.000Z"),
@@ -137,7 +180,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
         status: true,
       },
     });
-    expect(prisma.deliveries.update).toHaveBeenCalledWith({
+    expect(mockTx.deliveries.update).toHaveBeenCalledWith({
       where: { id_delivery: 1 },
       data: { delivery_status: "ACTIVE" },
     });

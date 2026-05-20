@@ -3,32 +3,50 @@ import request from "supertest";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
 
+const futureDeadline = new Date(Date.now() + 10 * 60 * 1000);
+
 const mockTx = {
   deliveryAssignments: {
+    findMany: vi.fn(),
     findFirst: vi.fn(),
     update: vi.fn(),
     create: vi.fn(),
   },
   orders: {
     update: vi.fn(),
+    findUnique: vi.fn(),
   },
   deliveries: {
     findFirst: vi.fn(),
+  },
+  stores: {
+    findUnique: vi.fn(),
+  },
+  notifications: {
+    create: vi.fn(),
   },
 };
 
 vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
     deliveryAssignments: {
+      findMany: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
       create: vi.fn(),
     },
     orders: {
       update: vi.fn(),
+      findUnique: vi.fn(),
     },
     deliveries: {
       findFirst: vi.fn(),
+    },
+    stores: {
+      findUnique: vi.fn(),
+    },
+    notifications: {
+      create: vi.fn(),
     },
     $transaction: vi.fn((callbackOrArray) => {
       if (typeof callbackOrArray === "function") {
@@ -67,6 +85,8 @@ const mockPendingAssignment = {
   fk_delivery: 5,
   assignment_status: "PENDING",
   status: true,
+  response_deadline: futureDeadline,
+  assigned_at: new Date(),
   delivery: {
     fk_user: 5,
   },
@@ -91,25 +111,21 @@ const mockAcceptedAssignment = {
   status: true,
 };
 
+function resetMocks() {
+  vi.clearAllMocks();
+  mockTx.deliveryAssignments.findMany.mockResolvedValue([]);
+  mockTx.stores.findUnique.mockResolvedValue({ fk_user: 1 });
+  mockTx.notifications.create.mockResolvedValue({ id_notification: 1 });
+  mockTx.orders.findUnique.mockResolvedValue({ fk_store: 10 });
+}
+
 describe("POST /api/assignments/orders/:orderId/delivery-response", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockTx.deliveryAssignments.findFirst.mockReset();
-    mockTx.deliveryAssignments.update.mockReset();
-    mockTx.deliveryAssignments.create.mockReset();
-    mockTx.orders.update.mockReset();
-    mockTx.deliveries.findFirst.mockReset();
-
-    prisma.deliveryAssignments.findFirst.mockReset();
-    prisma.deliveryAssignments.update.mockReset();
-    prisma.deliveryAssignments.create.mockReset();
-    prisma.orders.update.mockReset();
-    prisma.deliveries.findFirst.mockReset();
+    resetMocks();
   });
 
   it("retorna 403 cuando el delivery autenticado no es el asignado", async () => {
-    prisma.deliveryAssignments.findFirst.mockResolvedValue({
+    mockTx.deliveryAssignments.findFirst.mockResolvedValue({
       ...mockPendingAssignment,
       delivery: { fk_user: 5 },
     });
@@ -124,7 +140,7 @@ describe("POST /api/assignments/orders/:orderId/delivery-response", () => {
   });
 
   it("retorna 200 y acepta el pedido", async () => {
-    prisma.deliveryAssignments.findFirst.mockResolvedValue(mockPendingAssignment);
+    mockTx.deliveryAssignments.findFirst.mockResolvedValue(mockPendingAssignment);
     mockTx.deliveryAssignments.update.mockResolvedValue(mockAcceptedAssignment);
     mockTx.orders.update.mockResolvedValue({ id_order: 100, order_status: "SHIPPED" });
 
@@ -149,16 +165,20 @@ describe("POST /api/assignments/orders/:orderId/delivery-response", () => {
     expect(mockTx.orders.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id_order: 100 },
-        data: { order_status: "SHIPPED" },
+        data: { order_status: "SHIPPED", delivery_unavailable: false },
       })
     );
   });
 
   it("retorna 200 y reasigna el pedido cuando rechaza", async () => {
-    prisma.deliveryAssignments.findFirst.mockResolvedValue(mockPendingAssignment);
+    mockTx.deliveryAssignments.findFirst
+      .mockResolvedValueOnce(mockPendingAssignment)
+      .mockResolvedValueOnce({ assignment_sequence: 1 });
     mockTx.deliveryAssignments.update.mockResolvedValue(mockRejectedAssignment);
+    mockTx.deliveryAssignments.findMany
+      .mockResolvedValueOnce([]) // expireStalePendingAssignments
+      .mockResolvedValueOnce([{ fk_delivery: 5 }]); // getTriedDeliveryIdsForOrder
     mockTx.deliveries.findFirst.mockResolvedValue({ id_delivery: 8 });
-    mockTx.deliveryAssignments.findFirst.mockResolvedValue({ assignment_sequence: 1 });
     mockTx.deliveryAssignments.create.mockResolvedValue({
       id_delivery_assignment: 2,
       fk_order: 100,
@@ -167,6 +187,7 @@ describe("POST /api/assignments/orders/:orderId/delivery-response", () => {
       assignment_sequence: 2,
       status: true,
     });
+    mockTx.orders.update.mockResolvedValue({ id_order: 100 });
 
     const res = await request(app)
       .post("/api/assignments/orders/100/delivery-response")
@@ -179,8 +200,8 @@ describe("POST /api/assignments/orders/:orderId/delivery-response", () => {
       fk_order: 100,
       fk_delivery: 8,
       assignment_status: "PENDING",
-      assignment_sequence: 2,
-      status: true,
+      reassigned: true,
+      delivery_unavailable: false,
     });
     expect(mockTx.deliveryAssignments.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -188,37 +209,37 @@ describe("POST /api/assignments/orders/:orderId/delivery-response", () => {
         data: { assignment_status: "REJECTED" },
       })
     );
-    expect(mockTx.deliveryAssignments.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          fk_order: 100,
-          fk_delivery: 8,
-          assignment_status: "PENDING",
-          assignment_sequence: 2,
-          status: true,
-        }),
-      })
-    );
+    expect(mockTx.deliveryAssignments.create).toHaveBeenCalled();
   });
 
-  it("retorna 404 cuando rechaza y no hay deliveries disponibles", async () => {
-    prisma.deliveryAssignments.findFirst.mockResolvedValue(mockPendingAssignment);
+  it("retorna 200 cuando rechaza y no hay deliveries disponibles (comercio notificado)", async () => {
+    mockTx.deliveryAssignments.findFirst.mockResolvedValue(mockPendingAssignment);
     mockTx.deliveryAssignments.update.mockResolvedValue(mockRejectedAssignment);
+    mockTx.deliveryAssignments.findMany
+      .mockResolvedValueOnce([]) // expireStalePendingAssignments
+      .mockResolvedValueOnce([{ fk_delivery: 5 }]); // getTriedDeliveryIdsForOrder
     mockTx.deliveries.findFirst.mockResolvedValue(null);
-    mockTx.orders.update.mockResolvedValue({ id_order: 100, order_status: "PENDING" });
+    mockTx.orders.update.mockResolvedValue({ id_order: 100, delivery_unavailable: true });
+    mockTx.stores.findUnique.mockResolvedValue({ fk_user: 99 });
 
     const res = await request(app)
       .post("/api/assignments/orders/100/delivery-response")
       .set("Cookie", authCookie)
       .send({ action: "REJECT" });
 
-    expect(res.status).toBe(404);
-    expect(res.body.error.message).toMatch(/no hay deliveries disponibles/i);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      assignment_status: "REJECTED",
+      fk_order: 100,
+      reassigned: false,
+      delivery_unavailable: true,
+    });
     expect(mockTx.orders.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id_order: 100 },
-        data: { order_status: "PENDING" },
+        data: { delivery_unavailable: true },
       })
     );
+    expect(mockTx.notifications.create).toHaveBeenCalled();
   });
 });

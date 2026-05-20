@@ -4,12 +4,52 @@ import request from "supertest";
 import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
 
+const mockTx = {
+  deliveries: {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  },
+  deliveryAssignments: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    update: vi.fn(),
+    create: vi.fn(),
+  },
+  orders: {
+    update: vi.fn(),
+    findUnique: vi.fn(),
+  },
+  stores: {
+    findUnique: vi.fn(),
+  },
+  notifications: {
+    create: vi.fn(),
+  },
+};
+
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
     deliveries: {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    deliveryAssignments: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      create: vi.fn(),
+    },
+    orders: {
+      update: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    stores: {
+      findUnique: vi.fn(),
+    },
+    notifications: {
+      create: vi.fn(),
+    },
+    $transaction: vi.fn((callback) => callback(mockTx)),
   },
 }));
 
@@ -35,7 +75,12 @@ const mockDelivery = {
 };
 
 describe("PATCH /api/deliveries/:id/status", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTx.deliveryAssignments.findMany.mockResolvedValue([]);
+    mockTx.stores.findUnique.mockResolvedValue({ fk_user: 1 });
+    mockTx.notifications.create.mockResolvedValue({ id_notification: 1 });
+  });
 
   it("devuelve 400 cuando delivery_status no se envía", async () => {
     const res = await request(app)
@@ -109,7 +154,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
 
   it("devuelve 200 y actualiza el estado correctamente", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
-    prisma.deliveries.update.mockResolvedValue({
+    mockTx.deliveries.update.mockResolvedValue({
       id_delivery: 1,
       delivery_status: "INACTIVE",
       status: true,
