@@ -4,62 +4,62 @@ import request from "supertest";
 import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
 
+const deliveriesMock = {
+  findUnique: vi.fn(),
+  update: vi.fn(),
+};
+
+const deliveryAssignmentsMock = {
+  findMany: vi.fn(),
+  findFirst: vi.fn(),
+  update: vi.fn(),
+  create: vi.fn(),
+};
+
+const ordersMock = {
+  update: vi.fn(),
+  findUnique: vi.fn(),
+};
+
+const storesMock = {
+  findUnique: vi.fn(),
+};
+
+const notificationsMock = {
+  create: vi.fn(),
+};
+
 const mockTx = {
-  deliveries: {
-    findUnique: vi.fn(),
-    update: vi.fn(),
-  },
-  deliveryAssignments: {
-    findMany: vi.fn(),
-    findFirst: vi.fn(),
-    update: vi.fn(),
-    create: vi.fn(),
-  },
-  orders: {
-    update: vi.fn(),
-    findUnique: vi.fn(),
-  },
-  stores: {
-    findUnique: vi.fn(),
-  },
-  notifications: {
-    create: vi.fn(),
-  },
+  deliveries: deliveriesMock,
+  deliveryAssignments: deliveryAssignmentsMock,
+  orders: ordersMock,
+  stores: storesMock,
+  notifications: notificationsMock,
 };
 
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
-    deliveries: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
-    },
-    deliveryAssignments: {
-      findMany: vi.fn(),
-      findFirst: vi.fn(),
-      update: vi.fn(),
-      create: vi.fn(),
-    },
-    orders: {
-      update: vi.fn(),
-      findUnique: vi.fn(),
-    },
-    stores: {
-      findUnique: vi.fn(),
-    },
-    notifications: {
-      create: vi.fn(),
-    },
+    deliveries: deliveriesMock,
+    deliveryAssignments: deliveryAssignmentsMock,
+    orders: ordersMock,
+    stores: storesMock,
+    notifications: notificationsMock,
     $transaction: vi.fn((callback) => callback(mockTx)),
   },
 }));
 
 vi.mock("jsonwebtoken", async () => {
   const actual = await vi.importActual("jsonwebtoken");
+
   return {
     default: {
       ...actual.default,
       verify: vi.fn((token, secret, callback) => {
-        callback(null, { id_user: 10, email: "delivery@test.com", role: "DELIVERY" });
+        callback(null, {
+          id_user: 10,
+          email: "delivery@test.com",
+          role: "DELIVERY",
+        });
       }),
     },
   };
@@ -77,9 +77,12 @@ const mockDelivery = {
 describe("PATCH /api/deliveries/:id/status", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockTx.deliveryAssignments.findMany.mockResolvedValue([]);
-    mockTx.stores.findUnique.mockResolvedValue({ fk_user: 1 });
-    mockTx.notifications.create.mockResolvedValue({ id_notification: 1 });
+
+    deliveryAssignmentsMock.findMany.mockResolvedValue([]);
+    storesMock.findUnique.mockResolvedValue({ fk_user: 1 });
+    notificationsMock.create.mockResolvedValue({
+      id_notification: 1,
+    });
   });
 
   it("devuelve 400 cuando delivery_status no se envía", async () => {
@@ -89,7 +92,9 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/delivery_status es requerido/i);
+    expect(res.body.error.message).toMatch(
+      /delivery_status es requerido/i
+    );
   });
 
   it("devuelve 400 cuando delivery_status es inválido", async () => {
@@ -112,9 +117,16 @@ describe("PATCH /api/deliveries/:id/status", () => {
 
   it("devuelve 403 cuando el rol no es DELIVERY", async () => {
     const jwt = await import("jsonwebtoken");
-    jwt.default.verify.mockImplementationOnce((token, secret, callback) => {
-      callback(null, { id_user: 10, email: "admin@test.com", role: "ADMIN" });
-    });
+
+    jwt.default.verify.mockImplementationOnce(
+      (token, secret, callback) => {
+        callback(null, {
+          id_user: 10,
+          email: "admin@test.com",
+          role: "ADMIN",
+        });
+      }
+    );
 
     const res = await request(app)
       .patch("/api/deliveries/1/status")
@@ -149,12 +161,15 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({ delivery_status: "INACTIVE" });
 
     expect(res.status).toBe(403);
-    expect(res.body.error.message).toMatch(/actualizar este delivery/i);
+    expect(res.body.error.message).toMatch(
+      /actualizar este delivery/i
+    );
   });
 
   it("devuelve 200 y actualiza el estado correctamente", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
-    mockTx.deliveries.update.mockResolvedValue({
+
+    deliveriesMock.update.mockResolvedValue({
       id_delivery: 1,
       delivery_status: "INACTIVE",
       status: true,
@@ -168,6 +183,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.message).toMatch(/actualizado exitosamente/i);
+
     expect(res.body.data).toMatchObject({
       id_delivery: 1,
       delivery_status: "INACTIVE",
