@@ -131,13 +131,15 @@ export const getAdminBannersService = async (filters = {}, pagination = {}) => {
   }
 
   const { page = 1, limit = 20, skip = 0 } = pagination;
+  const safeLimit = Number(limit) > 0 ? Number(limit) : 20;
+  const safeSkip = Number(skip) >= 0 ? Number(skip) : 0;
 
   const [total, banners] = await Promise.all([
     prisma.banners.count({ where }),
     prisma.banners.findMany({
       where,
-      skip,
-      take: limit,
+      skip: safeSkip,
+      take: safeLimit,
       orderBy: [{ start_at: "desc" }, { id_banner: "desc" }],
       select: bannerSelect,
     }),
@@ -148,8 +150,8 @@ export const getAdminBannersService = async (filters = {}, pagination = {}) => {
     pagination: {
       total,
       page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
     },
   };
 };
@@ -211,9 +213,17 @@ export const updateAdminBannerService = async (bannerId, payload = {}) => {
     data.is_active = parseBoolean(payload.isActive, "isActive");
   }
 
-  const updated = await prisma.banners.update({
-    where: { id_banner: id },
+  const { count } = await prisma.banners.updateMany({
+    where: { id_banner: id, status: true },
     data,
+  });
+
+  if (count === 0) {
+    throw new NotFoundError("Banner no encontrado");
+  }
+
+  const updated = await prisma.banners.findUnique({
+    where: { id_banner: id },
     select: bannerSelect,
   });
 
@@ -233,9 +243,17 @@ export const toggleAdminBannerActiveService = async (bannerId, isActive) => {
     throw new NotFoundError("Banner no encontrado");
   }
 
-  const updated = await prisma.banners.update({
-    where: { id_banner: id },
+  const { count } = await prisma.banners.updateMany({
+    where: { id_banner: id, status: true },
     data: { is_active: normalizedActive },
+  });
+
+  if (count === 0) {
+    throw new NotFoundError("Banner no encontrado");
+  }
+
+  const updated = await prisma.banners.findUnique({
+    where: { id_banner: id },
     select: bannerSelect,
   });
 

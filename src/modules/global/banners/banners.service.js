@@ -33,7 +33,7 @@ export const getActiveBannersService = async (filters = {}) => {
   const limit = Math.min(limitRaw, 50);
 
   if (!prisma?.banners?.findMany) {
-    return [];
+    throw new Error("No se pudo obtener banners de la BD, verificar migraciones y prisma generate");
   }
 
   const now = new Date();
