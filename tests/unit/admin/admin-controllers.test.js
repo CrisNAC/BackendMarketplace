@@ -17,6 +17,13 @@ vi.mock("../../../src/modules/admin/users/admin-users.service.js", () => ({
   getUsersAdminService: vi.fn(),
 }));
 
+vi.mock("../../../src/modules/admin/banners/admin-banners.service.js", () => ({
+  createAdminBannerService: vi.fn(),
+  getAdminBannersService: vi.fn(),
+  toggleAdminBannerActiveService: vi.fn(),
+  updateAdminBannerService: vi.fn(),
+}));
+
 import {
   approveStore,
   getPendingStores,
@@ -31,6 +38,13 @@ import {
 import { getUsers as getAdminUsers } from "../../../src/modules/admin/users/admin-users.controller.js";
 
 import {
+  createAdminBanner,
+  getAdminBanners,
+  toggleAdminBannerActive,
+  updateAdminBanner,
+} from "../../../src/modules/admin/banners/admin-banners.controller.js";
+
+import {
   approveStoreService,
   getPendingStoresService,
   rejectStoreService,
@@ -42,6 +56,13 @@ import {
 } from "../../../src/modules/admin/products/admin-products.service.js";
 
 import { getUsersAdminService } from "../../../src/modules/admin/users/admin-users.service.js";
+
+import {
+  createAdminBannerService,
+  getAdminBannersService,
+  toggleAdminBannerActiveService,
+  updateAdminBannerService,
+} from "../../../src/modules/admin/banners/admin-banners.service.js";
 
 const makeCtx = (params = {}, body = {}, query = {}, user = { id_user: 1 }) => {
   const res = {
@@ -197,6 +218,80 @@ describe("getAdminUsers", () => {
     const { req, res, next } = makeCtx();
     getUsersAdminService.mockRejectedValue(new Error("fail"));
     await getAdminUsers(req, res, next);
+    expect(next).toHaveBeenCalled();
+  });
+});
+
+// ─── Admin banners ─────────────────────────────────────────────────────────
+
+describe("createAdminBanner", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("retorna 201 cuando crea el banner", async () => {
+    const { req, res, next } = makeCtx({}, { title: "Campaña" });
+    createAdminBannerService.mockResolvedValue({ id: 1 });
+    await createAdminBanner(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("llama next cuando el servicio falla", async () => {
+    const { req, res, next } = makeCtx({}, { title: "Campaña" });
+    createAdminBannerService.mockRejectedValue(new Error("fail"));
+    await createAdminBanner(req, res, next);
+    expect(next).toHaveBeenCalled();
+  });
+});
+
+describe("getAdminBanners", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("retorna 200 con la lista de banners", async () => {
+    const { req, res, next } = makeCtx({}, {}, { search: "eco" });
+    getAdminBannersService.mockResolvedValue({ data: [], pagination: {} });
+    await getAdminBanners(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it("llama next cuando falla", async () => {
+    const { req, res, next } = makeCtx();
+    getAdminBannersService.mockRejectedValue(new Error("fail"));
+    await getAdminBanners(req, res, next);
+    expect(next).toHaveBeenCalled();
+  });
+});
+
+describe("updateAdminBanner", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("retorna 200 al actualizar", async () => {
+    const { req, res, next } = makeCtx({ id: "1" }, { title: "Nuevo" });
+    updateAdminBannerService.mockResolvedValue({ id: 1 });
+    await updateAdminBanner(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it("llama next cuando falla", async () => {
+    const { req, res, next } = makeCtx({ id: "1" }, { title: "Nuevo" });
+    updateAdminBannerService.mockRejectedValue(new Error("fail"));
+    await updateAdminBanner(req, res, next);
+    expect(next).toHaveBeenCalled();
+  });
+});
+
+describe("toggleAdminBannerActive", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("retorna 200 al activar/desactivar", async () => {
+    const { req, res, next } = makeCtx({ id: "1" }, { isActive: false });
+    toggleAdminBannerActiveService.mockResolvedValue({ id: 1 });
+    await toggleAdminBannerActive(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it("llama next cuando falla", async () => {
+    const { req, res, next } = makeCtx({ id: "1" }, { isActive: false });
+    toggleAdminBannerActiveService.mockRejectedValue(new Error("fail"));
+    await toggleAdminBannerActive(req, res, next);
     expect(next).toHaveBeenCalled();
   });
 });
