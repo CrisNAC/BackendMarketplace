@@ -88,7 +88,14 @@ const sellerCookie = "userToken=seller-token";
 
 describe("E2E OM-522: Timeout → Reasignación", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+
+    prisma.$transaction.mockImplementation((callbackOrArray) => {
+      if (typeof callbackOrArray === "function") {
+        return callbackOrArray(mockTx);
+      }
+      return Promise.all(callbackOrArray.map((operation) => Promise.resolve(operation)));
+    });
 
     // Store ownership
     mockTx.stores.findUnique.mockResolvedValue({ id_store: 10, fk_user: 1, status: true, user: { id_user: 1, status: true } });

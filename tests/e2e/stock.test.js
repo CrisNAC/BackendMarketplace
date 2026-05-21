@@ -232,6 +232,7 @@ describe("POST /api/orders", () => {
 
         expect(res.status).toBe(201);
         expect(res.body).toHaveProperty("id");
+        expect(res.body.id).toBe(500);
         expect(prisma.$transaction).toHaveBeenCalled();
         expect(mockProductsUpdate).toHaveBeenCalled();
 

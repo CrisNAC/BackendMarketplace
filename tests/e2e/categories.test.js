@@ -270,9 +270,8 @@ describe("Icon support: admin create/get/update and commerce request", () => {
     expect(res.body.icon).toBe(newIcon);
   });
 
-  it("Commerce: crear solicitud de categoría con icon y luego aprobarla (admin)", async () => {
+  it("Commerce: crear solicitud de categoría y luego aprobarla (admin)", async () => {
     const now = new Date().toISOString();
-    const iconUrl = "https://cdn.example/req-icon.svg";
 
     // Seller crea la solicitud (solo envía name)
     prisma.categories.findFirst.mockResolvedValue(null);

@@ -22,8 +22,10 @@ vi.mock("../../src/config/jwt.config.js", () => ({
 
     if (cookie === "seller-token") {
       req.user = { id_user: 1, id: 1, email: "seller@test.com", role: "SELLER" };
-    } else {
+    } else if (cookie === "customer-token") {
       req.user = { id_user: 2, id: 2, email: "cust@test.com", role: "CUSTOMER" };
+    } else {
+      return res.status(401).json({ error: { code: 401, message: "No autenticado" } });
     }
 
     next();
