@@ -10,7 +10,7 @@ vi.mock("../../src/lib/prisma.js", () => ({
             update: vi.fn(),
             count: vi.fn()
         },
-        carts: { findFirst: vi.fn(), upsert: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
+        carts: { findFirst: vi.fn(), upsert: vi.fn(), update: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
         cartItems: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), findMany: vi.fn() },
         orders: { create: vi.fn(), findUnique: vi.fn() },
         orderItems: { createMany: vi.fn(), findMany: vi.fn() },
@@ -133,6 +133,59 @@ describe("POST /api/users/:customerId/cart/items", () => {
         expect(res.status).toBe(400);
         expect(res.body).toHaveProperty("error.message");
         expect(String(res.body.error.message).toLowerCase()).toMatch(/stock|insuficiente/);
+    });
+
+    it("Retorna 201 y la respuesta incluye stock en cada item del carrito", async () => {
+        prisma.$transaction.mockImplementation(async (fn) =>
+            fn({
+                products: {
+                    findFirst: vi.fn().mockResolvedValue({
+                        id_product: 20,
+                        fk_store: 2,
+                        quantity: 10,
+                        status: true,
+                        visible: true,
+                        store: { id_store: 2, store_status: "ACTIVE", status: true }
+                    })
+                },
+                carts: { upsert: vi.fn().mockResolvedValue({ id_cart: 5 }) },
+                cartItems: {
+                    findFirst: vi.fn().mockResolvedValue(null),
+                    create: vi.fn().mockResolvedValue({})
+                }
+            })
+        );
+
+        prisma.carts.findUnique.mockResolvedValue({
+            id_cart: 5,
+            fk_store: 2,
+            cart_status: "ACTIVE",
+            store: { id_store: 2, name: "Tienda Test", logo: null },
+            items: [{
+                id_cart_item: 1,
+                quantity: 1,
+                product: {
+                    id_product: 20,
+                    name: "Producto Test",
+                    price: 500,
+                    offer_price: null,
+                    is_offer: false,
+                    image_url: null,
+                    quantity: 10
+                }
+            }]
+        });
+
+        const res = await request(app)
+            .post("/api/users/2/cart/items")
+            .set("Cookie", customerCookie)
+            .send({ productId: 20, quantity: 1 });
+
+        expect(res.status).toBe(201);
+        expect(res.body).toHaveProperty("items");
+        expect(res.body.items[0].product).toHaveProperty("stock");
+        expect(typeof res.body.items[0].product.stock).toBe("number");
+        expect(res.body.items[0].product.stock).toBe(10);
     });
 });
 
@@ -273,5 +326,128 @@ describe("POST /api/orders", () => {
         expect(res.status).toBe(400);
         expect(res.body).toHaveProperty("error.message");
         expect(String(res.body.error.message).toLowerCase()).toMatch(/stock|insuficiente/);
+    });
+});
+
+// GET /api/users/:customerId/carts
+
+describe("GET /api/users/:customerId/carts", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it("Retorna 200 con campo stock en items: positivo para producto con stock y cero para producto agotado", async () => {
+        prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }]);
+
+        prisma.carts.findUnique.mockResolvedValue({
+            id_cart: 1,
+            fk_store: 10,
+            cart_status: "ACTIVE",
+            store: { id_store: 10, name: "Tienda Test", logo: null },
+            items: [
+                {
+                    id_cart_item: 1,
+                    quantity: 2,
+                    product: {
+                        id_product: 1,
+                        name: "Producto con stock",
+                        price: 100,
+                        offer_price: null,
+                        is_offer: false,
+                        image_url: null,
+                        quantity: 5
+                    }
+                },
+                {
+                    id_cart_item: 2,
+                    quantity: 1,
+                    product: {
+                        id_product: 2,
+                        name: "Producto sin stock",
+                        price: 200,
+                        offer_price: null,
+                        is_offer: false,
+                        image_url: null,
+                        quantity: 0
+                    }
+                }
+            ]
+        });
+
+        const res = await request(app)
+            .get("/api/users/2/carts")
+            .set("Cookie", customerCookie);
+
+        expect(res.status).toBe(200);
+        expect(res.body).toHaveProperty("carts");
+        expect(res.body.carts).toHaveLength(1);
+
+        const items = res.body.carts[0].items;
+        expect(items).toHaveLength(2);
+
+        const itemConStock = items.find((i) => i.product.id === 1);
+        expect(itemConStock.product).toHaveProperty("stock");
+        expect(itemConStock.product.stock).toBe(5);
+
+        const itemSinStock = items.find((i) => i.product.id === 2);
+        expect(itemSinStock.product).toHaveProperty("stock");
+        expect(itemSinStock.product.stock).toBe(0);
+    });
+});
+
+// GET /api/users/cart/:cartId/items
+
+describe("GET /api/users/cart/:cartId/items", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it("Retorna 200 con campo stock en items: positivo para producto con stock y cero para producto agotado", async () => {
+        prisma.carts.findFirst.mockResolvedValue({ id_cart: 5 });
+
+        prisma.cartItems.findMany.mockResolvedValue([
+            {
+                id_cart_item: 10,
+                quantity: 3,
+                product: {
+                    id_product: 3,
+                    name: "Producto con stock",
+                    price: 150,
+                    offer_price: null,
+                    is_offer: false,
+                    quantity: 8,
+                    store: { name: "Tienda B" }
+                }
+            },
+            {
+                id_cart_item: 11,
+                quantity: 1,
+                product: {
+                    id_product: 4,
+                    name: "Producto sin stock",
+                    price: 300,
+                    offer_price: null,
+                    is_offer: false,
+                    quantity: 0,
+                    store: { name: "Tienda B" }
+                }
+            }
+        ]);
+
+        const res = await request(app)
+            .get("/api/users/cart/5/items")
+            .set("Cookie", customerCookie);
+
+        expect(res.status).toBe(200);
+        expect(Array.isArray(res.body)).toBe(true);
+        expect(res.body).toHaveLength(2);
+
+        const itemConStock = res.body.find((i) => i.product.id === 3);
+        expect(itemConStock.product).toHaveProperty("stock");
+        expect(itemConStock.product.stock).toBe(8);
+
+        const itemSinStock = res.body.find((i) => i.product.id === 4);
+        expect(itemSinStock.product).toHaveProperty("stock");
+        expect(itemSinStock.product.stock).toBe(0);
     });
 });
