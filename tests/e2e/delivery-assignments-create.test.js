@@ -5,9 +5,16 @@ import { prisma } from "../../src/lib/prisma.js";
 
 const mockTx = {
   deliveryAssignments: {
+    findMany: vi.fn(),
     findFirst: vi.fn(),
     update: vi.fn(),
     create: vi.fn(),
+  },
+  deliveries: {
+    findUnique: vi.fn(),
+  },
+  orders: {
+    update: vi.fn(),
   },
 };
 
@@ -55,9 +62,12 @@ describe("POST /api/assignments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    mockTx.deliveryAssignments.findMany.mockReset();
     mockTx.deliveryAssignments.findFirst.mockReset();
     mockTx.deliveryAssignments.update.mockReset();
     mockTx.deliveryAssignments.create.mockReset();
+    mockTx.deliveries.findUnique.mockReset();
+    mockTx.orders.update.mockReset();
 
     prisma.orders.findUnique.mockReset();
     prisma.deliveries.findUnique.mockReset();
@@ -80,8 +90,9 @@ describe("POST /api/assignments", () => {
       status: true,
     });
 
+    mockTx.deliveryAssignments.findMany.mockResolvedValue([]);
+
     mockTx.deliveryAssignments.findFirst
-      .mockResolvedValueOnce({ assignment_sequence: 1 })
       .mockResolvedValueOnce({
         id_delivery_assignment: 7,
         fk_order: 5,
@@ -89,7 +100,16 @@ describe("POST /api/assignments", () => {
         assignment_status: "PENDING",
         assignment_sequence: 1,
         delivery: { delivery_status: "INACTIVE" },
-      });
+      })
+      .mockResolvedValueOnce({ assignment_sequence: 1 });
+
+    mockTx.deliveries.findUnique.mockResolvedValue({
+      id_delivery: 2,
+      delivery_status: "ACTIVE",
+      status: true,
+    });
+
+    mockTx.orders.update.mockResolvedValue({});
 
     mockTx.deliveryAssignments.update.mockResolvedValue({
       id_delivery_assignment: 7,
