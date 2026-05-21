@@ -55,7 +55,9 @@ import {
   adminCategoryRoutes,
   adminStoresRoutes,
   adminProductsRoutes,
+  adminBannersRoutes,
 } from "./modules/admin/index.js";
+import { bannerRoutes } from "./modules/global/banners/banners.routes.js";
 
 const app = express();
 
@@ -131,9 +133,13 @@ app.use("/api/admin", adminUsersRoutes);
 app.use("/api/admin/categories", adminCategoryRoutes);
 app.use("/api/admin/stores", adminStoresRoutes);
 app.use("/api/admin/products", adminProductsRoutes);
+app.use("/api/admin/banners", adminBannersRoutes);
 
 // Rutas de distancias
 app.use("/api/distances", distanceRoutes);
+
+// Rutas de banners
+app.use("/api/banners", bannerRoutes);
 
 app.use('/products', productImageRoutes)
 app.use('/users', userImageRoutes)
