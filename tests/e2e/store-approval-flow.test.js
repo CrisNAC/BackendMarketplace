@@ -280,3 +280,116 @@ describe("flujo e2e de aprobacion de comercio con rechazo y reenvio", () => {
     ]);
   });
 });
+
+// Validaciones de autorización y estado en el rechazo
+
+describe("validaciones de autorizacion y estado en el endpoint de rechazo", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    store = buildStore();
+    notifications = [];
+    nextNotificationId = 1;
+    setupStatefulPrisma();
+  });
+
+  it("retorna 400 cuando el comercio ya esta SUSPENDED", async () => {
+    store = buildStore({ store_status: "SUSPENDED" });
+
+    const res = await request(app)
+      .patch(`/api/admin/stores/${STORE_ID}/reject`)
+      .set("Cookie", `userToken=${adminToken}`)
+      .send({ reason: "Motivo valido" });
+
+    expect(res.status).toBe(400);
+    expect(notifications).toHaveLength(0);
+  });
+
+  it("retorna 403 cuando el usuario no tiene rol ADMIN", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/stores/${STORE_ID}/reject`)
+      .set("Cookie", `userToken=${sellerToken}`)
+      .send({ reason: "Motivo valido" });
+
+    expect(res.status).toBe(403);
+    expect(notifications).toHaveLength(0);
+  });
+});
+
+//Contenido y acceso a notificaciones de rechazo
+
+describe("contenido y acceso a notificaciones de rechazo", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    store = buildStore();
+    notifications = [];
+    nextNotificationId = 1;
+    setupStatefulPrisma();
+  });
+
+  it("la notificacion de rechazo incluye el motivo en el campo message", async () => {
+    const reason = "Falta documentacion comercial";
+
+    await request(app)
+      .patch(`/api/admin/stores/${STORE_ID}/reject`)
+      .set("Cookie", `userToken=${adminToken}`)
+      .send({ reason });
+
+    const res = await request(app)
+      .get("/api/notifications")
+      .set("Cookie", `userToken=${sellerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.notifications[0].message).toContain(reason);
+  });
+
+  it("retorna 401 al acceder a notificaciones sin autenticacion", async () => {
+    const res = await request(app).get("/api/notifications");
+
+    expect(res.status).toBe(401);
+  });
+});
+
+// Visibilidad de productos durante el flujo de aprobacion
+
+describe("visibilidad de productos durante el flujo de aprobacion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    store = buildStore({ store_status: "SUSPENDED" });
+    notifications = [];
+    nextNotificationId = 1;
+    setupStatefulPrisma();
+  });
+
+  it("oculta productos al reenviar y los hace visibles al aprobar", async () => {
+    // PUT sobre comercio SUSPENDED → productos quedan visible: false
+    const updateRes = await request(app)
+      .put(`/api/commerces/${STORE_ID}`)
+      .set("Cookie", `userToken=${sellerToken}`)
+      .send({ name: "Comercio Actualizado" });
+
+    expect(updateRes.status).toBe(200);
+    expect(prisma.products.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ fk_store: STORE_ID, status: true }),
+        data: { visible: false },
+      })
+    );
+
+    // El mock stateful actualizó store.store_status a INACTIVE; limpiar historial
+    // para que la siguiente asercion solo observe la llamada del approve
+    prisma.products.updateMany.mockClear();
+
+    // PATCH approve → productos quedan visible: true
+    const approveRes = await request(app)
+      .patch(`/api/admin/stores/${STORE_ID}/approve`)
+      .set("Cookie", `userToken=${adminToken}`);
+
+    expect(approveRes.status).toBe(200);
+    expect(prisma.products.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ fk_store: STORE_ID, status: true }),
+        data: { visible: true },
+      })
+    );
+  });
+});
