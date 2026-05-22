@@ -359,6 +359,7 @@ describe("POST /api/users/forgot-password", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe("Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.");
     expect(sendPasswordResetEmail).not.toHaveBeenCalled();
   });
 
@@ -373,6 +374,7 @@ describe("POST /api/users/forgot-password", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe("Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.");
     expect(sendPasswordResetEmail).toHaveBeenCalledWith(
       "usuario@test.com",
       expect.any(String)
