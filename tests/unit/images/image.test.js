@@ -291,6 +291,20 @@ describe("Store Image endpoints", () => {
       expect(res.body).toHaveProperty("logo", LOGO_URL);
     });
 
+    it("permite que el dueÃ±o CUSTOMER suba el logo del comercio reciÃ©n creado", async () => {
+      prisma.stores.findUnique.mockResolvedValue({ ...mockStore, fk_user: 1 });
+      uploadImage.mockResolvedValue(LOGO_URL);
+      prisma.stores.update.mockResolvedValue({ ...mockStore, logo: LOGO_URL });
+
+      const res = await asRole(
+        request(app).post("/stores/1/image").attach("image", fakeFile, "logo.jpg"),
+        "customer"
+      )
+
+      expect(res.status).toBe(201);
+      expect(res.body).toHaveProperty("logo", LOGO_URL);
+    });
+
     it("devuelve 403 cuando un SELLER intenta modificar un comercio ajeno", async () => {
       prisma.stores.findUnique.mockResolvedValue({ ...mockStore, fk_user: 99 });
 

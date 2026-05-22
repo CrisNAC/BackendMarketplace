@@ -3,7 +3,7 @@
 import { Router } from "express";
 import authenticate from "../../../../config/jwt.config.js";
 import { requireRole } from "../../../../middlewares/auth.middleware.js";
-import { ROLES } from "../../../../utils/contants/roles.constant.js";
+import { ROLES } from "../../../../constants/roles.constant.js";
 import { getAvailableDeliveriesForOrder } from "./delivery-assignments.controller.js";
 
 const router = Router();

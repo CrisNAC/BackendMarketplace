@@ -8,8 +8,10 @@ vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
     users: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     addresses: {
       findFirst: vi.fn(),
@@ -27,7 +29,12 @@ vi.mock("bcrypt", () => ({
   },
 }));
 
+vi.mock("../../src/lib/email.service.js", () => ({
+  sendPasswordResetEmail: vi.fn(),
+}));
+
 import bcrypt from "bcrypt";
+import { sendPasswordResetEmail } from "../../src/lib/email.service.js";
 
 const TEST_JWT_SECRET = "test-secret-users";
 
@@ -67,7 +74,7 @@ const mockUpdatedUser = {
   addresses: [],
 };
 
-// ─── POST /api/users/register ─────────────────────────────────────────────────
+// POST /api/users/register
 
 describe("POST /api/users/register", () => {
   beforeEach(() => vi.resetAllMocks());
@@ -132,7 +139,7 @@ describe("POST /api/users/register", () => {
   });
 });
 
-// ─── PUT /api/users/:id_user ──────────────────────────────────────────────────
+// PUT /api/users/:id_user
 
 describe("PUT /api/users/:id_user", () => {
   beforeEach(() => vi.resetAllMocks());
@@ -187,7 +194,7 @@ describe("PUT /api/users/:id_user", () => {
   });
 });
 
-// ─── PUT /api/users/:id_user/password ────────────────────────────────────────
+//PUT /api/users/:id_user/password 
 
 describe("PUT /api/users/:id_user/password", () => {
   beforeEach(() => vi.resetAllMocks());
@@ -250,7 +257,7 @@ describe("PUT /api/users/:id_user/password", () => {
   });
 });
 
-// ─── PUT /api/users/:id_user/addresses/:id_address ───────────────────────────
+// PUT /api/users/:id_user/addresses/:id_address
 
 describe("PUT /api/users/:id_user/addresses/:id_address", () => {
   beforeEach(() => vi.resetAllMocks());
@@ -315,5 +322,166 @@ describe("PUT /api/users/:id_user/addresses/:id_address", () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toHaveProperty("city", "Luque");
+  });
+});
+
+// POST /api/users/forgot-password
+
+describe("POST /api/users/forgot-password", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  //Sin email o email con formato inválido
+  it("devuelve 400 cuando no se envía el campo email", async () => {
+    const res = await request(app)
+      .post("/api/users/forgot-password")
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("devuelve 400 cuando el email tiene formato inválido", async () => {
+    const res = await request(app)
+      .post("/api/users/forgot-password")
+      .send({ email: "no-es-un-email" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  //Respuesta genérica independiente del registro
+  it("devuelve 200 con mensaje genérico y no envía correo cuando el email no está registrado", async () => {
+    prisma.users.findUnique.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post("/api/users/forgot-password")
+      .send({ email: "noexiste@test.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe("Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.");
+    expect(sendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+
+  it("devuelve 200 con mensaje genérico y envía correo cuando el usuario existe y está activo", async () => {
+    prisma.users.findUnique.mockResolvedValue({ id_user: 1, status: true });
+    prisma.users.update.mockResolvedValue({});
+    sendPasswordResetEmail.mockResolvedValue(undefined);
+
+    const res = await request(app)
+      .post("/api/users/forgot-password")
+      .send({ email: "usuario@test.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe("Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.");
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith(
+      "usuario@test.com",
+      expect.any(String)
+    );
+  });
+});
+
+// POST /api/users/validate-reset-token
+
+describe("POST /api/users/validate-reset-token", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  // Token ausente o inválido/expirado
+  it("devuelve 400 cuando no se envía el token", async () => {
+    const res = await request(app)
+      .post("/api/users/validate-reset-token")
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("devuelve 400 cuando el token es inválido o ya expiró", async () => {
+    prisma.users.findFirst.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post("/api/users/validate-reset-token")
+      .send({ token: "tokeninvalido" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/no es válido|expirado/i);
+  });
+
+  // Token válido y vigente
+  it("devuelve 200 con valid: true cuando el token es válido y vigente", async () => {
+    prisma.users.findFirst.mockResolvedValue({ id_user: 1 });
+
+    const res = await request(app)
+      .post("/api/users/validate-reset-token")
+      .send({ token: "tokenvalido123abc" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.valid).toBe(true);
+  });
+});
+
+// POST /api/users/reset-password
+
+describe("POST /api/users/reset-password", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  // Validaciones de entrada
+  it("devuelve 400 cuando no se envía el token", async () => {
+    const res = await request(app)
+      .post("/api/users/reset-password")
+      .send({ newPassword: "nuevaPass123" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("devuelve 400 cuando no se envía newPassword", async () => {
+    const res = await request(app)
+      .post("/api/users/reset-password")
+      .send({ token: "tokenvalido" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("devuelve 400 cuando newPassword tiene menos de 8 caracteres", async () => {
+    const res = await request(app)
+      .post("/api/users/reset-password")
+      .send({ token: "tokenvalido", newPassword: "corta" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/8 caracteres/i);
+  });
+
+  //Token inválido o expirado
+  it("devuelve 400 cuando el token es inválido o ya expiró", async () => {
+    bcrypt.hash.mockResolvedValue("hashed");
+    prisma.users.updateMany.mockResolvedValue({ count: 0 });
+
+    const res = await request(app)
+      .post("/api/users/reset-password")
+      .send({ token: "tokeninvalido", newPassword: "nuevaPass123" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/no es válido|expirado/i);
+  });
+
+  // Restablecimiento exitoso
+  it("devuelve 200 cuando la contraseña se restablece exitosamente", async () => {
+    bcrypt.hash.mockResolvedValue("$2b$10$newhash");
+    prisma.users.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await request(app)
+      .post("/api/users/reset-password")
+      .send({ token: "tokenvalido123abc", newPassword: "nuevaPass123" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toMatch(/restablecida/i);
   });
 });

@@ -9,6 +9,7 @@ import helmet from "helmet";
 
 import storeRoutes from "./modules/commerce/commerces/store.routes.js";
 import commerceAddressRoutes from "./modules/commerce/addresses/routes/addresses.routes.js";
+import commerceBusinessHoursRoutes from "./modules/commerce/business-hours/routes/business-hours.routes.js";
 import { deliveryRouter, storeDeliveryRouter } from "./modules/commerce/deliveries/delivery.routes.js";
 import storeCategoryRoutes from "./modules/commerce/store-categories/store-category.routes.js";
 import productRoutes from "./modules/commerce/products/product.routes.js";
@@ -39,6 +40,8 @@ import { setupSwagger } from "./config/swagger.config.js";
 
 import distanceRoutes from "./modules/global/distances/routes/distance.routes.js";
 
+import notificationRoutes from "./modules/notifications/notification.routes.js";
+
 // Rutas de imágenes
 import { 
   productImageRoutes, 
@@ -52,7 +55,9 @@ import {
   adminCategoryRoutes,
   adminStoresRoutes,
   adminProductsRoutes,
+  adminBannersRoutes,
 } from "./modules/admin/index.js";
+import { bannerRoutes } from "./modules/global/banners/banners.routes.js";
 
 const app = express();
 
@@ -83,6 +88,7 @@ app.use("/api/commerces/category-requests", categoryRequestRoutes);
 app.use("/api/commerces/categories", storeCategoryRoutes);
 app.use("/api/commerces", storeRoutes);
 app.use("/api/commerces", commerceAddressRoutes);
+app.use("/api/commerces", commerceBusinessHoursRoutes);
 
 // Rutas de delivery
 app.use("/api/deliveries", deliveryRouter);
@@ -111,6 +117,9 @@ app.use("/api/users", cartRoutes);
 app.use("/api/users", userOrderRouter);
 app.use('/api/session', sessionRoutes);
 
+// Rutas de notificaciones
+app.use('/api/notifications', notificationRoutes);
+
 // Rutas de deliveries
 app.use("/api/deliveries", deliveryRoutes);
 app.use("/api/assignments", assignmentRoutes);
@@ -124,9 +133,13 @@ app.use("/api/admin", adminUsersRoutes);
 app.use("/api/admin/categories", adminCategoryRoutes);
 app.use("/api/admin/stores", adminStoresRoutes);
 app.use("/api/admin/products", adminProductsRoutes);
+app.use("/api/admin/banners", adminBannersRoutes);
 
 // Rutas de distancias
 app.use("/api/distances", distanceRoutes);
+
+// Rutas de banners
+app.use("/api/banners", bannerRoutes);
 
 app.use('/products', productImageRoutes)
 app.use('/users', userImageRoutes)

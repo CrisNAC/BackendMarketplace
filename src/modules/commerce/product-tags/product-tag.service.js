@@ -1,3 +1,4 @@
+//product-tag.service.js
 import { prisma } from "../../../lib/prisma.js";
 
 const MAX_TAGS_PER_PRODUCT = 10;

@@ -72,7 +72,7 @@ describe("deleteProductService", () => {
     id_user: 1,
     role: "SELLER",
     status: true,
-    store: { id_store: 5, status: true },
+    store: { id_store: 5, status: true, store_status: "ACTIVE" },
   };
 
   const mockProduct = { id_product: 10, fk_store: 5, status: true };

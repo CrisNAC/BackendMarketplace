@@ -45,6 +45,11 @@ const mockDeletedStore = {
   status: false,
 };
 
+const mockSuspendedStore = {
+  ...mockInactiveStore,
+  store_status: "SUSPENDED",
+};
+
 const mockPagination = { page: 1, limit: 10, skip: 0 };
 
 // ─── approveStoreService ─────────────────────────────────────────────────────
@@ -91,6 +96,15 @@ describe("approveStoreService", () => {
     });
   });
 
+  it("lanza error 400 cuando el comercio fue rechazado y no se reenvio", async () => {
+    prisma.stores.findUnique.mockResolvedValue(mockSuspendedStore);
+
+    await expect(approveStoreService(1)).rejects.toMatchObject({
+      status: 400,
+      message: "El comercio no esta pendiente de aprobacion"
+    });
+  });
+
   it("lanza error 400 cuando el ID es inválido", async () => {
     await expect(approveStoreService("abc")).rejects.toMatchObject({
       status: 400,
@@ -116,9 +130,9 @@ describe("approveStoreService", () => {
 
     await approveStoreService(1);
 
-    // Verificar que $transaction fue llamada con los dos updates
+    // Verificar que $transaction fue llamada con los updates y la notificacion
     const transactionArgs = prisma.$transaction.mock.calls[0][0];
-    expect(transactionArgs).toHaveLength(2);
+    expect(transactionArgs).toHaveLength(3);
   });
 });
 
@@ -135,12 +149,12 @@ describe("getPendingStoresService", () => {
         email: "tiendaa@test.com",
         phone: "123456",
         description: "Una tienda",
-        logo: null,
+        logo: "https://example.supabase.co/storage/v1/object/public/store-logos/1/logo.jpg",
         store_status: "INACTIVE",
         status: true,
         created_at: new Date("2024-01-15"),
         user: { id_user: 1, name: "Juan", email: "juan@test.com" },
-        store_category: { id_store_category: 1, name: "Tecnología" }
+        store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Tecnología", status: true } }]
       }
     ];
 
@@ -151,6 +165,7 @@ describe("getPendingStoresService", () => {
 
     expect(result.data).toHaveLength(1);
     expect(result.data[0].store_status).toBe("INACTIVE");
+    expect(result.data[0].logo).toBe("https://example.supabase.co/storage/v1/object/public/store-logos/1/logo.jpg");
     expect(result.pagination).toMatchObject({
       total: 1,
       page: 1,
@@ -250,6 +265,12 @@ describe("rejectStoreService", () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     const txArgs = prisma.$transaction.mock.calls[0][0];
     expect(txArgs).toHaveLength(2);
+    expect(prisma.notifications.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        fk_user: 10,
+        reference_id: 1
+      })
+    });
     expect(result.store_status).toBe("SUSPENDED");
   });
 });

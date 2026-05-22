@@ -1,3 +1,4 @@
+//product.service.js
 import { prisma } from "../../../lib/prisma.js";
 import {
   getEffectiveProductPrice,
@@ -5,7 +6,10 @@ import {
   getOriginalProductPrice,
   getProductPricing
 } from "../../../lib/product-pricing.js";
-import { validateProductCategoryService } from "../../global/categories/product-categories/product-category.service.js";
+import {
+  validateProductCategoriesService,
+  validateProductCategoryService
+} from "../../global/categories/product-categories/product-category.service.js";
 import {
   parseProductTagIdsService,
   validateProductTagsService
@@ -25,18 +29,23 @@ const PRODUCT_RESPONSE_SELECT = {
   price: true,
   offer_price: true,
   quantity: true,
-  fk_product_category: true,
   fk_store: true,
   visible: true,
   is_offer: true,
-  image_url: true, 
+  image_url: true,
   created_at: true,
   updated_at: true,
-  product_category: {
+  product_categories: {
+    where: { status: true },
+    orderBy: { fk_category: "asc" },
     select: {
-      id_product_category: true,
-      name: true,
-      status: true
+      category: {
+        select: {
+          id_category: true,
+          name: true,
+          status: true
+        }
+      }
     }
   },
   store: {
@@ -229,6 +238,39 @@ const parseCategoryField = async (value) => {
   return categoryId;
 };
 
+const normalizeProductCategoryIds = (payload) => {
+  const rawCategoryIds = Array.isArray(payload)
+    ? payload
+    : payload !== undefined && payload !== null && payload !== ""
+      ? [payload]
+      : [];
+
+  const normalizedCategoryIds = [...new Set(
+    rawCategoryIds
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value > 0)
+  )];
+
+  if (normalizedCategoryIds.length === 0) {
+    throw { status: 400, message: "Debes enviar al menos una categoría de producto" };
+  }
+
+  return normalizedCategoryIds;
+};
+
+const parseProductCategoryIds = async (payload) => {
+  const categoryIdsRaw =
+    payload?.categoryIds ??
+    payload?.category_ids ??
+    payload?.categoryId ??
+    payload?.category_id;
+
+  const normalizedCategoryIds = normalizeProductCategoryIds(categoryIdsRaw);
+  const validatedCategoryIds = await validateProductCategoriesService(normalizedCategoryIds);
+
+  return validatedCategoryIds;
+};
+
 const parseVisibilityOverride = (payload) => {
   if (payload?.visible !== undefined && payload?.visible !== null && payload?.visible !== "") {
     if (typeof payload.visible === "boolean") {
@@ -315,25 +357,28 @@ const mapProductResponse = (product) => {
   const ratings = product.product_reviews?.map(r => r.rating).filter(r => r !== null) || [];
   const lifecycleStatus = product.visible ? "active" : "pending";
   const pricing = getProductPricing(product);
+  const categories = Array.isArray(product.product_categories)
+    ? product.product_categories
+      .map((relation) => relation?.category)
+      .filter((category) => category && Number.isInteger(category.id_category) && category.name)
+    : [];
 
   return {
     id: product.id_product,
     name: product.name,
     description: product.description,
-    imageUrl: product.image_url ?? null,  
+    imageUrl: product.image_url ?? null,
     price: pricing.price,
     originalPrice: pricing.originalPrice,
     offerPrice: pricing.offerPrice,
     isOffer: pricing.isOffer,
     quantity: product.quantity,
-    categoryId: product.fk_product_category,
-    category: product.product_category
-      ? {
-          id: product.product_category.id_product_category,
-          name: product.product_category.name,
-          status: product.product_category.status
-        }
-      : null,
+    categoryId: categories[0]?.id_category ?? null,
+    categories: categories.map((category) => ({
+      id: category.id_category,
+      name: category.name,
+      status: category.status
+    })),
     tags:
       product.product_tag_relations?.map((relation) => ({
         id: relation.product_tag.id_product_tag,
@@ -374,7 +419,8 @@ const getAuthenticatedSellerStore = async (authenticatedUserId) => {
       store: {
         select: {
           id_store: true,
-          status: true
+          status: true,
+          store_status: true
         }
       }
     }
@@ -390,6 +436,10 @@ const getAuthenticatedSellerStore = async (authenticatedUserId) => {
 
   if (!seller.store || !seller.store.status) {
     throw { status: 404, message: "El vendedor no tiene un comercio activo" };
+  }
+
+  if (seller.store.store_status != null && seller.store.store_status !== "ACTIVE") {
+    throw { status: 403, message: "Tu comercio debe estar aprobado (ACTIVE) para gestionar productos." };
   }
 
   return seller.store.id_store;
@@ -436,7 +486,10 @@ const getProductResponseByIdService = async (
 const buildCreateProductData = async (payload) => {
   const name = validateRequiredStringField(payload?.name, "name", 100);
   const price = validatePriceField(payload?.price);
-  const categoryId = await parseCategoryField(payload?.categoryId);
+  const categoryIds = await parseProductCategoryIds(payload);
+  if (payload?.quantity === undefined || payload?.quantity === null || payload?.quantity === "") {
+    throw { status: 400, message: "quantity es requerido" };
+  }
   const quantity = parseQuantityField(payload?.quantity);
   const description = normalizeOptionalStringField(payload?.description) ?? null;
   const visibilityOverride = parseVisibilityOverride({ visible: payload?.visible });
@@ -451,10 +504,10 @@ const buildCreateProductData = async (payload) => {
       description,
       price,
       offer_price,
-      quantity: quantity ?? null,
-      fk_product_category: categoryId,
+      quantity,
       is_offer
     },
+    categoryIds,
     tagIds,
     visibilityOverride
   };
@@ -462,6 +515,7 @@ const buildCreateProductData = async (payload) => {
 
 const buildUpdateProductData = async (payload, existingProduct) => {
   const dataToUpdate = {};
+  let nextCategoryIds;
   const hasOfferFields =
     hasOwnProperty(payload, "isOffer") ||
     hasOwnProperty(payload, "is_offer") ||
@@ -480,8 +534,14 @@ const buildUpdateProductData = async (payload, existingProduct) => {
     dataToUpdate.price = validatePriceField(payload.price);
   }
 
-  if (payload?.categoryId !== undefined) {
-    dataToUpdate.fk_product_category = await parseCategoryField(payload.categoryId);
+  const categoryPayloadProvided =
+    payload?.categoryIds !== undefined ||
+    payload?.category_ids !== undefined ||
+    payload?.categoryId !== undefined ||
+    payload?.category_id !== undefined;
+
+  if (categoryPayloadProvided) {
+    nextCategoryIds = await parseProductCategoryIds(payload);
   }
 
   if (payload?.quantity !== undefined) {
@@ -514,8 +574,25 @@ const buildUpdateProductData = async (payload, existingProduct) => {
 
   return {
     dataToUpdate,
+    nextCategoryIds,
     nextTagIds
   };
+};
+
+const syncProductCategoriesService = async (tx, productId, nextCategoryIds) => {
+  await tx.productCategories.deleteMany({
+    where: { fk_product: productId }
+  });
+
+  if (nextCategoryIds.length) {
+    await tx.productCategories.createMany({
+      data: nextCategoryIds.map((categoryId) => ({
+        fk_product: productId,
+        fk_category: categoryId,
+        status: true
+      }))
+    });
+  }
 };
 
 const syncProductTagsService = async (tx, productId, nextTagIds) => {
@@ -601,7 +678,7 @@ const syncProductTagsService = async (tx, productId, nextTagIds) => {
 
 export const createProductService = async (authenticatedUserId, payload) => {
   const commerceId = await getAuthenticatedSellerStore(authenticatedUserId);
-  const { data, tagIds, visibilityOverride } = await buildCreateProductData(payload);
+  const { data, categoryIds, tagIds, visibilityOverride } = await buildCreateProductData(payload);
 
   const initialLifecycleStatus = resolveInitialProductStatus();
   const initialVisibility =
@@ -617,6 +694,16 @@ export const createProductService = async (authenticatedUserId, payload) => {
       },
       select: { id_product: true }
     });
+
+    if (categoryIds.length) {
+      await tx.productCategories.createMany({
+        data: categoryIds.map((categoryId) => ({
+          fk_product: product.id_product,
+          fk_category: categoryId,
+          status: true
+        }))
+      });
+    }
 
     if (tagIds.length) {
       await tx.productTagRelations.createMany({
@@ -652,6 +739,7 @@ export const updateProductService = async (
 
   const {
     dataToUpdate,
+    nextCategoryIds,
     nextTagIds
   } = await buildUpdateProductData(payload, existingProduct);
 
@@ -663,6 +751,10 @@ export const updateProductService = async (
         },
         data: dataToUpdate
       });
+    }
+
+    if (nextCategoryIds !== undefined) {
+      await syncProductCategoriesService(tx, existingProduct.id_product, nextCategoryIds);
     }
 
     if (nextTagIds !== undefined) {
@@ -681,9 +773,9 @@ export const updateProductService = async (
 
 export const getProductsSearchService = async (filters) => {
   const search = filters.search?.toString().trim();
-  const categoryIdRaw = filters.categoryId ?? filters.category_id ?? filters.fk_product_category;
+  const categoryIdRaw = filters.categoryId ?? filters.category_id;
   const isOfferRaw = filters.isOffer ?? filters.is_offer;
-  
+
   //Paginacion
   const page = sanitizePaginationValue(filters.page, DEFAULT_PRODUCTS_PAGE);
   const requestedLimit = sanitizePaginationValue(
@@ -695,7 +787,7 @@ export const getProductsSearchService = async (filters) => {
 
   const where = { status: true, visible: true };
 
-  let orderBy = {id_product: 'desc'}; // orden por defecto
+  let orderBy = { id_product: 'desc' }; // orden por defecto
 
   // filtro por categoria (id de ProductCategories)
   if (categoryIdRaw !== undefined && categoryIdRaw !== null && String(categoryIdRaw).trim() !== "") {
@@ -703,7 +795,12 @@ export const getProductsSearchService = async (filters) => {
     if (!Number.isInteger(categoryId) || categoryId <= 0) {
       throw { status: 400, message: "categoryId debe ser un entero mayor a 0" };
     }
-    where.fk_product_category = categoryId;
+    where.product_categories = {
+      some: {
+        fk_category: categoryId,
+        status: true
+      }
+    };
   }
 
   if (isOfferRaw !== undefined && isOfferRaw !== null && String(isOfferRaw).trim() !== "") {
@@ -711,27 +808,27 @@ export const getProductsSearchService = async (filters) => {
   }
   // Después del bloque de isOffer, antes del bloque de search:
 
-if (filters.minPrice !== undefined && filters.minPrice !== null && String(filters.minPrice).trim() !== "") {
-  const minPrice = Number(filters.minPrice);
-  if (!Number.isFinite(minPrice) || minPrice <= 0) {
-    throw { status: 400, message: "minPrice debe ser un número mayor a 0" };
+  if (filters.minPrice !== undefined && filters.minPrice !== null && String(filters.minPrice).trim() !== "") {
+    const minPrice = Number(filters.minPrice);
+    if (!Number.isFinite(minPrice) || minPrice <= 0) {
+      throw { status: 400, message: "minPrice debe ser un número mayor a 0" };
+    }
+    where.price = { ...where.price, gte: minPrice };
   }
-  where.price = { ...where.price, gte: minPrice };
-}
 
-if (filters.maxPrice !== undefined && filters.maxPrice !== null && String(filters.maxPrice).trim() !== "") {
-  const maxPrice = Number(filters.maxPrice);
-  if (!Number.isFinite(maxPrice) || maxPrice <= 0) {
-    throw { status: 400, message: "maxPrice debe ser un número mayor a 0" };
+  if (filters.maxPrice !== undefined && filters.maxPrice !== null && String(filters.maxPrice).trim() !== "") {
+    const maxPrice = Number(filters.maxPrice);
+    if (!Number.isFinite(maxPrice) || maxPrice <= 0) {
+      throw { status: 400, message: "maxPrice debe ser un número mayor a 0" };
+    }
+    where.price = { ...where.price, lte: maxPrice };
   }
-  where.price = { ...where.price, lte: maxPrice };
-}
 
-if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
-  if (where.price.gte > where.price.lte) {
-    throw { status: 400, message: "minPrice no puede ser mayor que maxPrice" };
+  if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
+    if (where.price.gte > where.price.lte) {
+      throw { status: 400, message: "minPrice no puede ser mayor que maxPrice" };
+    }
   }
-}
 
   //si se le pasa un search, se busca en name y description
   if (search) {
@@ -752,12 +849,12 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
     // cambia el orden, solo si se busca o filtra por algun parametro
     orderBy = safeSearch
       ? {
-          _relevance: {
-            fields: ["name"],
-            search: safeSearch,
-            sort: "desc"
-          }
+        _relevance: {
+          fields: ["name"],
+          search: safeSearch,
+          sort: "desc"
         }
+      }
       : orderBy;
   }
 
@@ -776,11 +873,23 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
         offer_price: true,
         is_offer: true,
         image_url: true,
+        product_categories: {
+          where: { status: true },
+          select: {
+            category: {
+              select: {
+                id_category: true,
+                name: true,
+                status: true
+              }
+            }
+          }
+        },
         store: {
           select: {
             id_store: true,
             name: true,
-            logo: true 
+            logo: true
           }
         }
       }
@@ -792,17 +901,25 @@ if (where.price?.gte !== undefined && where.price?.lte !== undefined) {
       id_product: product.id_product,
       name: product.name,
       description: product.description,
-      image_url: product.image_url ?? null, 
+      image_url: product.image_url ?? null,
       price: getEffectiveProductPrice(product),
       original_price: getOriginalProductPrice(product),
       offer_price: getOfferProductPrice(product),
       is_offer: Boolean(product.is_offer),
+      categories: product.product_categories
+        ?.map((relation) => relation.category)
+        .filter((category) => category)
+        .map((category) => ({
+          id: category.id_category,
+          name: category.name,
+          status: category.status
+        })) ?? [],
       store: product.store
         ? {
-            id_store: product.store.id_store,
-            name: product.store.name,
-            logo: product.store.logo ?? null 
-          }
+          id_store: product.store.id_store,
+          name: product.store.name,
+          logo: product.store.logo ?? null
+        }
         : null
     })),
     pagination: {
@@ -872,7 +989,17 @@ export const filterProductsService = async (filters, pagination) => {
   }
 
   if (categoryId !== undefined && categoryId !== null) {
-    whereConditions.fk_product_category = Number(categoryId);
+    const parsedCategoryId = Number(categoryId);
+    if (!Number.isInteger(parsedCategoryId) || parsedCategoryId <= 0) {
+      throw { status: 400, message: "categoryId debe ser un entero mayor a 0" };
+    }
+
+    whereConditions.product_categories = {
+      some: {
+        fk_category: parsedCategoryId,
+        status: true
+      }
+    };
   }
 
   if (isOffer !== undefined && isOffer !== null) {
@@ -921,8 +1048,13 @@ export const filterProductsService = async (filters, pagination) => {
         offer_price: true,
         is_offer: true,
         quantity: true,
-        product_category: {
-          select: { id_product_category: true, name: true }
+        product_categories: {
+          where: { status: true },
+          select: {
+            category: {
+              select: { id_category: true, name: true, status: true }
+            }
+          }
         },
         store: {
           select: { id_store: true, name: true }
@@ -941,11 +1073,67 @@ export const filterProductsService = async (filters, pagination) => {
       offer_price: getOfferProductPrice(product),
       is_offer: Boolean(product.is_offer),
       quantity: product.quantity,
-      category: product.product_category ?? null,
+      categories: product.product_categories
+        ?.map((relation) => relation.category)
+        .filter((category) => category)
+        .map((category) => ({
+          id: category.id_category,
+          name: category.name,
+          status: category.status
+        })) ?? [],
       store: product.store
         ? { id_store: product.store.id_store, name: product.store.name }
         : null
     })),
     totalProducts
   };
+};
+
+export const getRelatedProductsService = async (productId, limit = 8) => {
+  const resolvedProductId = parsePositiveInteger(productId, "ID de producto");
+  const resolvedLimit = Math.min(Math.max(1, Number(limit) || 8), 20);
+
+  // Obtener el producto actual para extraer sus categorías
+  const currentProduct = await prisma.products.findUnique({
+    where: { id_product: resolvedProductId },
+    select: {
+      id_product: true,
+      product_categories: {
+        where: { status: true },
+        select: { fk_category: true }
+      }
+    }
+  });
+
+  if (!currentProduct) {
+    throw { status: 404, message: "Producto no encontrado" };
+  }
+
+  // Extraer IDs de categorías
+  const categoryIds = currentProduct.product_categories.map((pc) => pc.fk_category);
+
+  if (categoryIds.length === 0) {
+    // Si no tiene categorías, retornar array vacío
+    return [];
+  }
+
+  // Buscar productos de las mismas categorías, excluyendo el actual
+  const relatedProducts = await prisma.products.findMany({
+    where: {
+      id_product: { not: resolvedProductId },
+      status: true,
+      visible: true,
+      product_categories: {
+        some: {
+          fk_category: { in: categoryIds },
+          status: true
+        }
+      }
+    },
+    select: PRODUCT_RESPONSE_SELECT,
+    orderBy: { created_at: "desc" },
+    take: resolvedLimit
+  });
+
+  return relatedProducts.map(mapProductResponse);
 };

@@ -33,8 +33,12 @@ vi.mock("../../../src/lib/prisma.js", () => ({
       count: vi.fn(),
       update: vi.fn(),
     },
+    products: {
+      update: vi.fn(),
+    },
     orderItems: {
       createMany: vi.fn(),
+      findMany: vi.fn(), // ← agregar findMany
     },
     stores: {
       findFirst: vi.fn(),
@@ -50,7 +54,12 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     },
     deliveryAssignments: {
       findFirst: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
+      update: vi.fn(),
+    },
+    notifications: {
+      create: vi.fn()
     },
     $transaction: vi.fn(),
   },
@@ -65,6 +74,7 @@ const mockProductNormal = {
   is_offer: false,
   status: true,
   visible: true,
+  quantity: 10,
 };
 
 const mockProductOffer = {
@@ -74,6 +84,7 @@ const mockProductOffer = {
   is_offer: true,
   status: true,
   visible: true,
+  quantity: 10,
 };
 
 const mockProductUnavailable = {
@@ -251,6 +262,9 @@ describe("createOrderService", () => {
     prisma.orderItems.createMany.mockResolvedValue({});
     prisma.carts.update.mockResolvedValue({});
     prisma.orders.findUnique.mockResolvedValue(mockOrderFromDB);
+    prisma.notifications.create.mockResolvedValue({});
+    prisma.products.update.mockResolvedValue({});
+    prisma.orderItems.findMany.mockResolvedValue([]);
 
     const result = await createOrderService(1, {
       cartId: 1,
@@ -275,6 +289,9 @@ describe("createOrderService", () => {
     prisma.orderItems.createMany.mockResolvedValue({});
     prisma.carts.update.mockResolvedValue({});
     prisma.orders.findUnique.mockResolvedValue(mockOrderFromDB);
+    prisma.notifications.create.mockResolvedValue({});
+    prisma.products.update.mockResolvedValue({});
+    prisma.orderItems.findMany.mockResolvedValue([]);
 
     const result = await createOrderService(1, {
       cartId: 1,
@@ -299,6 +316,9 @@ describe("createOrderService", () => {
     prisma.orderItems.createMany.mockResolvedValue({});
     prisma.carts.update.mockResolvedValue({});
     prisma.orders.findUnique.mockResolvedValue(mockOrderFromDB);
+    prisma.notifications.create.mockResolvedValue({});
+    prisma.products.update.mockResolvedValue({});
+    prisma.orderItems.findMany.mockResolvedValue([]);
 
     await createOrderService(1, { cartId: 1, addressId: null, notes: null, total: 300 });
 
@@ -323,6 +343,9 @@ describe("createOrderService", () => {
     prisma.orderItems.createMany.mockResolvedValue({});
     prisma.carts.update.mockResolvedValue({});
     prisma.orders.findUnique.mockResolvedValue(mockOrderFromDB);
+    prisma.notifications.create.mockResolvedValue({});
+    prisma.products.update.mockResolvedValue({});
+    prisma.orderItems.findMany.mockResolvedValue([]);
 
     await createOrderService(1, { cartId: 1, addressId: null, notes: null });
 
@@ -340,6 +363,23 @@ describe("createOrderService", () => {
   it("lanza ValidationError cuando cartId no es un entero positivo", async () => {
     await expect(
       createOrderService(1, { cartId: -1, addressId: null, notes: null })
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it("lanza ValidationError cuando un producto no tiene stock suficiente", async () => {
+    prisma.carts.findFirst.mockResolvedValue({
+      ...mockCart,
+      items: [
+        {
+          fk_product: 1,
+          quantity: 15, // pide más de lo disponible
+          product: { ...mockProductNormal, quantity: 10 },
+        },
+      ],
+    });
+
+    await expect(
+      createOrderService(1, { cartId: 1, addressId: null, notes: null })
     ).rejects.toThrow(ValidationError);
   });
 });
@@ -530,12 +570,16 @@ describe("updateOrderStatusService", () => {
     prisma.stores.findFirst.mockResolvedValue({ id_store: 10 });
     prisma.$transaction.mockImplementation(async (fn) =>
       fn({
-        orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "PROCESSING" }) },
+        orders: {
+          update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "PROCESSING" }),
+        },
         deliveries: { findFirst: vi.fn().mockResolvedValue({ id_delivery: 1 }) },
         deliveryAssignments: {
+          findMany: vi.fn().mockResolvedValue([]),
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({}),
         },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       })
     );
 
@@ -556,6 +600,9 @@ describe("updateOrderStatusService", () => {
         orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "CANCELLED" }) },
         deliveries: { findFirst: vi.fn() },
         deliveryAssignments: { findFirst: vi.fn(), create: vi.fn() },
+        orderItems: { findMany: vi.fn().mockResolvedValue([]) },
+        products: { update: vi.fn().mockResolvedValue({}) },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       })
     );
 
@@ -576,6 +623,7 @@ describe("updateOrderStatusService", () => {
         orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "SHIPPED" }) },
         deliveries: { findFirst: vi.fn() },
         deliveryAssignments: { findFirst: vi.fn(), create: vi.fn() },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       })
     );
 
@@ -625,6 +673,7 @@ describe("updateOrderStatusService", () => {
         orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "DELIVERED" }) },
         deliveries: { findFirst: vi.fn() },
         deliveryAssignments: { findFirst: vi.fn(), create: vi.fn() },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       })
     );
 
@@ -668,6 +717,9 @@ describe("updateOrderStatusService", () => {
         orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "CANCELLED" }) },
         deliveries: { findFirst: vi.fn() },
         deliveryAssignments: { findFirst: vi.fn(), create: vi.fn() },
+        orderItems: { findMany: vi.fn().mockResolvedValue([]) },
+        products: { update: vi.fn().mockResolvedValue({}) },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
       })
     );
 
@@ -699,9 +751,7 @@ describe("updateOrderStatusService", () => {
     ).rejects.toThrow(ForbiddenError);
   });
 
-  // ─── ASIGNACIÓN AUTOMÁTICA AL CONFIRMAR ──────────────────────────────────────
-
-  it("SELLER al pasar a PROCESSING asigna automáticamente el primer delivery disponible", async () => {
+  it("SELLER al pasar a PROCESSING no crea asignación automática de delivery", async () => {
     prisma.users.findFirst.mockResolvedValue({ role: "SELLER" });
     prisma.orders.findFirst.mockResolvedValue({
       id_order: 100,
@@ -709,6 +759,8 @@ describe("updateOrderStatusService", () => {
       fk_store: 10,
     });
     prisma.stores.findFirst.mockResolvedValue({ id_store: 10 });
+
+    const mockAssignmentCreate = vi.fn();
     prisma.$transaction.mockImplementation(async (fn) => {
       return fn({
         orders: {
@@ -716,20 +768,11 @@ describe("updateOrderStatusService", () => {
             ...mockOrderFromDB,
             order_status: "PROCESSING",
             fk_store: 10,
+            order_items: [],
           }),
-        },
-        deliveries: {
-          findFirst: vi.fn().mockResolvedValue({ id_delivery: 1 }),
         },
         deliveryAssignments: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({
-            id_delivery_assignment: 1,
-            fk_order: 100,
-            fk_delivery: 1,
-            assignment_status: "PENDING",
-            assignment_sequence: 1,
-          }),
+          create: mockAssignmentCreate,
         },
       });
     });
@@ -737,9 +780,10 @@ describe("updateOrderStatusService", () => {
     const result = await updateOrderStatusService(1, 100, "PROCESSING");
 
     expect(result.status).toBe("PROCESSING");
+    expect(mockAssignmentCreate).not.toHaveBeenCalled();
   });
 
-  it("lanza ValidationError cuando SELLER pasa a PROCESSING y no hay deliveries disponibles", async () => {
+  it("restaura el stock al cancelar un pedido (SELLER cancela desde PENDING)", async () => {
     prisma.users.findFirst.mockResolvedValue({ role: "SELLER" });
     prisma.orders.findFirst.mockResolvedValue({
       id_order: 100,
@@ -747,27 +791,56 @@ describe("updateOrderStatusService", () => {
       fk_store: 10,
     });
     prisma.stores.findFirst.mockResolvedValue({ id_store: 10 });
-    prisma.$transaction.mockImplementation(async (fn) => {
-      return fn({
-        orders: {
-          update: vi.fn().mockResolvedValue({
-            ...mockOrderFromDB,
-            order_status: "PROCESSING",
-            fk_store: 10,
-          }),
-        },
-        deliveries: {
-          findFirst: vi.fn().mockResolvedValue(null),
-        },
-        deliveryAssignments: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn(),
-        },
-      });
-    });
 
-    await expect(
-      updateOrderStatusService(1, 100, "PROCESSING")
-    ).rejects.toThrow(ValidationError);
+    const mockProductsUpdate = vi.fn().mockResolvedValue({});
+    const mockOrderItemsFindMany = vi.fn().mockResolvedValue([
+      { fk_product: 1, quantity: 2 },
+      { fk_product: 2, quantity: 1 },
+    ]);
+
+    prisma.$transaction.mockImplementation(async (fn) =>
+      fn({
+        orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "CANCELLED" }) },
+        orderItems: { findMany: mockOrderItemsFindMany },
+        products: { update: mockProductsUpdate },
+        deliveries: { findFirst: vi.fn() },
+        deliveryAssignments: { findFirst: vi.fn(), create: vi.fn() },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
+      })
+    );
+
+    const result = await updateOrderStatusService(1, 100, "CANCELLED");
+
+    expect(result.status).toBe("CANCELLED");
+    expect(mockOrderItemsFindMany).toHaveBeenCalled();
+    expect(mockProductsUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it("restaura el stock al cancelar un pedido (CUSTOMER cancela desde PENDING)", async () => {
+    prisma.users.findFirst.mockResolvedValue({ role: "CUSTOMER" });
+    prisma.orders.findFirst
+      .mockResolvedValueOnce({ id_order: 100, order_status: "PENDING", fk_store: 10 })
+      .mockResolvedValueOnce({ id_order: 100 });
+
+    const mockProductsUpdate = vi.fn().mockResolvedValue({});
+    const mockOrderItemsFindMany = vi.fn().mockResolvedValue([
+      { fk_product: 1, quantity: 2 },
+    ]);
+
+    prisma.$transaction.mockImplementation(async (fn) =>
+      fn({
+        orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, fk_store: 10, order_status: "CANCELLED" }) },
+        orderItems: { findMany: mockOrderItemsFindMany },
+        products: { update: mockProductsUpdate },
+        deliveries: { findFirst: vi.fn() },
+        deliveryAssignments: { findFirst: vi.fn(), create: vi.fn() },
+        notifications: { create: vi.fn().mockResolvedValue({}) },
+      })
+    );
+
+    const result = await updateOrderStatusService(1, 100, "CANCELLED");
+
+    expect(result.status).toBe("CANCELLED");
+    expect(mockProductsUpdate).toHaveBeenCalledTimes(1);
   });
 });

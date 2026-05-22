@@ -5,7 +5,15 @@ import {
   getOriginalProductPrice,
   getOfferProductPrice
 } from "../../../lib/product-pricing.js";
-import { PAGINATION } from "../../../utils/contants/pagination.constant.js";
+import { PAGINATION } from "../../../constants/pagination.constant.js";
+
+const DEFAULT_CATEGORY_ID = 1;
+
+const assertCategoryIsMutable = (id) => {
+  if (Number(id) === DEFAULT_CATEGORY_ID) {
+    throw new ValidationError("La categoría sin categoría no puede modificarse");
+  }
+};
 
 const normalizeAdminCategoryName = (name) => {
   if (typeof name !== "string" || name.trim().length === 0) {
@@ -20,10 +28,10 @@ const normalizeAdminCategoryName = (name) => {
   return normalizedName;
 };
 
-export const createAdminProductCategoryService = async (name) => {
+export const createAdminProductCategoryService = async (name, icon = null) => {
   const normalizedName = normalizeAdminCategoryName(name);
 
-  const existingCategory = await prisma.productCategories.findFirst({
+  const existingCategory = await prisma.categories.findFirst({
     where: {
       name: {
         equals: normalizedName,
@@ -31,22 +39,24 @@ export const createAdminProductCategoryService = async (name) => {
       },
       status: true
     },
-    select: { id_product_category: true }
+    select: { id_category: true }
   });
 
   if (existingCategory) {
     throw new ValidationError("Ya existe una categoría con ese nombre");
   }
 
-  const createdCategory = await prisma.productCategories.create({
+  const createdCategory = await prisma.categories.create({
     data: {
       name: normalizedName,
+      icon: icon ?? null,
       visible: true,
       status: true
     },
     select: {
-      id_product_category: true,
+      id_category: true,
       name: true,
+      icon: true,
       visible: true,
       status: true,
       created_at: true
@@ -54,8 +64,9 @@ export const createAdminProductCategoryService = async (name) => {
   });
 
   return {
-    id: createdCategory.id_product_category,
+    id: createdCategory.id_category,
     name: createdCategory.name,
+    icon: createdCategory.icon,
     visible: createdCategory.visible,
     status: createdCategory.status,
     createdAt: createdCategory.created_at
@@ -63,27 +74,29 @@ export const createAdminProductCategoryService = async (name) => {
 };
 
 export const getAdminProductCategoryService = async (id) => {
-  const category = await prisma.productCategories.findUnique({
-    where: { id_product_category: id },
+  const category = await prisma.categories.findUnique({
+    where: { id_category: id },
     select: {
-      id_product_category: true,
+      id_category: true,
       name: true,
+      icon: true,
       status: true,
       visible: true,
       created_at: true,
       updated_at: true,
-      _count: { select: { products: true } }
+      _count: { select: { product_categories: true } }
     }
   });
  
   if (!category) throw new NotFoundError("Categoría no encontrada");
  
   return {
-    id: category.id_product_category,
+    id: category.id_category,
     name: category.name,
+    icon: category.icon,
     status: category.status,
     visible: category.visible,
-    productCount: category._count.products,
+    productCount: category._count.product_categories,
     createdAt: category.created_at,
     updatedAt: category.updated_at
   };
@@ -107,29 +120,31 @@ export const getAllCategories = async (filters = {}, categoryPagination = {}) =>
   const categoryLimit = categoryPagination.limit ?? PAGINATION.DEFAULT_LIMIT;
  
   const [categoryTotal, categories] = await Promise.all([
-    prisma.productCategories.count({ where }),
-    prisma.productCategories.findMany({
+    prisma.categories.count({ where }),
+    prisma.categories.findMany({
       where,
       skip: categorySkip,
       take: categoryLimit,
-      orderBy: [{ name: "asc" }, { id_product_category: "asc" }],
+      orderBy: [{ name: "asc" }, { id_category: "asc" }],
       select: {
-        id_product_category: true,
+        id_category: true,
         name: true,
+        icon: true,
         status: true,
         visible: true,
-        _count: { select: { products: true } }
+        _count: { select: { product_categories: true } }
       }
     })
   ]);
  
   return {
     data: categories.map((c) => ({
-      id: c.id_product_category,
+      id: c.id_category,
       name: c.name,
+      icon: c.icon ?? null,
       status: c.status,
       visible: c.visible,
-      productCount: c._count.products
+      productCount: c._count.product_categories
     })),
     categoryTotal,
     categoryPage: categoryPagination.page ?? PAGINATION.DEFAULT_PAGE,
@@ -163,10 +178,13 @@ export const filterCategoriesWithProducts = async (
     categoryWhere.OR = [
       { name: { contains: search, mode: "insensitive" } },
       {
-        products: {
+        product_categories: {
           some: {
-            name: { contains: search, mode: "insensitive" },
-            status: true
+            status: true,
+            product: {
+              name: { contains: search, mode: "insensitive" },
+              status: true
+            }
           }
         }
       }
@@ -186,69 +204,88 @@ export const filterCategoriesWithProducts = async (
   const productLimit = productPagination.limit ?? PAGINATION.DEFAULT_LIMIT;
  
   const [categoryTotal, categories] = await Promise.all([
-    prisma.productCategories.count({ where: categoryWhere }),
-    prisma.productCategories.findMany({
+    prisma.categories.count({ where: categoryWhere }),
+    prisma.categories.findMany({
       where: categoryWhere,
       skip: categorySkip,
       take: categoryLimit,
-      orderBy: [{ name: "asc" }, { id_product_category: "asc" }],
+      orderBy: [{ name: "asc" }, { id_category: "asc" }],
  
       select: {
-        id_product_category: true,
+        id_category: true,
         name: true,
+        icon: true,
         status: true,
         visible: true,
-        _count: { select: { products: true } },
-        products: {
-          where: productWhere,
+        product_categories: {
+          where: {
+            status: true,
+            product: productWhere
+          },
           skip: productSkip,
           take: productLimit,
           select: {
-            id_product: true,
-            name: true,
-            price: true,
-            offer_price: true,
-            is_offer: true,
-            status: true,
-            visible: true
+            product: {
+              select: {
+                id_product: true,
+                name: true,
+                price: true,
+                offer_price: true,
+                is_offer: true,
+                status: true,
+                visible: true
+              }
+            }
           }
         }
       }
     })
   ]);
  
-  const productCounts = await Promise.all(
-    categories.map((c) =>
-      prisma.products.count({
-        where: { ...productWhere, fk_product_category: c.id_product_category }
-      })
-    )
+  const categoryIds = categories.map((c) => c.id_category);
+
+  const countRows = await prisma.productCategories.groupBy({
+    by: ["fk_category"],
+    where: {
+      fk_category: { in: categoryIds },
+      status: true,
+      product: productWhere
+    },
+    _count: { fk_product: true }
+  });
+
+  const countMap = new Map(
+    countRows.map((row) => [row.fk_category, row._count.fk_product])
   );
- 
+
   return {
-    data: categories.map((c, i) => ({
-      id: c.id_product_category,
-      name: c.name,
-      status: c.status,
-      visible: c.visible,
-      productCount: c._count.products,
-      products: {
-        data: c.products.map((p) => ({
-          id: p.id_product,
-          name: p.name,
-          price: getEffectiveProductPrice(p),
-          originalPrice: getOriginalProductPrice(p),
-          offerPrice: getOfferProductPrice(p),
-          isOffer: Boolean(p.is_offer),
-          status: p.status,
-          visible: p.visible
-        })),
-        total: productCounts[i] ?? 0,
-        productPage: productPagination.page ?? PAGINATION.DEFAULT_PAGE,
-        productLimit,
-        productTotalPages: Math.ceil((productCounts[i] ?? 0) / productLimit)
-      }
-    })),
+    data: categories.map((c) => {
+      const productCount = countMap.get(c.id_category) ?? 0;
+      return {
+        id: c.id_category,
+        name: c.name,
+        icon: c.icon ?? null,
+        status: c.status,
+        visible: c.visible,
+        productCount,
+        products: {
+          data: c.product_categories.map((relation) => relation.product).map((p) => ({
+            id: p.id_product,
+            name: p.name,
+            price: getEffectiveProductPrice(p),
+            originalPrice: getOriginalProductPrice(p),
+            offerPrice: getOfferProductPrice(p),
+            isOffer: Boolean(p.is_offer),
+            status: p.status,
+            visible: p.visible
+          })),
+          total: productCount,
+          productPage: productPagination.page ?? PAGINATION.DEFAULT_PAGE,
+          productLimit,
+          productTotalPages: Math.ceil(productCount / productLimit)
+        }
+      };
+    }),
     categoryTotal,
     categoryPage: categoryPagination.page ?? PAGINATION.DEFAULT_PAGE,
     categoryLimit,
@@ -257,23 +294,20 @@ export const filterCategoriesWithProducts = async (
 };
  
 export const deleteAdminProductCategoryService = async (id) => {
-  if (id === 1) {
-    throw new ValidationError("No se puede eliminar la categoría Sin categoría");
-  }
- 
-  const category = await prisma.productCategories.findUnique({
-    where: { id_product_category: id }
+  assertCategoryIsMutable(id);
+
+  const category = await prisma.categories.findUnique({
+    where: { id_category: id }
   });
  
   if (!category) throw new NotFoundError("Categoría no encontrada");
  
   await prisma.$transaction([
-    prisma.products.updateMany({
-      where: { fk_product_category: id },
-      data: { fk_product_category: 1 }
+    prisma.productCategories.deleteMany({
+      where: { fk_category: id }
     }),
-    prisma.productCategories.update({
-      where: { id_product_category: id },
+    prisma.categories.update({
+      where: { id_category: id },
       data: {
         status: false,
         visible: false
@@ -314,6 +348,13 @@ const normalizeUpdatePayload = (payload) => {
     }
     data.visible = payload.visible;
   }
+
+  if (payload.icon !== undefined) {
+    if (payload.icon !== null && typeof payload.icon !== "string") {
+      throw new ValidationError("icon debe ser texto o null");
+    }
+    data.icon = payload.icon ?? null;
+  }
  
   if (Object.keys(data).length === 0) {
     throw new ValidationError("Debe enviar al menos uno: name o visible");
@@ -323,21 +364,24 @@ const normalizeUpdatePayload = (payload) => {
 };
  
 export const updateAdminProductCategoryService = async (id, payload) => {
+  assertCategoryIsMutable(id);
+
   const data = normalizeUpdatePayload(payload);
  
-  const category = await prisma.productCategories.findUnique({
-    where: { id_product_category: id },
-    select: { id_product_category: true }
+  const category = await prisma.categories.findUnique({
+    where: { id_category: id },
+    select: { id_category: true }
   });
  
   if (!category) throw new NotFoundError("Categoría no encontrada");
  
-  const updated = await prisma.productCategories.update({
-    where: { id_product_category: id },
+  const updated = await prisma.categories.update({
+    where: { id_category: id },
     data,
     select: {
-      id_product_category: true,
+      id_category: true,
       name: true,
+      icon: true,
       visible: true,
       created_at: true,
       updated_at: true
@@ -345,8 +389,9 @@ export const updateAdminProductCategoryService = async (id, payload) => {
   });
  
   return {
-    id: updated.id_product_category,
+    id: updated.id_category,
     name: updated.name,
+    icon: updated.icon,
     visible: updated.visible,
     createdAt: updated.created_at,
     updatedAt: updated.updated_at
@@ -367,12 +412,14 @@ const normalizeCategoryRequestDecision = (decision) => {
 };
 
 export const processAdminCategoryRequestService = async (id, decision) => {
+  assertCategoryIsMutable(id);
+
   const normalizedDecision = normalizeCategoryRequestDecision(decision);
 
-  const category = await prisma.productCategories.findUnique({
-    where: { id_product_category: id },
+  const category = await prisma.categories.findUnique({
+    where: { id_category: id },
     select: {
-      id_product_category: true,
+      id_category: true,
       name: true,
       visible: true,
       status: true,
@@ -393,14 +440,14 @@ export const processAdminCategoryRequestService = async (id, decision) => {
   let updatedCategory;
 
   if (normalizedDecision === "approve") {
-    updatedCategory = await prisma.productCategories.update({
-      where: { id_product_category: id },
+    updatedCategory = await prisma.categories.update({
+      where: { id_category: id },
       data: {
         visible: true,
         status: true
       },
       select: {
-        id_product_category: true,
+        id_category: true,
         name: true,
         visible: true,
         status: true,
@@ -410,18 +457,17 @@ export const processAdminCategoryRequestService = async (id, decision) => {
     });
   } else {
     const [, rejectedCategory] = await prisma.$transaction([
-      prisma.products.updateMany({
-        where: { fk_product_category: id },
-        data: { fk_product_category: 1 }
+      prisma.productCategories.deleteMany({
+        where: { fk_category: id }
       }),
-      prisma.productCategories.update({
-        where: { id_product_category: id },
+      prisma.categories.update({
+        where: { id_category: id },
         data: {
           visible: false,
           status: false
         },
         select: {
-          id_product_category: true,
+          id_category: true,
           name: true,
           visible: true,
           status: true,
@@ -435,7 +481,7 @@ export const processAdminCategoryRequestService = async (id, decision) => {
   }
 
   return {
-    id: updatedCategory.id_product_category,
+    id: updatedCategory.id_category,
     name: updatedCategory.name,
     visible: updatedCategory.visible,
     status: updatedCategory.status,

@@ -1,3 +1,4 @@
+//product.routes.js
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import {
@@ -7,7 +8,8 @@ import {
   getProductById,
   updateProduct,
   deleteProduct,
-  compareProducts
+  compareProducts,
+  getRelatedProducts
 } from "./product.controller.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
 import { FilterProductDTO } from "../../global/dtos/products/product.request.dto.js";
@@ -298,6 +300,46 @@ router.get("/",
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
+
+/**
+ * @swagger
+ * /products/{id}/related:
+ *   get:
+ *     summary: Obtener productos relacionados (misma categoría)
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del producto
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 8
+ *           minimum: 1
+ *           maximum: 20
+ *         description: Cantidad de productos relacionados a retornar
+ *     responses:
+ *       200:
+ *         description: Lista de productos relacionados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/ProductResponse'
+ *       404:
+ *         description: Producto no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get("/:id/related", getRelatedProducts);
+
 router.get("/:id", getProductById);
 
 export default router;

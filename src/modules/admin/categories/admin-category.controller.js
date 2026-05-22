@@ -8,11 +8,11 @@ import {
   processAdminCategoryRequestService,
   createAdminProductCategoryService
 } from "./admin-category.service.js";
-import { PAGINATION } from "../../../utils/contants/pagination.constant.js";
+import { PAGINATION } from "../../../constants/pagination.constant.js";
 
 export const createAdminProductCategory = async (req, res, next) => {
   try {
-    const result = await createAdminProductCategoryService(req.body?.name);
+    const result = await createAdminProductCategoryService(req.body?.name, req.body?.icon);
     return res.status(201).json(result);
   } catch (error) {
     next(error);

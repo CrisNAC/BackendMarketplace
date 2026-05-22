@@ -1,5 +1,20 @@
 import { prisma } from "../../../lib/prisma.js";
 
+const mapStoreCategories = (storeCategories) => {
+  const categories = Array.isArray(storeCategories)
+    ? storeCategories
+        .map((relation) => relation?.category)
+        .filter((category) => category && Number.isInteger(category.id_category) && category.name)
+        .map((category) => ({
+          id_category: category.id_category,
+          name: category.name,
+          status: category.status
+        }))
+    : [];
+
+  return { categories };
+};
+
 /**
  * Aprueba un comercio cambiando su store_status de INACTIVE a ACTIVE.
  * También actualiza la visibilidad de todos sus productos.
@@ -12,7 +27,7 @@ export const approveStoreService = async (storeId) => {
 
   const store = await prisma.stores.findUnique({
     where: { id_store: id },
-    select: { id_store: true, name: true, store_status: true, status: true }
+    select: { id_store: true, name: true, store_status: true, status: true, fk_user: true }
   });
 
   if (!store || !store.status) {
@@ -21,6 +36,10 @@ export const approveStoreService = async (storeId) => {
 
   if (store.store_status === "ACTIVE") {
     throw { status: 400, message: "El comercio ya está aprobado" };
+  }
+
+  if (store.store_status !== "INACTIVE") {
+    throw { status: 400, message: "El comercio no esta pendiente de aprobacion" };
   }
 
   await prisma.$transaction([
@@ -32,6 +51,14 @@ export const approveStoreService = async (storeId) => {
     prisma.products.updateMany({
       where: { fk_store: id, status: true },
       data: { visible: true }
+    }),
+    prisma.notifications.create({
+      data: {
+        fk_user: store.fk_user,
+        title: "Comercio aprobado",
+        message: `Tu comercio "${store.name}" fue aprobado y ya esta visible para los compradores.`,
+        reference_id: store.id_store
+      }
     })
   ]);
 
@@ -78,15 +105,31 @@ export const getPendingStoresService = async (pagination) => {
             email: true,
           }
         },
-        store_category: {
-          select: { id_store_category: true, name: true }
+        store_categories: {
+          where: { status: true },
+          select: {
+            id_store_category: true,
+            category: {
+              select: {
+                id_category: true,
+                name: true,
+                status: true
+              }
+            }
+          }
         }
       }
     })
   ]);
 
   return {
-    data: stores,
+    data: stores.map((store) => {
+      const { store_categories, ...restStore } = store;
+      return {
+        ...restStore,
+        ...mapStoreCategories(store_categories)
+      };
+    }),
     pagination: {
       total,
       page,
@@ -132,6 +175,7 @@ export const rejectStoreService = async (storeId, reason) => {
         fk_user: store.fk_user,
         title: "Solicitud de comercio rechazada",
         message: `Tu solicitud para registrar el comercio "${store.name}" ha sido rechazada. Motivo: ${reason}`,
+        reference_id: store.id_store
       }
     })
   ]);

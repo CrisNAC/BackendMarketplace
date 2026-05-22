@@ -22,10 +22,12 @@ model Users {
   email           String    @unique @db.VarChar(100)
   password_hash   String    @db.VarChar(255)
   phone           String?   @db.VarChar(20)
-  avatar_url      String?   @db.VarChar(500)
-  status          Boolean   @default(true)
-  created_at      DateTime  @default(now()) @db.Timestamptz
-  updated_at      DateTime  @updatedAt @db.Timestamptz
+  avatar_url                   String?   @db.VarChar(500)
+  status                       Boolean   @default(true)
+  password_reset_token         String?   @db.VarChar(255)
+  password_reset_token_expires DateTime? @db.Timestamptz
+  created_at                   DateTime  @default(now()) @db.Timestamptz
+  updated_at                   DateTime  @updatedAt @db.Timestamptz
   
   //Relaciones
   store             Stores?   //Usuario solo puede tener asociado un comercio
@@ -50,6 +52,7 @@ model Notifications {
   title           String    @db.VarChar(100)
   message         String?   @db.Text
   read            Boolean   @default(false)
+  reference_id    Int?      // ID de referencia para redirigir (orden, producto, etc.)
   status          Boolean   @default(true)
   created_at      DateTime  @default(now()) @db.Timestamptz
   updated_at      DateTime  @updatedAt @db.Timestamptz
@@ -57,10 +60,24 @@ model Notifications {
   user Users @relation(fields: [fk_user], references: [id_user])
 }
 
+//------------------------------------BANNERS PROMOCIONALES----------------------------------------
+model Banners {
+  id_banner   Int      @id @default(autoincrement())
+  title       String   @db.VarChar(120)
+  description String?  @db.Text
+  image_url   String   @db.VarChar(500)
+  link_url    String?  @db.VarChar(500)
+  start_at    DateTime @db.Timestamptz
+  end_at      DateTime? @db.Timestamptz
+  is_active   Boolean  @default(true)
+  status      Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz
+  updated_at  DateTime @updatedAt @db.Timestamptz
+}
+
 //------------------------------------COMERCIOS----------------------------------------
 model Stores {
   id_store          Int       @id @default(autoincrement())
-  fk_store_category Int
   fk_user           Int       @unique
   name              String    @db.VarChar(100)
   email             String    @unique @db.VarChar(100)
@@ -77,7 +94,7 @@ model Stores {
 
   // Relaciones
   user                Users                @relation(fields: [fk_user], references: [id_user])
-  store_category      StoreCategories      @relation(fields: [fk_store_category], references: [id_store_category]) //Un comercio maneja un solo tipo de categoria (Para muchos rubros -> Multirubro)
+  store_categories    StoreCategories[] //Un comercio puede manejar multiples categorias
   products            Products[]   //Un comercio puede registrar multiples productos
   addresses           Addresses[] //Un comercio puede registrar multiples direcciones de sucursales igualmente
   shipping_zones      ShippingZones[] //Un comercio puede abarcar distintos precios para las regiones a las que envia el pedido
@@ -85,18 +102,40 @@ model Stores {
   deliveries          Deliveries[]  //Un comercio puede tener asociado muchos deliveries que trabajan con el mismo
   carts               Carts[]
   order               Orders[]
+  business_hours      StoreBusinessHours[]
   //wishlist_items      WishlistItems[]
+}
+
+//------------------------------------HORARIOS COMERCIO----------------------------------------
+model StoreBusinessHours {
+  id_store_business_hour  Int       @id @default(autoincrement())
+  fk_store                Int
+  day_of_week             Int       // 0=Lunes ... 6=Domingo
+  open_time               String?   @db.VarChar(5)  // HH:mm
+  close_time              String?   @db.VarChar(5)  // HH:mm
+  is_closed               Boolean   @default(true)
+  status                  Boolean   @default(true)
+  created_at              DateTime  @default(now()) @db.Timestamptz
+  updated_at              DateTime  @updatedAt @db.Timestamptz
+
+  store Stores @relation(fields: [fk_store], references: [id_store])
+
+  @@unique([fk_store, day_of_week])
 }
 
 //------------------------------------COMERCIOS-CATEGORIAS----------------------------------------
 model StoreCategories {
   id_store_category   Int       @id @default(autoincrement())
-  name                String    @db.VarChar(100)
+  fk_store            Int
+  fk_category         Int
   status              Boolean   @default(true)
   created_at          DateTime  @default(now()) @db.Timestamptz
   updated_at          DateTime  @updatedAt @db.Timestamptz
 
-  stores Stores[]
+  store       Stores     @relation(fields: [fk_store], references: [id_store])
+  category    Categories @relation(fields: [fk_category], references: [id_category])
+
+  @@unique([fk_store, fk_category])
 }
 
 //------------------------------------ZONAS_ENVIOS----------------------------------------
@@ -136,15 +175,14 @@ model Addresses {
 //------------------------------------PRODUCTOS----------------------------------------
 model Products {
   id_product           Int       @id @default(autoincrement())
-  fk_product_category  Int       //El producto va a manejar una sola categoria (Basandome en el input en la pantalla Comercio Nuevo Producto)
   fk_store             Int
   name                 String    @db.VarChar(100)
   description          String?   @db.Text
   image_url            String?   @db.VarChar(500)
   price                Decimal   @db.Decimal(10, 2)   //Precio fijo del producto
-  offer_price          Decimal?   @db.Decimal(10, 2)  //Precio del producto en oferta
+  offer_price          Decimal?  @db.Decimal(10, 2)  //Precio del producto en oferta
   visible              Boolean   @default(true)
-  quantity             Int?
+  quantity             Int       @default(0)
   is_offer             Boolean   @default(false)  //Describe si un producto esta en oferta o no
   approval_status      ApprovalStatus @default(PENDING) //Estado de aprobación del producto
   rejection_reason     String?   @db.Text //Motivo del rechazo si aplica
@@ -154,7 +192,7 @@ model Products {
 
   // Relaciones
   store                   Stores              @relation(fields: [fk_store], references: [id_store])
-  product_category        ProductCategories    @relation(fields: [fk_product_category], references: [id_product_category])
+  product_categories      ProductCategories[]
   product_tag_relations   ProductTagRelations[]
   product_collections     ProductCollections[]
   order_items             OrderItems[]
@@ -164,16 +202,33 @@ model Products {
   product_reports         ProductReports[]
 }
 
+//------------------------------------CATEGORIAS----------------------------------------
+model Categories {
+  id_category   Int       @id @default(autoincrement())
+  name          String    @db.VarChar(100)
+  icon          String?   @db.VarChar(500)
+  status        Boolean   @default(true)
+  visible       Boolean   @default(true)
+  created_at    DateTime  @default(now()) @db.Timestamptz
+  updated_at    DateTime  @updatedAt @db.Timestamptz
+
+  store_categories   StoreCategories[]
+  product_categories  ProductCategories[]
+}
+
 //------------------------------------PRODUCTOS-CATEGORIAS----------------------------------------
 model ProductCategories {
-  id_product_category   Int   @id @default(autoincrement())
-  name        String   @db.VarChar(100)
-  status      Boolean  @default(true)
-  visible     Boolean  @default(true)
-  created_at  DateTime @default(now()) @db.Timestamptz
-  updated_at  DateTime @updatedAt @db.Timestamptz
+  id_product_category          Int      @id @default(autoincrement())
+  fk_product                   Int
+  fk_category                  Int
+  status                       Boolean  @default(true)
+  created_at                   DateTime @default(now()) @db.Timestamptz
+  updated_at                   DateTime @updatedAt @db.Timestamptz
 
-  products Products[]
+  product  Products         @relation(fields: [fk_product], references: [id_product])
+  category Categories       @relation(fields: [fk_category], references: [id_category])
+
+  @@unique([fk_product, fk_category])
 }
 
 //------------------------------------PRODUCTOS-ETIQUETAS----------------------------------------
@@ -371,6 +426,7 @@ model DeliveryAssignments  {
   assignment_status         AssignmentStatus @default(PENDING)  
   assignment_sequence       Int      @default(1)  
   assigned_at               DateTime @default(now()) @db.Timestamptz
+  response_deadline         DateTime? @db.Timestamptz
   status                    Boolean  @default(true)
   created_at                DateTime @default(now()) @db.Timestamptz  
   updated_at                DateTime @updatedAt @db.Timestamptz 
@@ -399,6 +455,7 @@ enum AssignmentStatus {
   PENDING
   ACCEPTED
   REJECTED
+  EXPIRED
   DELIVERED
 }
 
@@ -414,6 +471,7 @@ model Orders {
   total             Decimal       @db.Decimal(10, 2)
   order_status      OrderStatus   @default(PENDING) // por defecto se crea en estado pendiente
   notes             String?       @db.Text
+  delivery_unavailable Boolean    @default(false)
   status            Boolean       @default(true)
   created_at        DateTime      @default(now()) @db.Timestamptz
   updated_at        DateTime      @updatedAt @db.Timestamptz

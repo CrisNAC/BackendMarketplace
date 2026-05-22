@@ -13,7 +13,11 @@ vi.mock("../../../src/lib/prisma.js", () => ({
         products: {
             updateMany: vi.fn(),
         },
+        storeBusinessHours: {
+            findMany: vi.fn().mockResolvedValue([]),
+        },
         $transaction: vi.fn(),
+        $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     }
 }));
 
@@ -45,6 +49,11 @@ const mockInactiveStore = {
     store_status: "INACTIVE",
 };
 
+const mockSuspendedStore = {
+    ...mockActiveStore,
+    store_status: "SUSPENDED",
+};
+
 const authCookie = "userToken=mock-token";
 
 // ─── Tests: GET /api/commerces/:id (ruta pública) ────────────────────────────
@@ -55,7 +64,7 @@ describe("GET /api/commerces/:id — ruta pública", () => {
         prisma.stores.findUnique.mockResolvedValue({
             ...mockInactiveStore,
             user: { id_user: 1, name: "Test", email: "test@test.com" },
-            store_category: { id_store_category: 1, name: "Tecnología" },
+            store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Tecnología", status: true } }],
             products: [],
             addresses: [],
         });
@@ -70,7 +79,7 @@ describe("GET /api/commerces/:id — ruta pública", () => {
         prisma.stores.findUnique.mockResolvedValue({
             ...mockActiveStore,
             user: { id_user: 1, name: "Test", email: "test@test.com" },
-            store_category: { id_store_category: 1, name: "Tecnología" },
+            store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Tecnología", status: true } }],
             products: [],
             addresses: [],
         });
@@ -99,7 +108,7 @@ describe("GET /api/commerces/my/:id — ruta autenticada", () => {
         prisma.stores.findUnique.mockResolvedValue({
             ...mockInactiveStore,
             user: { id_user: 1, name: "Test", email: "test@test.com" },
-            store_category: { id_store_category: 1, name: "Tecnología" },
+            store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Tecnología", status: true } }],
             products: [],
             addresses: [],
         });
@@ -117,7 +126,7 @@ describe("GET /api/commerces/my/:id — ruta autenticada", () => {
             ...mockActiveStore,
             fk_user: 99,
             user: { id_user: 99, name: "Otro", email: "otro@test.com" },
-            store_category: { id_store_category: 1, name: "Tecnología" },
+            store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Tecnología", status: true } }],
             products: [],
             addresses: [],
         });
@@ -221,5 +230,53 @@ describe("PATCH /api/commerces/:id/status", () => {
             .send({ store_status: "INACTIVE" });
 
         expect(res.status).toBe(404);
+    });
+
+    it("no permite habilitar directamente un comercio SUSPENDED", async () => {
+        prisma.stores.findUnique.mockResolvedValue(mockSuspendedStore);
+
+        const res = await request(app)
+            .patch("/api/commerces/1/status")
+            .set("Cookie", authCookie)
+            .send({ store_status: "ACTIVE" });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/reenviarse a revision/i);
+    });
+});
+
+describe("PUT /api/commerces/:id con comercio SUSPENDED", () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it("reenvia automaticamente a revision cuando el seller lo edita", async () => {
+        prisma.stores.findUnique.mockResolvedValueOnce(mockSuspendedStore);
+        prisma.$transaction.mockImplementation(async (callback) =>
+            callback({
+                stores: {
+                    update: vi.fn().mockResolvedValue({}),
+                    findUnique: vi.fn().mockResolvedValue({
+                        ...mockSuspendedStore,
+                        name: "Comercio Editado",
+                        store_status: "INACTIVE",
+                        products: [],
+                        store_categories: [],
+                        addresses: [],
+                        shipping_zones: [],
+                    }),
+                },
+                products: {
+                    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+                },
+            })
+        );
+
+        const res = await request(app)
+            .put("/api/commerces/1")
+            .set("Cookie", authCookie)
+            .send({ name: "Comercio Editado" });
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.store_status).toBe("INACTIVE");
+        expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
 });

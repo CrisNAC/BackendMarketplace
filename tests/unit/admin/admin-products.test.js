@@ -38,7 +38,9 @@ const mockProduct = {
   approval_status: "PENDING",
   rejection_reason: null,
   created_at: new Date("2024-01-20"),
-  product_category: { id_product_category: 1, name: "Electrónicos" },
+  product_categories: [
+    { category: { id_category: 1, name: "Electrónicos" } }
+  ],
   store: { id_store: 10, name: "TechStore", fk_user: 5 },
   product_reports: [
     {

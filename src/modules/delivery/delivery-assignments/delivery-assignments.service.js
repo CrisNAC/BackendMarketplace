@@ -1,5 +1,14 @@
 //delivery-assignments.service.js
 import { prisma } from '../../../lib/prisma.js';
+import {
+  activePendingAssignmentWhere,
+  closePendingAndReassign,
+  createPendingAssignmentForOrder,
+  expireStalePendingAssignments,
+  findNextActiveDeliveryForOrder,
+  getTriedDeliveryIdsForOrder,
+  isAssignmentResponseWindowOpen,
+} from "./delivery-assignment-workflow.service.js";
 
 export const createAssignmentService = async (data) => {
   const { fk_order, fk_delivery: fk_delivery_input, status } = data;
@@ -11,75 +20,81 @@ export const createAssignmentService = async (data) => {
     throw { status: 404, message: "Pedido no encontrado" };
   }
 
-  let fk_delivery = fk_delivery_input;
-
-  if (!fk_delivery) {
-    const delivery = await prisma.deliveries.findFirst({
-      where: {
-        fk_store: order.fk_store,
-        delivery_status: "ACTIVE",
-        status: true,
-        delivery_assignments: {
-          none: { assignment_status: "PENDING" }
-        }
-      }
-    });
-
-    if (!delivery) {
-      throw { status: 404, message: "No hay deliveries disponibles para este comercio" };
-    }
-
-    fk_delivery = delivery.id_delivery;
-  } else {
-    const delivery = await prisma.deliveries.findUnique({
-      where: { id_delivery: fk_delivery }
-    });
-    if (!delivery) {
-      throw { status: 404, message: "Delivery no encontrado" };
-    }
-  }
-
-  // Lectura del último sequence + chequeo de PENDING + insert dentro de una transacción
-  // para evitar que dos requests concurrentes generen sequence duplicado o doble PENDING
   try {
     const newDeliveryAssignment = await prisma.$transaction(async (tx) => {
-      // Obtener el último sequence del pedido
-      const lastAssignment = await tx.deliveryAssignments.findFirst({
-        where: { fk_order },
-        orderBy: { assignment_sequence: 'desc' },
-        select: { assignment_sequence: true }
-      });
-      const nextSequence = (lastAssignment?.assignment_sequence || 0) + 1;
+      await expireStalePendingAssignments({ fk_order }, tx);
 
-      // Verificar que no hay un intento PENDING activo
       const pendingAssignment = await tx.deliveryAssignments.findFirst({
-        where: { fk_order, assignment_status: "PENDING" }
+        where: {
+          fk_order,
+          ...activePendingAssignmentWhere(),
+        },
+        include: {
+          delivery: {
+            select: { delivery_status: true }
+          }
+        }
       });
 
       if (pendingAssignment) {
-        throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
+        const deliveryStatus = pendingAssignment.delivery?.delivery_status;
+
+        if (deliveryStatus === "INACTIVE") {
+          await tx.deliveryAssignments.update({
+            where: { id_delivery_assignment: pendingAssignment.id_delivery_assignment },
+            data: { assignment_status: "REJECTED", status: false }
+          });
+        } else if (isAssignmentResponseWindowOpen(pendingAssignment)) {
+          throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
+        } else {
+          await closePendingAndReassign(tx, pendingAssignment, "EXPIRED");
+          const stillPending = await tx.deliveryAssignments.findFirst({
+            where: { fk_order, ...activePendingAssignmentWhere() }
+          });
+          if (stillPending) {
+            throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
+          }
+        }
       }
 
-      // Crear el delivery assignment
-      return tx.deliveryAssignments.create({
-        data: {
-          fk_order,
-          fk_delivery,
-          assignment_status: "PENDING",
-          assignment_sequence: nextSequence,
-          status: status !== false
+      let fk_delivery = fk_delivery_input;
+
+      if (!fk_delivery) {
+        const triedIds = await getTriedDeliveryIdsForOrder(fk_order, tx);
+        const delivery = await findNextActiveDeliveryForOrder(order.fk_store, triedIds, tx);
+
+        if (!delivery) {
+          await tx.orders.update({
+            where: { id_order: fk_order },
+            data: { delivery_unavailable: true }
+          });
+          throw { status: 404, message: "No hay deliveries disponibles para este comercio" };
         }
+
+        fk_delivery = delivery.id_delivery;
+      } else {
+        const delivery = await tx.deliveries.findUnique({
+          where: { id_delivery: fk_delivery }
+        });
+        if (!delivery) {
+          throw { status: 404, message: "Delivery no encontrado" };
+        }
+        if (delivery.delivery_status !== "ACTIVE" || !delivery.status) {
+          throw { status: 400, message: "El delivery debe estar activo para recibir pedidos" };
+        }
+      }
+
+      return createPendingAssignmentForOrder(tx, {
+        fk_order,
+        fk_delivery,
       });
     });
 
     return newDeliveryAssignment;
   } catch (error) {
-    // Si Prisma lanza un error de unique constraint (P2002), significa que dos requests
-    // concurrentes llegaron al mismo tiempo y ya existe ese sequence — tratar como 409
     if (error?.code === 'P2002') {
       throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
     }
-    // Re-lanzar cualquier otro error (incluyendo el 409 del PENDING check)
     throw error;
   }
 };
@@ -114,6 +129,8 @@ export const getOrderAssignmentsService = async (id_order) => {
     throw { status: 404, message: "Pedido no encontrado" };
   }
 
+  await expireStalePendingAssignments({ fk_order: id_order });
+
   const assignments = await prisma.deliveryAssignments.findMany({
     where: { fk_order: id_order },
     include: {
@@ -136,9 +153,11 @@ export const getDeliveryAssignmentsService = async (id_delivery, status = null) 
     throw { status: 404, message: "Delivery no encontrado" };
   }
 
+  await expireStalePendingAssignments({ fk_delivery: id_delivery });
+
   const where = { fk_delivery: id_delivery };
   if (status) {
-    where.assignment_status = status; // "PENDING", "ACCEPTED", "REJECTED"
+    where.assignment_status = status;
   }
 
   const assignments = await prisma.deliveryAssignments.findMany({
@@ -183,10 +202,12 @@ export const getDeliveryPendingAssignmentsService = async (id_delivery) => {
     throw { status: 404, message: "Delivery no encontrado" };
   }
 
+  await expireStalePendingAssignments({ fk_delivery: id_delivery });
+
   const pendingAssignments = await prisma.deliveryAssignments.findMany({
     where: {
       fk_delivery: id_delivery,
-      assignment_status: "PENDING"
+      ...activePendingAssignmentWhere(),
     },
     include: {
       order: {
@@ -243,7 +264,6 @@ export const completeAssignmentService = async (id_delivery_assignment, id_user)
     throw { status: 404, message: "Asignación no encontrada" };
   }
 
-  // Validar status antes que ownership para que los tests de estado fallen con 409
   if (assignment.assignment_status !== "ACCEPTED") {
     throw { status: 409, message: "Solo se pueden completar asignaciones aceptadas" };
   }
@@ -252,8 +272,6 @@ export const completeAssignmentService = async (id_delivery_assignment, id_user)
     throw { status: 403, message: "No tienes permiso para completar esta asignación" };
   }
 
-  // Ambas escrituras dentro de una transacción para que sean atómicas:
-  // si orders.update falla, deliveryAssignments.update se revierte automáticamente
   const updated = await prisma.$transaction(async (tx) => {
     const updatedAssignment = await tx.deliveryAssignments.update({
       where: { id_delivery_assignment },
@@ -277,28 +295,35 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
     throw { status: 400, message: "ID de orden inválido" };
   }
 
-  const assignment = await prisma.deliveryAssignments.findFirst({
-    where: {
-      fk_order: parsedOrderId,
-      assignment_status: "PENDING",
-      status: true
-    },
-    include: {
-      delivery: true,
-      order: true
+  return prisma.$transaction(async (tx) => {
+    await expireStalePendingAssignments({ fk_order: parsedOrderId }, tx);
+
+    const assignment = await tx.deliveryAssignments.findFirst({
+      where: {
+        fk_order: parsedOrderId,
+        assignment_status: "PENDING",
+        status: true
+      },
+      include: {
+        delivery: true,
+        order: true
+      }
+    });
+
+    if (!assignment) {
+      throw { status: 404, message: "No hay asignación pendiente para este pedido" };
     }
-  });
 
-  if (!assignment) {
-    throw { status: 404, message: "No hay asignación pendiente para este pedido" };
-  }
+    if (assignment.delivery.fk_user !== userId) {
+      throw { status: 403, message: "No tienes permiso para responder esta asignación" };
+    }
 
-  if (assignment.delivery.fk_user !== userId) {
-    throw { status: 403, message: "No tienes permiso para responder esta asignación" };
-  }
+    if (!isAssignmentResponseWindowOpen(assignment)) {
+      await closePendingAndReassign(tx, assignment, "EXPIRED");
+      throw { status: 409, message: "El tiempo para responder a esta asignación venció" };
+    }
 
-  if (action === "ACCEPT") {
-    return await prisma.$transaction(async (tx) => {
+    if (action === "ACCEPT") {
       const updated = await tx.deliveryAssignments.update({
         where: { id_delivery_assignment: assignment.id_delivery_assignment },
         data: { assignment_status: "ACCEPTED" }
@@ -306,55 +331,28 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
 
       await tx.orders.update({
         where: { id_order: parsedOrderId },
-        data: { order_status: "SHIPPED" }
+        data: { order_status: "SHIPPED", delivery_unavailable: false }
       });
 
       return updated;
-    });
-  }
-
-  // REJECT
-  return await prisma.$transaction(async (tx) => {
-    await tx.deliveryAssignments.update({
-      where: { id_delivery_assignment: assignment.id_delivery_assignment },
-      data: { assignment_status: "REJECTED" }
-    });
-
-    const nextDelivery = await tx.deliveries.findFirst({
-      where: {
-        fk_store: assignment.order.fk_store,
-        delivery_status: "ACTIVE",
-        status: true,
-        id_delivery: { not: assignment.fk_delivery },
-        delivery_assignments: {
-          none: { assignment_status: "PENDING" }
-        }
-      }
-    });
-
-    if (!nextDelivery) {
-      await tx.orders.update({
-        where: { id_order: parsedOrderId },
-        data: { order_status: "PENDING" }
-      });
-      throw { status: 404, message: "No hay deliveries disponibles, el pedido vuelve a pendiente" };
     }
 
-    const lastAssignment = await tx.deliveryAssignments.findFirst({
-      where: { fk_order: parsedOrderId },
-      orderBy: { assignment_sequence: "desc" },
-      select: { assignment_sequence: true }
-    });
+    const outcome = await closePendingAndReassign(tx, assignment, "REJECTED", { reason: "reject" });
 
-    return tx.deliveryAssignments.create({
-      data: {
-        fk_order: parsedOrderId,
-        fk_delivery: nextDelivery.id_delivery,
-        assignment_status: "PENDING",
-        assignment_sequence: (lastAssignment?.assignment_sequence || 0) + 1,
-        status: true
-      }
-    });
+    if (outcome.reassigned) {
+      return {
+        ...outcome.assignment,
+        reassigned: true,
+        delivery_unavailable: false,
+      };
+    }
+
+    return {
+      assignment_status: "REJECTED",
+      fk_order: parsedOrderId,
+      reassigned: false,
+      delivery_unavailable: true,
+    };
   });
 };
 
@@ -380,7 +378,6 @@ export const getDeliveryOrderHistoryService = async (deliveryId, authenticatedUs
   const { period, assignment_status, orderId, userName } = filters;
   const { page, limit, skip } = pagination;
 
-  // ─── FILTRO DE PERÍODO ────────────────────────────────────────────────────
   let dateFilter = undefined;
   if (period && period !== "all") {
     const now = new Date();
@@ -391,11 +388,12 @@ export const getDeliveryOrderHistoryService = async (deliveryId, authenticatedUs
     dateFilter = { gte: from };
   }
 
-  // ─── WHERE DE ASIGNACIONES ────────────────────────────────────────────────
   const assignmentWhere = {
     fk_delivery: parsedDeliveryId,
     status: true,
-    ...(assignment_status && { assignment_status }),
+    ...(assignment_status
+      ? { assignment_status }
+      : { assignment_status: { notIn: ["PENDING", "EXPIRED"] } }),
     ...(dateFilter && { created_at: dateFilter }),
     ...(orderId !== undefined && { fk_order: orderId }),
     ...(userName && {

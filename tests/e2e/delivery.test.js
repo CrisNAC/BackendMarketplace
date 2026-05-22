@@ -17,6 +17,8 @@ vi.mock("../../src/lib/prisma.js", () => ({
     deliveries: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
@@ -43,7 +45,6 @@ beforeAll(() => {
 const mockStore = {
   id_store: 1,
   fk_user: 1,
-  fk_store_category: 1,
   name: "Tienda Test",
   email: "tienda@test.com",
   phone: "0981000000",
@@ -343,6 +344,62 @@ describe("POST /api/stores/{id}/deliveries", () => {
 
     expect(res.status).toBe(409);
     expect(res.body.message).toMatch(/ya está vinculado a un comercio/i);
+  });
+
+  it("Retorna 201 reutilizando el delivery existente cuando ya había un registro sin tienda", async () => {
+    prisma.stores.findUnique.mockResolvedValue(mockStore);
+    prisma.users.findFirst.mockResolvedValue({
+      id_user: 2,
+      role: "DELIVERY",
+      status: true,
+    });
+
+    prisma.deliveries.findUnique.mockResolvedValue({
+      id_delivery: 10,
+      fk_store: null,
+      fk_user: 2,
+      delivery_status: "INACTIVE",
+    });
+
+    const updatedDelivery = {
+      id_delivery: 10,
+      fk_store: 1,
+      fk_user: 2,
+      delivery_status: "INACTIVE",
+    };
+
+    prisma.deliveries.updateMany.mockResolvedValue({ count: 1 });
+    prisma.deliveries.findUnique
+      .mockResolvedValueOnce({
+        id_delivery: 10,
+        fk_store: null,
+        fk_user: 2,
+        delivery_status: "INACTIVE",
+      })
+      .mockResolvedValueOnce(updatedDelivery);
+
+    const res = await request(app)
+      .post("/api/stores/1/deliveries")
+      .set("Cookie", `userToken=${sellerToken}`)
+      .send({ fk_user: 2 });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual(updatedDelivery);
+
+    expect(prisma.deliveries.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id_delivery: 10,
+          fk_store: null,
+        },
+        data: expect.objectContaining({
+          fk_store: 1,
+          delivery_status: "INACTIVE",
+        }),
+      })
+    );
+
+    expect(prisma.deliveries.create).not.toHaveBeenCalled();
   });
 
   it("Retorna 201 con el delivery creado cuando todos los datos son válidos", async () => {

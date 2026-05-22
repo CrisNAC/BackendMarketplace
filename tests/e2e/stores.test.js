@@ -15,8 +15,8 @@ vi.mock("../../src/lib/prisma.js", () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
-    storeCategories: {
-      findUnique: vi.fn(),
+    categories: {
+      findMany: vi.fn(),
     },
     products: {
       count: vi.fn(),
@@ -33,7 +33,11 @@ vi.mock("../../src/lib/prisma.js", () => ({
       findFirst: vi.fn(),
       update: vi.fn(),
     },
+    storeBusinessHours: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     $transaction: vi.fn(),
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -54,7 +58,6 @@ beforeAll(() => {
 const mockStore = {
   id_store: 1,
   fk_user: 1,
-  fk_store_category: 1,
   name: "Tienda Test",
   email: "tienda@test.com",
   phone: "0981000000",
@@ -67,7 +70,7 @@ const mockStore = {
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-01T00:00:00.000Z",
   user: { id_user: 1, name: "Vendedor", email: "seller@test.com", role: "SELLER", status: true },
-  store_category: { id_store_category: 1, name: "Electrónica", status: true },
+  store_categories: [{ id_store_category: 1, status: true, category: { id_category: 1, name: "Electrónica", status: true } }],
   products: [],
   addresses: [],
 };
@@ -81,14 +84,20 @@ const mockProducts = [
     quantity: 5,
     visible: true,
     created_at: "2026-01-01T00:00:00.000Z",
-    product_category: { id_product_category: 1, name: "Cat A" },
+    product_categories: [
+      { category: { id_category: 1, name: "Cat A" } }
+    ],
   },
 ];
 
 // ─── GET /api/commerces/:id ───────────────────────────────────────────────────
 
 describe("GET /api/commerces/:id", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    prisma.$queryRawUnsafe.mockResolvedValue([]);
+    prisma.storeBusinessHours.findMany.mockResolvedValue([]);
+  });
 
   it("devuelve 200 con datos del comercio cuando existe", async () => {
     prisma.stores.findUnique.mockResolvedValue(mockStore);
@@ -229,6 +238,7 @@ describe("POST /api/commerces", () => {
   
   beforeEach(() => {
     vi.resetAllMocks();
+    prisma.categories.findMany.mockResolvedValue([{ id_category: 1 }]);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({ address: {} }),
@@ -259,7 +269,7 @@ describe("POST /api/commerces", () => {
       .post("/api/commerces")
       .set("Cookie", `userToken=${sellerToken}`)
       .send({
-        fk_store_category: 1,
+        category_ids: [1],
         name: "Tienda",
         email: "email-invalido",
         phone: "0981000000",
@@ -282,7 +292,7 @@ describe("POST /api/commerces", () => {
       .post("/api/commerces")
       .set("Cookie", `userToken=${sellerToken}`)
       .send({
-        fk_store_category: 1,
+        category_ids: [1],
         name: "Tienda",
         email: "nueva@test.com",
         phone: "0981000000",
@@ -300,7 +310,7 @@ describe("POST /api/commerces", () => {
   it("devuelve 201 con el comercio cuando todos los datos son válidos", async () => {
     prisma.users.findUnique.mockResolvedValue({ id_user: 1, role: "CUSTOMER", status: true });
     prisma.stores.findUnique.mockResolvedValue(null);
-    prisma.storeCategories.findUnique.mockResolvedValue({ id_store_category: 1, status: true });
+    prisma.categories = { findMany: vi.fn().mockResolvedValue([{ id_category: 1 }]) };
     prisma.$transaction.mockImplementation(async (fn) =>
       fn({
         stores: {
@@ -326,6 +336,9 @@ describe("POST /api/commerces", () => {
         shippingZones: {
           create: vi.fn().mockResolvedValue({}),
         },
+        storeCategories: {
+          createMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
         users: {
           update: vi.fn().mockResolvedValue({}),
         },
@@ -336,7 +349,7 @@ describe("POST /api/commerces", () => {
       .post("/api/commerces")
       .set("Cookie", `userToken=${sellerToken}`)
       .send({
-        fk_store_category: 1,
+        category_ids: [1],
         name: "Nueva Tienda",
         email: "nueva@test.com",
         phone: "0981000000",

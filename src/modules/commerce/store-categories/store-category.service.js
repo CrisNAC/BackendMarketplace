@@ -1,3 +1,4 @@
+//store-category.service.js
 import { prisma } from "../../../lib/prisma.js";
 
 const parsePositiveInteger = (value, fieldName) => {
@@ -13,28 +14,51 @@ const parsePositiveInteger = (value, fieldName) => {
   return parsedValue;
 };
 
-export const validateStoreCategoryService = async (categoryId) => {
-  const parsedCategoryId = parsePositiveInteger(
-    categoryId,
-    "fk_store_category"
-  );
 
-  const category = await prisma.storeCategories.findUnique({
-    where: { id_store_category: parsedCategoryId },
-    select: {
-      id_store_category: true,
-      status: true
-    }
-  });
+export const validateStoreCategoriesService = async (categoryData) => {
+  if (categoryData === undefined || categoryData === null) {
+    return [];
+  }
 
-  if (!category || !category.status) {
+  const categoryIds = Array.isArray(categoryData)
+    ? categoryData
+    : [categoryData];
+
+  if (categoryIds.length === 0) {
+    return [];
+  }
+
+  const validatedIds = [...new Set(
+    categoryIds.map((id) => parsePositiveInteger(id, "category_id"))
+  )];
+
+  if (validatedIds.length > 3) {
     throw {
       status: 400,
-      message: "fk_store_category no es valido"
+      message: "Un comercio no puede tener mas de 3 categorias"
     };
   }
 
-  return parsedCategoryId;
+  const categories = await prisma.categories.findMany({
+    where: {
+      id_category: { in: validatedIds },
+      status: true
+    },
+    select: { id_category: true }
+  });
+
+  const foundIds = new Set(categories.map((c) => c.id_category));
+
+  for (const id of validatedIds) {
+    if (!foundIds.has(id)) {
+      throw {
+        status: 400,
+        message: `Categoría ${id} no existe o no está activa`
+      };
+    }
+  }
+
+  return validatedIds;
 };
 
 export const getStoreCategoriesService = async (filters = {}) => {
@@ -44,7 +68,7 @@ export const getStoreCategoriesService = async (filters = {}) => {
     ? Math.min(limitRaw, 100)
     : 100;
 
-  const categories = await prisma.storeCategories.findMany({
+  const categories = await prisma.categories.findMany({
     where: {
       status: true,
       ...(search
@@ -57,7 +81,7 @@ export const getStoreCategoriesService = async (filters = {}) => {
         : {})
     },
     select: {
-      id_store_category: true,
+      id_category: true,
       name: true,
       status: true,
       created_at: true,
@@ -70,7 +94,7 @@ export const getStoreCategoriesService = async (filters = {}) => {
   });
 
   return categories.map((category) => ({
-    id: category.id_store_category,
+    id: category.id_category,
     name: category.name,
     status: category.status,
     createdAt: category.created_at,
