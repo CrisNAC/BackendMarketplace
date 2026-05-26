@@ -72,6 +72,7 @@ export const getProductCategoriesService = async (filters = {}) => {
     select: {
       id_category: true,
       name: true,
+      icon: true,
       status: true,
       created_at: true,
       updated_at: true
@@ -83,6 +84,7 @@ export const getProductCategoriesService = async (filters = {}) => {
   return categories.map((category) => ({
     id: category.id_category,
     name: category.name,
+    icon: category.icon ?? null,
     status: category.status,
     createdAt: category.created_at,
     updatedAt: category.updated_at
