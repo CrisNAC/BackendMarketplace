@@ -33,7 +33,11 @@ vi.mock("../../src/lib/prisma.js", () => ({
       findFirst: vi.fn(),
       update: vi.fn(),
     },
+    storeBusinessHours: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     $transaction: vi.fn(),
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -89,7 +93,11 @@ const mockProducts = [
 // ─── GET /api/commerces/:id ───────────────────────────────────────────────────
 
 describe("GET /api/commerces/:id", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    prisma.$queryRawUnsafe.mockResolvedValue([]);
+    prisma.storeBusinessHours.findMany.mockResolvedValue([]);
+  });
 
   it("devuelve 200 con datos del comercio cuando existe", async () => {
     prisma.stores.findUnique.mockResolvedValue(mockStore);

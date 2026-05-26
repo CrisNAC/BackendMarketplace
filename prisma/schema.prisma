@@ -22,10 +22,12 @@ model Users {
   email           String    @unique @db.VarChar(100)
   password_hash   String    @db.VarChar(255)
   phone           String?   @db.VarChar(20)
-  avatar_url      String?   @db.VarChar(500)
-  status          Boolean   @default(true)
-  created_at      DateTime  @default(now()) @db.Timestamptz
-  updated_at      DateTime  @updatedAt @db.Timestamptz
+  avatar_url                   String?   @db.VarChar(500)
+  status                       Boolean   @default(true)
+  password_reset_token         String?   @db.VarChar(255)
+  password_reset_token_expires DateTime? @db.Timestamptz
+  created_at                   DateTime  @default(now()) @db.Timestamptz
+  updated_at                   DateTime  @updatedAt @db.Timestamptz
   
   //Relaciones
   store             Stores?   //Usuario solo puede tener asociado un comercio
@@ -58,6 +60,21 @@ model Notifications {
   user Users @relation(fields: [fk_user], references: [id_user])
 }
 
+//------------------------------------BANNERS PROMOCIONALES----------------------------------------
+model Banners {
+  id_banner   Int      @id @default(autoincrement())
+  title       String   @db.VarChar(120)
+  description String?  @db.Text
+  image_url   String   @db.VarChar(500)
+  link_url    String?  @db.VarChar(500)
+  start_at    DateTime @db.Timestamptz
+  end_at      DateTime? @db.Timestamptz
+  is_active   Boolean  @default(true)
+  status      Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz
+  updated_at  DateTime @updatedAt @db.Timestamptz
+}
+
 //------------------------------------COMERCIOS----------------------------------------
 model Stores {
   id_store          Int       @id @default(autoincrement())
@@ -85,7 +102,25 @@ model Stores {
   deliveries          Deliveries[]  //Un comercio puede tener asociado muchos deliveries que trabajan con el mismo
   carts               Carts[]
   order               Orders[]
+  business_hours      StoreBusinessHours[]
   //wishlist_items      WishlistItems[]
+}
+
+//------------------------------------HORARIOS COMERCIO----------------------------------------
+model StoreBusinessHours {
+  id_store_business_hour  Int       @id @default(autoincrement())
+  fk_store                Int
+  day_of_week             Int       // 0=Lunes ... 6=Domingo
+  open_time               String?   @db.VarChar(5)  // HH:mm
+  close_time              String?   @db.VarChar(5)  // HH:mm
+  is_closed               Boolean   @default(true)
+  status                  Boolean   @default(true)
+  created_at              DateTime  @default(now()) @db.Timestamptz
+  updated_at              DateTime  @updatedAt @db.Timestamptz
+
+  store Stores @relation(fields: [fk_store], references: [id_store])
+
+  @@unique([fk_store, day_of_week])
 }
 
 //------------------------------------COMERCIOS-CATEGORIAS----------------------------------------
@@ -171,6 +206,7 @@ model Products {
 model Categories {
   id_category   Int       @id @default(autoincrement())
   name          String    @db.VarChar(100)
+  icon          String?   @db.VarChar(500)
   status        Boolean   @default(true)
   visible       Boolean   @default(true)
   created_at    DateTime  @default(now()) @db.Timestamptz
@@ -390,6 +426,7 @@ model DeliveryAssignments  {
   assignment_status         AssignmentStatus @default(PENDING)  
   assignment_sequence       Int      @default(1)  
   assigned_at               DateTime @default(now()) @db.Timestamptz
+  response_deadline         DateTime? @db.Timestamptz
   status                    Boolean  @default(true)
   created_at                DateTime @default(now()) @db.Timestamptz  
   updated_at                DateTime @updatedAt @db.Timestamptz 
@@ -418,6 +455,7 @@ enum AssignmentStatus {
   PENDING
   ACCEPTED
   REJECTED
+  EXPIRED
   DELIVERED
 }
 
@@ -433,6 +471,7 @@ model Orders {
   total             Decimal       @db.Decimal(10, 2)
   order_status      OrderStatus   @default(PENDING) // por defecto se crea en estado pendiente
   notes             String?       @db.Text
+  delivery_unavailable Boolean    @default(false)
   status            Boolean       @default(true)
   created_at        DateTime      @default(now()) @db.Timestamptz
   updated_at        DateTime      @updatedAt @db.Timestamptz

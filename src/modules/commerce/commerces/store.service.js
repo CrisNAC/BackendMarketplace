@@ -6,6 +6,7 @@ import { getProductPricing } from "../../../lib/product-pricing.js";
 import {
   validateStoreCategoriesService
 } from "../store-categories/store-category.service.js";
+import { buildStoreBusinessHoursResponse } from "../business-hours/services/business-hours.services.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALLOWED_LOCAL_LOGO_DIRECTORIES = new Set(["uploads", "storage", "public"]);
@@ -391,6 +392,22 @@ const mapStoreWithPricedProducts = (store) => {
   };
 };
 
+const enrichStoreWithBusinessHours = async (store) => {
+  if (!store?.id_store) {
+    return store;
+  }
+
+  const businessHours = await buildStoreBusinessHoursResponse(store.id_store);
+
+  return {
+    ...store,
+    business_hours: businessHours.schedules,
+    is_open: businessHours.is_open,
+    open_time: businessHours.open_time,
+    close_time: businessHours.close_time,
+  };
+};
+
 const getAddressCoordinatesByStoreId = async (storeId) => {
   try {
     const rows = await prisma.$queryRawUnsafe(
@@ -448,7 +465,9 @@ export const getAuthorizedStoreOwnerService = async (
       id_store: true,
       fk_user: true,
       logo: true,
+      name: true,
       status: true,
+      store_status: true,
       user: {
         select: {
           id_user: true,
@@ -831,6 +850,12 @@ export const updateStoreService = async (
     };
   }
 
+  let shouldResubmit = false;
+  if (store.store_status === "SUSPENDED") {
+    dataToUpdate.store_status = "INACTIVE";
+    shouldResubmit = true;
+  }
+
   let addressId = null;
   let shippingZoneId = null;
 
@@ -940,6 +965,13 @@ export const updateStoreService = async (
         });
       }
 
+      if (shouldResubmit) {
+        await tx.products.updateMany({
+          where: { fk_store: store.id_store, status: true },
+          data: { visible: false }
+        });
+      }
+
       return tx.stores.findUnique({
         where: { id_store: store.id_store },
         select: STORE_RESPONSE_SELECT
@@ -1011,7 +1043,8 @@ export const getStoreByIdService = async (id, { ignoreStoreStatus = false } = {}
         : []
     };
 
-    return mapStoreWithPricedProducts(storeWithCoordinates);
+    const mappedStore = mapStoreWithPricedProducts(storeWithCoordinates);
+    return enrichStoreWithBusinessHours(mappedStore);
 
   } catch (error) {
     if (error.status) {
@@ -1282,6 +1315,13 @@ export const updateStoreStatusService = async (authenticatedUserId, storeId, sto
     const ALLOWED_STATUSES = ["ACTIVE", "INACTIVE"];
     if (!ALLOWED_STATUSES.includes(store_status)) {
         throw { status: 400, message: "store_status debe ser ACTIVE o INACTIVE" };
+    }
+
+    if (store.store_status === "SUSPENDED") {
+        throw {
+            status: 400,
+            message: "El comercio rechazado debe reenviarse a revision antes de habilitarse"
+        };
     }
 
     await prisma.$transaction([

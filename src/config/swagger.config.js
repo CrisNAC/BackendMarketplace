@@ -15,10 +15,12 @@ import {
     categoryRequestSchemas,
     deliverySchemas,
     orderSchemas,
+    bannerSchemas,
     // /session
     sessionSchemas,
     // /admin
     adminCategorySchemas,
+    adminBannerSchemas,
 } from "../docs/schemas/index.js";
 
 const options = {
@@ -54,6 +56,7 @@ const options = {
             { name: "Deliveries", description: "Gestión de repartidores" },
             { name: "Images", description: "Gestión de imágenes" },
             { name: "Admin", description: "Gestión de administración" },
+            { name: "Banners", description: "Banners promocionales" },
         ],
         components: {
             securitySchemes: {
@@ -77,12 +80,14 @@ const options = {
                 ...categoryRequestSchemas,
                 ...deliverySchemas,
                 ...orderSchemas,
+                ...bannerSchemas,
                 // /session
                 ...sessionSchemas,
                 // /images
                 ...imageSchemas,
                 // /admin
                 ...adminCategorySchemas,
+                ...adminBannerSchemas,
             }
         },
         security: [

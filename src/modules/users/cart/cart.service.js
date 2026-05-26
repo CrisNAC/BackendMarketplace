@@ -1,3 +1,4 @@
+//cart.service.js
 import { prisma } from "../../../lib/prisma.js";
 import { getProductPricing } from "../../../lib/product-pricing.js";
 import {
@@ -49,7 +50,8 @@ const getCartWithItems = async (cartId) => {
               price: true,
               offer_price: true,
               is_offer: true,
-              image_url: true
+              image_url: true,
+              quantity: true
             }
           }
         }
@@ -81,7 +83,8 @@ const mapCartResponse = (cart) => {
           originalPrice: pricing.originalPrice,
           offerPrice: pricing.offerPrice,
           isOffer: pricing.isOffer,
-          imageUrl: item.product.image_url ?? null
+          imageUrl: item.product.image_url ?? null,
+          stock: item.product.quantity
         }
       };
     })
@@ -267,6 +270,7 @@ export const getCartItemsByIdService = async (authenticatedUserId, cartId) => {
           price: true,
           offer_price: true,
           is_offer: true,
+          quantity: true,
           store: {
             select: { name: true }
           }
@@ -287,7 +291,8 @@ export const getCartItemsByIdService = async (authenticatedUserId, cartId) => {
         originalPrice: pricing.originalPrice,
         offerPrice: pricing.offerPrice,
         isOffer: pricing.isOffer,
-        storeName: item.product.store?.name ?? null
+        storeName: item.product.store?.name ?? null,
+        stock: item.product.quantity
       }
     };
   });
@@ -371,4 +376,82 @@ export const updatedCartItemQuantityService = async (authenticatedUserId, cartIt
 
   const updatedCart = await getCartWithItems(cartItem.fk_cart);
   return mapCartResponse(updatedCart);
-}
+};
+
+/**
+ * Elimina un carrito específico (borrado lógico de todos sus items)
+ * DELETE /api/users/:customerId/cart/:cartId
+ */
+export const deleteCartService = async (authenticatedUserId, customerId, cartId) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "authenticatedUserId");
+  const resolvedCustomerId = parsePositiveInteger(customerId, "customerId");
+  const resolvedCartId = parsePositiveInteger(cartId, "cartId");
+
+  if (resolvedUserId !== resolvedCustomerId) {
+    throw new ForbiddenError("No tienes permisos para eliminar este carrito");
+  }
+
+  const cart = await prisma.carts.findFirst({
+    where: {
+      id_cart: resolvedCartId,
+      fk_user: resolvedCustomerId,
+      status: true,
+      cart_status: "ACTIVE"
+    },
+    select: { id_cart: true }
+  });
+
+  if (!cart) {
+    throw new NotFoundError("Carrito no encontrado");
+  }
+
+  // Borrado lógico de todos los items del carrito
+  await prisma.cartItems.updateMany({
+    where: {
+      fk_cart: resolvedCartId,
+      status: true
+    },
+    data: { status: false }
+  });
+
+  return { success: true, message: "Carrito eliminado correctamente" };
+};
+
+/**
+ * Elimina todos los carritos activos del usuario (borrado lógico)
+ * DELETE /api/users/:customerId/carts
+ */
+export const deleteAllCartsService = async (authenticatedUserId, customerId) => {
+  const resolvedUserId = parsePositiveInteger(authenticatedUserId, "authenticatedUserId");
+  const resolvedCustomerId = parsePositiveInteger(customerId, "customerId");
+
+  if (resolvedUserId !== resolvedCustomerId) {
+    throw new ForbiddenError("No tienes permisos para eliminar estos carritos");
+  }
+
+  const carts = await prisma.carts.findMany({
+    where: {
+      fk_user: resolvedCustomerId,
+      status: true,
+      cart_status: "ACTIVE"
+    },
+    select: { id_cart: true }
+  });
+
+  if (carts.length === 0) {
+    throw new NotFoundError("No hay carritos para eliminar");
+  }
+
+  const cartIds = carts.map((c) => c.id_cart);
+
+  // Borrado lógico de todos los items de todos los carritos
+  await prisma.cartItems.updateMany({
+    where: {
+      fk_cart: { in: cartIds },
+      status: true
+    },
+    data: { status: false }
+  });
+
+  return { success: true, message: "Todos los carritos fueron eliminados correctamente" };
+};
