@@ -1,6 +1,7 @@
 //order.routes.js
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
+import { requireRole } from "../../../middlewares/auth.middleware.js";
 import {
 	createDeliveryReview,
 	createOrder,
@@ -11,14 +12,118 @@ import {
 	updateOrderStatus
 } from "./order.controller.js";
 
-
 const orderRouter = Router();
 const userOrderRouter = Router();
-// POST /api/orders — confirma la compra desde un carrito
-orderRouter.post("/", authenticate, createOrder);
 
-// POST /api/orders/shipping-quote — cotiza costo de envío por carrito y dirección
-orderRouter.post("/shipping-quote", authenticate, getOrderShippingQuote);
+/**
+ * @swagger
+ * /api/orders:
+ *   post:
+ *     summary: Crear un pedido
+ *     description: Confirma la compra desde un carrito activo. Solo rol **CUSTOMER**.
+ *     tags: [Orders]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [cartId]
+ *             properties:
+ *               cartId:
+ *                 type: integer
+ *               addressId:
+ *                 type: integer
+ *                 nullable: true
+ *               shippingMethod:
+ *                 type: string
+ *                 enum: [pickup, standard]
+ *                 default: pickup
+ *               notes:
+ *                 type: string
+ *                 nullable: true
+ *     responses:
+ *       201:
+ *         description: Pedido creado
+ *       400:
+ *         description: Validación (carrito vacío, stock insuficiente, etc.)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
+ *       403:
+ *         description: Solo clientes pueden crear pedidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       409:
+ *         description: El carrito ya fue convertido en pedido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ */
+orderRouter.post("/", authenticate, requireRole('CUSTOMER'), createOrder);
+
+/**
+ * @swagger
+ * /api/orders/shipping-quote:
+ *   post:
+ *     summary: Cotizar costo de envío
+ *     description: Calcula el costo de envío para un carrito y dirección. Solo rol **CUSTOMER**.
+ *     tags: [Orders]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [cartId, addressId]
+ *             properties:
+ *               cartId:
+ *                 type: integer
+ *               addressId:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Cotización calculada
+ *       400:
+ *         description: Validación (sin coordenadas, sin zona de envío, etc.)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
+ *       403:
+ *         description: Solo clientes pueden cotizar envíos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       404:
+ *         description: Carrito o dirección no encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ */
+orderRouter.post("/shipping-quote", authenticate, requireRole('CUSTOMER'), getOrderShippingQuote);
 
 // GET /api/users/:customerId/orders — historial de pedidos del usuario
 userOrderRouter.get("/:customerId/orders", authenticate, getOrders);
