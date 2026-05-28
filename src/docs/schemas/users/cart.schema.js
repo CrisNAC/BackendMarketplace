@@ -1,4 +1,4 @@
-//cart.schema.js
+// src/docs/schemas/users/cart.schema.js
 
 export const cartSchemas = {
   CartItem: {
