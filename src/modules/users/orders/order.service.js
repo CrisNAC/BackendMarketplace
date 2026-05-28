@@ -391,11 +391,20 @@ export const createOrderService = async (
       });
     }
 
-    //marcar el carrito como CHECKED_OUT
+    // Marcar todos los carritos CHECKED_OUT anteriores como ABANDONED usando raw SQL
+    await tx.$executeRaw`
+      UPDATE "Carts" 
+      SET "cart_status" = 'ABANDONED' 
+      WHERE "fk_user" = ${resolvedUserId} 
+        AND "fk_store" = ${cart.fk_store} 
+        AND "cart_status" = 'CHECKED_OUT'
+    `;
+
+    // Ahora sí marcar el carrito actual como CHECKED_OUT
     await tx.carts.update({
       where: { id_cart: resolvedCartId },
       data: { cart_status: "CHECKED_OUT" }
-    })
+    });
 
     // crear notificación de nuevo pedido para el cliente
     const { title, message } = NOTIFICATION_MESSAGES.ORDER_CONFIRMED(order.id_order);
