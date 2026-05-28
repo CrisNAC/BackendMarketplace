@@ -6,7 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["fullTextSearchPostgres"] //funcionalidad para busquedas mas avanzadas en la BD (lo use en product.service)
+  previewFeatures = ["fullTextSearchPostgres", "partialIndexes"] // fullTextSearch para búsquedas avanzadas en BD, partialIndexes para permitir múltiples carritos CHECKED_OUT por tienda
   //output   = "../generated/prisma"
 }
 
@@ -384,7 +384,7 @@ model Carts {
   items            CartItems[]
   order Orders?  //Relacion 1 a 1 Carrito <-> Pedido 
 
-  @@unique([fk_user, fk_store, cart_status]) // 1 carrito ACTIVO por tienda para el usuario
+  @@unique([fk_user, fk_store, cart_status], where: { cart_status: "ACTIVE" }) // solo ACTIVE es único
 }
 
 model CartItems {
