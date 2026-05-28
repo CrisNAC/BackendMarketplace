@@ -201,7 +201,7 @@ describe("addCartItemService", () => {
     prisma.$transaction.mockImplementation(async (fn) => {
       const tx = {
         products: { findFirst: vi.fn().mockResolvedValue(null) },
-        carts: { upsert: vi.fn() },
+        carts: { findFirst: vi.fn(), create: vi.fn(), upsert: vi.fn() },
         cartItems: { findFirst: vi.fn() },
       };
       return fn(tx);
@@ -223,7 +223,7 @@ describe("addCartItemService", () => {
             store: { id_store: 10, store_status: "INACTIVE", status: true },
           }),
         },
-        carts: { upsert: vi.fn() },
+        carts: { findFirst: vi.fn(), create: vi.fn(), upsert: vi.fn() },
         cartItems: { findFirst: vi.fn() },
       };
       return fn(tx);
@@ -245,7 +245,7 @@ describe("addCartItemService", () => {
             store: { id_store: 10, store_status: "ACTIVE", status: false },
           }),
         },
-        carts: { upsert: vi.fn() },
+        carts: { findFirst: vi.fn(), create: vi.fn(), upsert: vi.fn() },
         cartItems: { findFirst: vi.fn() },
       };
       return fn(tx);
@@ -268,6 +268,8 @@ describe("addCartItemService", () => {
           }),
         },
         carts: {
+          findFirst: vi.fn(),
+          create: vi.fn().mockResolvedValue({ id_cart: 1 }),
           upsert: vi.fn().mockResolvedValue({ id_cart: 1 }),
         },
         cartItems: {
@@ -294,6 +296,8 @@ describe("addCartItemService", () => {
           }),
         },
         carts: {
+          findFirst: vi.fn(),
+          create: vi.fn().mockResolvedValue({ id_cart: 1 }),
           upsert: vi.fn().mockResolvedValue({ id_cart: 1 }),
         },
         cartItems: {
@@ -324,6 +328,8 @@ describe("addCartItemService", () => {
           }),
         },
         carts: {
+          findFirst: vi.fn(),
+          create: vi.fn().mockResolvedValue({ id_cart: 1 }),
           upsert: vi.fn().mockResolvedValue({ id_cart: 1 }),
         },
         cartItems: {
@@ -355,6 +361,8 @@ describe("addCartItemService", () => {
           }),
         },
         carts: {
+          findFirst: vi.fn(),
+          create: vi.fn().mockResolvedValue({ id_cart: 1 }),
           upsert: vi.fn().mockResolvedValue({ id_cart: 1 }),
         },
         cartItems: {
@@ -383,6 +391,8 @@ describe("addCartItemService", () => {
           }),
         },
         carts: {
+          findFirst: vi.fn(),
+          create: vi.fn().mockResolvedValue({ id_cart: 1 }),
           upsert: vi.fn().mockResolvedValue({ id_cart: 1 }),
         },
         cartItems: {
