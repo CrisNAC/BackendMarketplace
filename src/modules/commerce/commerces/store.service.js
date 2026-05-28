@@ -76,6 +76,7 @@ const STORE_RESPONSE_SELECT = {
     select: {
       id_product: true,
       name: true,
+      description: true,
       price: true,
       offer_price: true,
       quantity: true,

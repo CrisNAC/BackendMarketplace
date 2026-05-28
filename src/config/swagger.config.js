@@ -21,6 +21,8 @@ import {
     // /admin
     adminCategorySchemas,
     adminBannerSchemas,
+    // /users
+    cartSchemas,
 } from "../docs/schemas/index.js";
 
 const options = {
@@ -68,6 +70,8 @@ const options = {
             },
             schemas: {
                 ...commonSchemas,
+                // /users/
+                ...cartSchemas,
                 // /commerce/
                 ...addressSchemas,
                 ...storeSchemas,
