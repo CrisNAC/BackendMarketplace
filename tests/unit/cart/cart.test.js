@@ -201,7 +201,7 @@ describe("addCartItemService", () => {
     prisma.$transaction.mockImplementation(async (fn) => {
       const tx = {
         products: { findFirst: vi.fn().mockResolvedValue(null) },
-        carts: { findFirst: vi.fn(), create: vi.fn(), upsert: vi.fn() },
+        carts: { upsert: vi.fn() },
         cartItems: { findFirst: vi.fn() },
       };
       return fn(tx);
@@ -223,7 +223,7 @@ describe("addCartItemService", () => {
             store: { id_store: 10, store_status: "INACTIVE", status: true },
           }),
         },
-        carts: { findFirst: vi.fn(), create: vi.fn(), upsert: vi.fn() },
+        carts: { upsert: vi.fn() },
         cartItems: { findFirst: vi.fn() },
       };
       return fn(tx);
@@ -245,7 +245,7 @@ describe("addCartItemService", () => {
             store: { id_store: 10, store_status: "ACTIVE", status: false },
           }),
         },
-        carts: { findFirst: vi.fn(), create: vi.fn(), upsert: vi.fn() },
+        carts: { upsert: vi.fn() },
         cartItems: { findFirst: vi.fn() },
       };
       return fn(tx);
@@ -263,13 +263,11 @@ describe("addCartItemService", () => {
           findFirst: vi.fn().mockResolvedValue({
             id_product: 1,
             fk_store: 10,
-            quantity: 2, // solo 2 en stock
+            quantity: 2,
             store: { id_store: 10, store_status: "ACTIVE", status: true },
           }),
         },
         carts: {
-          findFirst: vi.fn(),
-          create: vi.fn().mockResolvedValue({ id_cart: 1 }),
           upsert: vi.fn().mockResolvedValue({ id_cart: 1 }),
         },
         cartItems: {
@@ -280,7 +278,7 @@ describe("addCartItemService", () => {
     });
 
     await expect(
-      addCartItemService(1, 1, { productId: 1, quantity: 5 }) // pide 5, hay 2
+      addCartItemService(1, 1, { productId: 1, quantity: 5 })
     ).rejects.toThrow(ValidationError);
   });
 
@@ -296,12 +294,10 @@ describe("addCartItemService", () => {
           }),
         },
         carts: {
-          findFirst: vi.fn(),
-          create: vi.fn().mockResolvedValue({ id_cart: 1 }),
           upsert: vi.fn().mockResolvedValue({ id_cart: 1 }),
         },
         cartItems: {
-          findFirst: vi.fn().mockResolvedValue(null), // no existía
+          findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({}),
         },
       };
@@ -328,8 +324,6 @@ describe("addCartItemService", () => {
           }),
         },
         carts: {
-          findFirst: vi.fn(),
-          create: vi.fn().mockResolvedValue({ id_cart: 1 }),
           upsert: vi.fn().mockResolvedValue({ id_cart: 1 }),
         },
         cartItems: {
@@ -343,7 +337,6 @@ describe("addCartItemService", () => {
 
     await addCartItemService(1, 1, { productId: 1, quantity: 3 });
 
-    // la transacción se ejecutó (update fue llamado dentro)
     expect(prisma.$transaction).toHaveBeenCalled();
   });
 
@@ -361,8 +354,6 @@ describe("addCartItemService", () => {
           }),
         },
         carts: {
-          findFirst: vi.fn(),
-          create: vi.fn().mockResolvedValue({ id_cart: 1 }),
           upsert: vi.fn().mockResolvedValue({ id_cart: 1 }),
         },
         cartItems: {
@@ -391,8 +382,6 @@ describe("addCartItemService", () => {
           }),
         },
         carts: {
-          findFirst: vi.fn(),
-          create: vi.fn().mockResolvedValue({ id_cart: 1 }),
           upsert: vi.fn().mockResolvedValue({ id_cart: 1 }),
         },
         cartItems: {
@@ -404,7 +393,6 @@ describe("addCartItemService", () => {
     });
     prisma.carts.findUnique.mockResolvedValue(mockCartFull);
 
-    // sin quantity
     const result = await addCartItemService(1, 1, { productId: 1 });
 
     expect(result).toBeDefined();
@@ -472,7 +460,7 @@ describe("getCartItemsByIdService", () => {
     const result = await getCartItemsByIdService(1, 1);
 
     expect(result[0].product).toMatchObject({
-      price: 75,        // offer_price
+      price: 75,
       originalPrice: 100,
       isOffer: true,
     });
@@ -586,11 +574,11 @@ describe("updatedCartItemQuantityService", () => {
     prisma.cartItems.findFirst.mockResolvedValue({
       id_cart_item: 1,
       fk_cart: 1,
-      product: { quantity: 5 }, // solo 5 en stock
+      product: { quantity: 5 },
     });
 
     await expect(
-      updatedCartItemQuantityService(1, 1, 10) // pide 10
+      updatedCartItemQuantityService(1, 1, 10)
     ).rejects.toThrow(ValidationError);
   });
 
@@ -738,11 +726,10 @@ describe("deleteCartService", () => {
 
     await deleteCartService(1, 1, 1);
 
-    // Solo actualiza items con status: true
     expect(prisma.cartItems.updateMany).toHaveBeenCalledWith({
       where: {
         fk_cart: 1,
-        status: true, // solo activos
+        status: true,
       },
       data: { status: false },
     });
@@ -812,7 +799,6 @@ describe("deleteAllCartsService", () => {
 
     await deleteAllCartsService(1, 1);
 
-    // Verifica que findMany fue llamado con los filtros correctos
     expect(prisma.carts.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -868,18 +854,16 @@ describe("deleteAllCartsService", () => {
 
     await deleteAllCartsService(1, 1);
 
-    // Solo actualiza items con status: true
     expect(prisma.cartItems.updateMany).toHaveBeenCalledWith({
       where: {
         fk_cart: { in: [1, 2] },
-        status: true, // solo activos
+        status: true,
       },
       data: { status: false },
     });
   });
 
   it("retorna mensaje diferenciado cuando elimina todos vs uno", async () => {
-    // Comparar deleteCartService vs deleteAllCartsService
     prisma.carts.findFirst.mockResolvedValue({ id_cart: 1 });
     prisma.carts.findMany.mockResolvedValue([{ id_cart: 1 }]);
     prisma.cartItems.updateMany.mockResolvedValue({ count: 2 });
