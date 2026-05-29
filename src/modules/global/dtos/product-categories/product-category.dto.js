@@ -47,6 +47,7 @@ export const FilterProductCategoryDTO = z.object({
 export class ProductCategoryResponseDTO extends BaseResponseDTO {
     id_category;
     name;
+    icon;
     constructor(data) {
         super({
             id: data.id_category,
@@ -55,6 +56,7 @@ export class ProductCategoryResponseDTO extends BaseResponseDTO {
         });
         this.id_category = data.id_category;
         this.name = data.name;
+        this.icon = data.icon ?? null;
     }
     static map(data) {
         return new ProductCategoryResponseDTO(data);
