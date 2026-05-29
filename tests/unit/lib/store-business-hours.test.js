@@ -48,6 +48,22 @@ describe("store-business-hours helpers", () => {
     expect(result.is_open).toBe(false);
   });
 
+  it("computeStoreAvailability usa hora local del comercio (no UTC del servidor)", () => {
+    // 12:00 en Asunción (UTC-3) = 15:00 UTC — sin TZ local, 15:00 > 13:00 cerraría mal.
+    const noonAsuncionUtc = new Date("2026-05-29T15:00:00.000Z");
+    const schedules = [
+      {
+        day_of_week: 4, // viernes 29-may-2026
+        is_closed: false,
+        open_time: "08:00",
+        close_time: "13:00",
+      },
+    ];
+
+    const result = computeStoreAvailability(schedules, noonAsuncionUtc);
+    expect(result.is_open).toBe(true);
+  });
+
   it("computeStoreAvailability respeta dia cerrado", () => {
     const mondayMorning = new Date("2026-05-18T10:00:00");
     const schedules = [

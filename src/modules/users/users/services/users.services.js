@@ -1,6 +1,7 @@
 //import { PrismaClient } from "@prisma/client";
 //users.services.js
 import { prisma } from "../../../../lib/prisma.js";
+import { validateDeliveryPhone } from "../../../../lib/phone.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "../../../../lib/email.service.js";
@@ -228,14 +229,7 @@ export const updateUserService = async (
                 };
             }
 
-            if (phone.length > 20) {
-                throw {
-                    status: 400,
-                    message: "phone no puede superar 20 caracteres",
-                };
-            }
-
-            dataToUpdate.phone = phone;
+            dataToUpdate.phone = validateDeliveryPhone(phone);
         }
     }
 
