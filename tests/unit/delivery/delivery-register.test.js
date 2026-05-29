@@ -126,7 +126,7 @@ describe("POST /api/deliveries/register", () => {
       id_delivery: 1,
       fk_user: 10,
       fk_store: null,
-      delivery_status: "INACTIVE",
+      delivery_status: "ACTIVE",
       vehicle_type: "MOTORCYCLE",
       status: true,
     });
@@ -138,7 +138,12 @@ describe("POST /api/deliveries/register", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.user.role).toBe("DELIVERY");
-    expect(res.body.delivery.delivery_status).toBe("INACTIVE");
+    expect(res.body.delivery.delivery_status).toBe("ACTIVE");
     expect(res.body.delivery.fk_store).toBe(null);
+    expect(prisma.deliveries.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ delivery_status: "ACTIVE" }),
+      })
+    );
   });
 });

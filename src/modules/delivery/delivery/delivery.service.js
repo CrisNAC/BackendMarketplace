@@ -44,7 +44,7 @@ export const registerDeliveryService = async (authUser, data) => {
       data: {
         fk_user: user.id_user,
         fk_store: null,
-        delivery_status: "INACTIVE",
+        delivery_status: "ACTIVE",
         vehicle_type: vehicleType
       },
       select: {

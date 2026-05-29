@@ -100,7 +100,7 @@ describe("POST /api/deliveries/register", () => {
     expect(res.body.error.message).toMatch(/ya está registrado como delivery/i);
   });
 
-  it("retorna 200 y crea el delivery con estado INACTIVE", async () => {
+  it("retorna 200 y crea el delivery con estado ACTIVE", async () => {
     prisma.users.findUnique.mockResolvedValue({
       id_user: 10,
       role: "CUSTOMER",
@@ -119,7 +119,7 @@ describe("POST /api/deliveries/register", () => {
       id_delivery: 1,
       fk_user: 10,
       fk_store: null,
-      delivery_status: "INACTIVE",
+      delivery_status: "ACTIVE",
       vehicle_type: "MOTORCYCLE",
       status: true,
     });
@@ -131,7 +131,7 @@ describe("POST /api/deliveries/register", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.user.role).toBe("DELIVERY");
-    expect(res.body.delivery.delivery_status).toBe("INACTIVE");
+    expect(res.body.delivery.delivery_status).toBe("ACTIVE");
     expect(res.body.delivery.fk_store).toBe(null);
     expect(res.body.delivery.vehicle_type).toBe("MOTORCYCLE");
     expect(prisma.users.update).toHaveBeenCalledWith(
@@ -145,7 +145,7 @@ describe("POST /api/deliveries/register", () => {
         data: expect.objectContaining({
           fk_user: 10,
           fk_store: null,
-          delivery_status: "INACTIVE",
+          delivery_status: "ACTIVE",
           vehicle_type: "MOTORCYCLE",
         }),
       })
