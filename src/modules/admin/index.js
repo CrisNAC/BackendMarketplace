@@ -3,3 +3,4 @@ export * from "./users/admin-users.routes.js";
 export * from "./stores/admin-stores.routes.js";
 export * from "./products/admin-products.routes.js";
 export * from "./banners/admin-banners.routes.js";
+export * from "./tags/admin-tag.routes.js";
