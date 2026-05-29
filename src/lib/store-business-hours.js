@@ -26,11 +26,12 @@ export const parseTimeToMinutes = (timeValue) => {
     return null;
   }
 
-  const normalized = timeValue.trim().slice(0, 5);
-  if (!TIME_REGEX.test(normalized)) {
+  const trimmed = timeValue.trim();
+  if (!TIME_REGEX.test(trimmed)) {
     return null;
   }
 
+  const normalized = trimmed.slice(0, 5);
   const [hours, minutes] = normalized.split(":").map(Number);
   return hours * 60 + minutes;
 };

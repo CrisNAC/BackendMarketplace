@@ -33,7 +33,7 @@ export const registerDeliveryService = async (authUser, data) => {
   if (phone !== undefined) {
     userUpdateData.phone = validateDeliveryPhone(phone);
   } else if (user.phone) {
-    userUpdateData.phone = validateDeliveryPhone(user.phone);
+    userUpdateData.phone = user.phone;
   } else {
     throw {
       status: 400,

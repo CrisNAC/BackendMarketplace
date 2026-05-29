@@ -2,6 +2,9 @@
 export const STORE_TIMEZONE =
   process.env.STORE_TIMEZONE?.trim() || "America/Asuncion";
 
+const DEFAULT_TIMEZONE = "America/Asuncion";
+const FALLBACK_TIMEZONE = "UTC";
+
 const WEEKDAY_SHORT_TO_MONDAY_INDEX = {
   Mon: 0,
   Tue: 1,
@@ -12,36 +15,64 @@ const WEEKDAY_SHORT_TO_MONDAY_INDEX = {
   Sun: 6,
 };
 
-export const getStoreLocalWeekdayIndex = (date = new Date(), timeZone = STORE_TIMEZONE) => {
-  const weekdayShort = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    weekday: "short",
-  }).format(date);
+/** Valida IANA; si no es válida usa UTC para no romper Intl. */
+export const resolveStoreTimeZone = (timeZone = STORE_TIMEZONE) => {
+  const candidate = String(timeZone ?? "").trim() || DEFAULT_TIMEZONE;
 
-  const index = WEEKDAY_SHORT_TO_MONDAY_INDEX[weekdayShort];
-  return index ?? getMondayBasedDayOfWeekFromUtc(date);
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: candidate });
+    return candidate;
+  } catch {
+    return FALLBACK_TIMEZONE;
+  }
 };
 
-/** Fallback si Intl devuelve un valor inesperado (usa calendario del servidor). */
+/** Fallback si Intl devuelve un valor inesperado (usa calendario UTC). */
 const getMondayBasedDayOfWeekFromUtc = (date) => {
-  const jsDay = date.getDay();
+  const jsDay = date.getUTCDay();
   return jsDay === 0 ? 6 : jsDay - 1;
 };
 
-export const getStoreLocalMinutesOfDay = (date = new Date(), timeZone = STORE_TIMEZONE) => {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
+export const getStoreLocalWeekdayIndex = (date = new Date(), timeZone = STORE_TIMEZONE) => {
+  const safeTimeZone = resolveStoreTimeZone(timeZone);
 
-  const hour = Number(parts.find((part) => part.type === "hour")?.value);
-  const minute = Number(parts.find((part) => part.type === "minute")?.value);
+  try {
+    const weekdayShort = new Intl.DateTimeFormat("en-US", {
+      timeZone: safeTimeZone,
+      weekday: "short",
+    }).format(date);
 
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
-    return date.getHours() * 60 + date.getMinutes();
+    const index = WEEKDAY_SHORT_TO_MONDAY_INDEX[weekdayShort];
+    if (index !== undefined) {
+      return index;
+    }
+  } catch {
+    // fallback abajo
   }
 
-  return hour * 60 + minute;
+  return getMondayBasedDayOfWeekFromUtc(date);
+};
+
+export const getStoreLocalMinutesOfDay = (date = new Date(), timeZone = STORE_TIMEZONE) => {
+  const safeTimeZone = resolveStoreTimeZone(timeZone);
+
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: safeTimeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(date);
+
+    const hour = Number(parts.find((part) => part.type === "hour")?.value);
+    const minute = Number(parts.find((part) => part.type === "minute")?.value);
+
+    if (Number.isFinite(hour) && Number.isFinite(minute)) {
+      return hour * 60 + minute;
+    }
+  } catch {
+    // fallback abajo
+  }
+
+  return date.getUTCHours() * 60 + date.getUTCMinutes();
 };

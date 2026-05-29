@@ -5,20 +5,26 @@ import {
   parseTimeToMinutes,
 } from "../../../src/lib/store-business-hours.js";
 
+/** Lunes 18-may-2026 10:00 en America/Asuncion (UTC-3) */
+const MONDAY_10AM_ASUNCION_UTC = new Date("2026-05-18T13:00:00.000Z");
+
+/** Lunes 18-may-2026 20:00 en America/Asuncion (UTC-3) */
+const MONDAY_8PM_ASUNCION_UTC = new Date("2026-05-18T23:00:00.000Z");
+
 describe("store-business-hours helpers", () => {
   it("parseTimeToMinutes valida formato HH:mm", () => {
     expect(parseTimeToMinutes("09:30")).toBe(570);
     expect(parseTimeToMinutes("25:00")).toBeNull();
     expect(parseTimeToMinutes("9:30")).toBeNull();
+    expect(parseTimeToMinutes("09:30abc")).toBeNull();
   });
 
   it("getMondayBasedDayOfWeek mapea domingo a 6", () => {
-    const sunday = new Date("2026-05-17T12:00:00");
+    const sunday = new Date(Date.UTC(2026, 4, 17, 12, 0, 0));
     expect(getMondayBasedDayOfWeek(sunday)).toBe(6);
   });
 
   it("computeStoreAvailability devuelve abierto dentro del rango", () => {
-    const mondayMorning = new Date("2026-05-18T10:00:00");
     const schedules = [
       {
         day_of_week: 0,
@@ -28,13 +34,12 @@ describe("store-business-hours helpers", () => {
       },
     ];
 
-    const result = computeStoreAvailability(schedules, mondayMorning);
+    const result = computeStoreAvailability(schedules, MONDAY_10AM_ASUNCION_UTC);
     expect(result.is_open).toBe(true);
     expect(result.close_time).toBe("18:00");
   });
 
   it("computeStoreAvailability devuelve cerrado fuera del rango", () => {
-    const mondayNight = new Date("2026-05-18T20:00:00");
     const schedules = [
       {
         day_of_week: 0,
@@ -44,16 +49,15 @@ describe("store-business-hours helpers", () => {
       },
     ];
 
-    const result = computeStoreAvailability(schedules, mondayNight);
+    const result = computeStoreAvailability(schedules, MONDAY_8PM_ASUNCION_UTC);
     expect(result.is_open).toBe(false);
   });
 
   it("computeStoreAvailability usa hora local del comercio (no UTC del servidor)", () => {
-    // 12:00 en Asunción (UTC-3) = 15:00 UTC — sin TZ local, 15:00 > 13:00 cerraría mal.
     const noonAsuncionUtc = new Date("2026-05-29T15:00:00.000Z");
     const schedules = [
       {
-        day_of_week: 4, // viernes 29-may-2026
+        day_of_week: 4,
         is_closed: false,
         open_time: "08:00",
         close_time: "13:00",
@@ -65,7 +69,6 @@ describe("store-business-hours helpers", () => {
   });
 
   it("computeStoreAvailability respeta dia cerrado", () => {
-    const mondayMorning = new Date("2026-05-18T10:00:00");
     const schedules = [
       {
         day_of_week: 0,
@@ -75,7 +78,7 @@ describe("store-business-hours helpers", () => {
       },
     ];
 
-    const result = computeStoreAvailability(schedules, mondayMorning);
+    const result = computeStoreAvailability(schedules, MONDAY_10AM_ASUNCION_UTC);
     expect(result.is_open).toBe(false);
   });
 });
