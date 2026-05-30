@@ -1,3 +1,8 @@
+import {
+  getStoreLocalMinutesOfDay,
+  getStoreLocalWeekdayIndex,
+} from "./store-timezone.js";
+
 export const WEEKDAY_LABELS = [
   "Lunes",
   "Martes",
@@ -10,18 +15,24 @@ export const WEEKDAY_LABELS = [
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
-/** Convierte Date.getDay() (0=Domingo) a índice 0=Lunes ... 6=Domingo */
+/** Convierte Date.getDay() (0=Domingo) a índice 0=Lunes ... 6=Domingo (calendario del servidor). */
 export const getMondayBasedDayOfWeek = (date = new Date()) => {
   const jsDay = date.getDay();
   return jsDay === 0 ? 6 : jsDay - 1;
 };
 
 export const parseTimeToMinutes = (timeValue) => {
-  if (typeof timeValue !== "string" || !TIME_REGEX.test(timeValue.trim())) {
+  if (typeof timeValue !== "string") {
     return null;
   }
 
-  const [hours, minutes] = timeValue.trim().split(":").map(Number);
+  const trimmed = timeValue.trim();
+  if (!TIME_REGEX.test(trimmed)) {
+    return null;
+  }
+
+  const normalized = trimmed.slice(0, 5);
+  const [hours, minutes] = normalized.split(":").map(Number);
   return hours * 60 + minutes;
 };
 
@@ -40,7 +51,7 @@ export const mapBusinessHoursRecord = (record) => ({
 });
 
 export const computeStoreAvailability = (schedules = [], referenceDate = new Date()) => {
-  const todayIndex = getMondayBasedDayOfWeek(referenceDate);
+  const todayIndex = getStoreLocalWeekdayIndex(referenceDate);
   const todaySchedule = schedules.find((item) => item.day_of_week === todayIndex);
 
   if (!todaySchedule || todaySchedule.is_closed) {
@@ -68,7 +79,7 @@ export const computeStoreAvailability = (schedules = [], referenceDate = new Dat
     };
   }
 
-  const nowMinutes = referenceDate.getHours() * 60 + referenceDate.getMinutes();
+  const nowMinutes = getStoreLocalMinutesOfDay(referenceDate);
   const isOpen = nowMinutes >= openMinutes && nowMinutes < closeMinutes;
 
   return {
