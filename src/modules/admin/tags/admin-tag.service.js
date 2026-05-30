@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
-import { NotFoundError, ValidationError } from "../../../lib/errors.js";
+import { NotFoundError, ValidationError, ConflictError } from "../../../lib/errors.js";
 
 const MAX_TAG_NAME_LENGTH = 20;
 
@@ -34,18 +34,26 @@ export const createAdminTagService = async (name) => {
     throw new ValidationError("Ya existe una etiqueta con ese nombre");
   }
 
-  const createdTag = await prisma.productTags.create({
-    data: {
-      name: normalizedName,
-      status: true
-    },
-    select: {
-      id_product_tag: true,
-      name: true,
-      status: true,
-      created_at: true
+  let createdTag;
+  try {
+    createdTag = await prisma.productTags.create({
+      data: {
+        name: normalizedName,
+        status: true
+      },
+      select: {
+        id_product_tag: true,
+        name: true,
+        status: true,
+        created_at: true
+      }
+    });
+  } catch (error) {
+    if (error.code === "P2002") {
+      throw new ConflictError("Ya existe una etiqueta con ese nombre");
     }
-  });
+    throw error;
+  }
 
   return {
     id: createdTag.id_product_tag,
@@ -108,17 +116,25 @@ export const updateAdminTagService = async (id, name) => {
     throw new ValidationError("Ya existe una etiqueta con ese nombre");
   }
 
-  const updated = await prisma.productTags.update({
-    where: { id_product_tag: id },
-    data: { name: normalizedName },
-    select: {
-      id_product_tag: true,
-      name: true,
-      status: true,
-      created_at: true,
-      updated_at: true
+  let updated;
+  try {
+    updated = await prisma.productTags.update({
+      where: { id_product_tag: id },
+      data: { name: normalizedName },
+      select: {
+        id_product_tag: true,
+        name: true,
+        status: true,
+        created_at: true,
+        updated_at: true
+      }
+    });
+  } catch (error) {
+    if (error.code === "P2002") {
+      throw new ConflictError("Ya existe una etiqueta con ese nombre");
     }
-  });
+    throw error;
+  }
 
   return {
     id: updated.id_product_tag,

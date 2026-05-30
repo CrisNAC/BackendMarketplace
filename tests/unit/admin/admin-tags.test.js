@@ -176,6 +176,21 @@ describe("POST /api/admin/tags", () => {
     );
   });
 
+  it("devuelve 409 cuando prisma tira error de constraint único (P2002)", async () => {
+    prisma.productTags.findFirst.mockResolvedValue(null);
+    prisma.productTags.create.mockRejectedValue({ code: "P2002" });
+
+    const res = await asRole(
+      request(app)
+        .post("/api/admin/tags")
+        .send({ name: "orgánico" }),
+      "admin"
+    );
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toBe("Ya existe una etiqueta con ese nombre");
+  });
+
   it("devuelve 201 y crea etiqueta con status=true", async () => {
     prisma.productTags.findFirst.mockResolvedValue(null);
     prisma.productTags.create.mockResolvedValue({
@@ -467,6 +482,25 @@ describe("PATCH /api/admin/tags/:id", () => {
         })
       })
     );
+  });
+
+  it("devuelve 409 cuando prisma tira error de constraint único (P2002) al actualizar", async () => {
+    prisma.productTags.findUnique.mockResolvedValue({
+      id_product_tag: 5,
+      status: true
+    });
+    prisma.productTags.findFirst.mockResolvedValue(null);
+    prisma.productTags.update.mockRejectedValue({ code: "P2002" });
+
+    const res = await asRole(
+      request(app)
+        .patch("/api/admin/tags/5")
+        .send({ name: "Orgánico" }),
+      "admin"
+    );
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toBe("Ya existe una etiqueta con ese nombre");
   });
 
   it("devuelve 200 y actualiza el nombre correctamente", async () => {

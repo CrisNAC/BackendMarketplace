@@ -240,6 +240,8 @@ model ProductTags {
   updated_at DateTime @updatedAt @db.Timestamptz
 
   product_tag_relations   ProductTagRelations[]
+
+  @@unique([name], where: { status: true })
 }
 
 model ProductTagRelations {
