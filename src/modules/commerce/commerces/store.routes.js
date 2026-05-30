@@ -15,6 +15,7 @@ import {
 import { parsePagination } from "../../../middlewares/pagination.middleware.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
 import { FilterStoreProductsDTO } from "../../global/dtos/commerce/filter-store-products.dto.js";
+import { getStoreDashboard } from "./store-dashboard.controller.js";
 
 const router = Router();
 
@@ -360,5 +361,8 @@ router.patch("/:id/status", authenticate, updateStoreStatus);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.delete("/:id", deleteStore);
+
+// Dashboard del comercio — autenticado, solo el dueño
+router.get("/:id/dashboard", authenticate, getStoreDashboard);
 
 export default router;
