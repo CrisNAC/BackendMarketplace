@@ -273,7 +273,7 @@ describe("POST /api/orders", () => {
                 orders: { create: mockOrderCreate, findUnique: mockOrderFind },
                 orderItems: { createMany: vi.fn().mockResolvedValue({}) },
                 products: { update: mockProductsUpdate },
-                carts: { update: vi.fn().mockResolvedValue({}) },
+                carts: { update: vi.fn().mockResolvedValue({}), updateMany: vi.fn().mockResolvedValue({}) },
                 notifications: { create: vi.fn().mockResolvedValue({}) }
             })
         );
