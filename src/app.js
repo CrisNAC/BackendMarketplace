@@ -56,6 +56,7 @@ import {
   adminStoresRoutes,
   adminProductsRoutes,
   adminBannersRoutes,
+  adminTagRoutes,
 } from "./modules/admin/index.js";
 import { bannerRoutes } from "./modules/global/banners/banners.routes.js";
 
@@ -134,6 +135,7 @@ app.use("/api/admin/categories", adminCategoryRoutes);
 app.use("/api/admin/stores", adminStoresRoutes);
 app.use("/api/admin/products", adminProductsRoutes);
 app.use("/api/admin/banners", adminBannersRoutes);
+app.use("/api/admin/tags", adminTagRoutes);
 
 // Rutas de distancias
 app.use("/api/distances", distanceRoutes);
