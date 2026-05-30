@@ -838,7 +838,8 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
 /**
  * Actualizar el estado de un pedido según el rol del usuario autenticado.
  * Cada rol tiene transiciones permitidas específicas:
- *   - SELLER:   PENDING → PROCESSING (acepta) | PENDING → CANCELLED (rechaza) | PROCESSING → SHIPPED 
+ *   - SELLER: PENDING → PROCESSING (acepta) | PENDING → CANCELLED (rechaza)
+ *             PROCESSING → SHIPPED (envio) | PROCESSING → DELIVERED (retiro en tienda)
  *   - DELIVERY: SHIPPED → DELIVERED (entrega)
  *   - CUSTOMER: PENDING → CANCELLED (cancela antes de que el comercio acepte)
  *
@@ -865,7 +866,7 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
   //validar que el pedido existe
   const order = await prisma.orders.findFirst({
     where: { id_order: resolvedOrderId, status: true },
-    select: { id_order: true, order_status: true, fk_store: true }
+    select: { id_order: true, order_status: true, fk_store: true, fk_address: true }
   });
 
   if (!order) throw new NotFoundError("Pedido no encontrado.");
@@ -889,10 +890,11 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
   }
 
   //validar transiciones permitidas por rol de user autenticado
+  const isPickup = order.fk_address == null;
   const allowedTransitions = {
     SELLER: {
       PENDING: ["PROCESSING", "CANCELLED"],
-      PROCESSING: ["SHIPPED"],
+      PROCESSING: isPickup ? ["DELIVERED"] : ["SHIPPED"],
     },
     DELIVERY: {
       SHIPPED: ["DELIVERED"]

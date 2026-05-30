@@ -235,6 +235,72 @@ orderRouter.post("/:orderId/delivery-review", authenticate, createDeliveryReview
 // GET  /api/orders/store/:storeId — pedidos del comercio
 orderRouter.get("/store/:storeId", authenticate, getStoreOrders);
 
+/**
+ * @swagger
+ * /api/orders/{orderId}/status:
+ *   patch:
+ *     summary: Actualizar estado de un pedido
+ *     description: |
+ *       Cambia el estado segun el rol del usuario autenticado.
+ *       - **SELLER**: PENDING → PROCESSING | PENDING → CANCELLED | PROCESSING → SHIPPED (envio) | PROCESSING → DELIVERED (retiro en tienda)
+ *       - **DELIVERY**: SHIPPED → DELIVERED
+ *       - **CUSTOMER**: PENDING → CANCELLED
+ *     tags: [Orders]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del pedido
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [order_status]
+ *             properties:
+ *               order_status:
+ *                 type: string
+ *                 enum: [PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED]
+ *                 description: Nuevo estado solicitado
+ *     responses:
+ *       200:
+ *         description: Pedido actualizado
+ *       400:
+ *         description: Transicion invalida o estado no permitido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
+ *       403:
+ *         description: Sin permisos para modificar el pedido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       404:
+ *         description: Pedido o usuario no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       409:
+ *         description: Conflicto de actualizacion
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ */
 // PATCH /api/orders/:orderId/status — actualizar estado del pedido
 orderRouter.patch("/:orderId/status", authenticate, updateOrderStatus);
 
