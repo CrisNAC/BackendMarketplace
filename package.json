@@ -15,8 +15,8 @@
     "test:coverage:unit": "vitest run --coverage tests/unit",
     "migrate:dev": "prisma migrate dev",
     "migrate:test": "dotenv -e .env.test -- prisma migrate dev",
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "node --env-file=.env src/server.js",
+    "dev": "nodemon --exec \"node --env-file=.env\" src/server.js",
     "build": "tsc"
   },
   "repository": {

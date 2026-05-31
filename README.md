@@ -78,6 +78,15 @@ Faltan las siguientes variables de entorno:
 | `DATABASE_URL`                | URL de conexión pooling a Supabase            |
 | `DIRECT_URL`                  | URL directa para migraciones Prisma           |
 | `JWT_SECRET`                  | Clave secreta para firmar tokens JWT          |
+| `SUPABASE_URL`                | URL del proyecto Supabase                     |
+| `SUPABASE_SERVICE_ROLE_KEY`   | Service role key de Supabase                  |
+| `SUPABASE_BUCKET_PRODUCTS`    | Nombre del bucket para imágenes de productos  |
+| `SUPABASE_BUCKET_USERS`       | Nombre del bucket para avatares de usuarios   |
+| `SUPABASE_BUCKET_STORES`      | Nombre del bucket para logos de comercios     |
+
+### Variables opcionales
+| Variable                      | Descripción                                   |
+|-------------------------------|-----------------------------------------------|
 | `FRONTEND_URL`                | URL del frontend (para CORS)                  |
 | `EMAIL_HOST`                  | Host SMTP para envío de emails                |
 | `EMAIL_PORT`                  | Puerto SMTP                                   |
@@ -85,8 +94,4 @@ Faltan las siguientes variables de entorno:
 | `EMAIL_USER`                  | Usuario de la cuenta de email                 |
 | `EMAIL_PASS`                  | Contraseña de la cuenta de email              |
 | `ORS_API_KEY`                 | API key de OpenRouteService (distancias)      |
-| `SUPABASE_URL`                | URL del proyecto Supabase                     |
-| `SUPABASE_SERVICE_ROLE_KEY`   | Service role key de Supabase                  |
-| `SUPABASE_BUCKET_PRODUCTS`    | Nombre del bucket para imágenes de productos  |
-| `SUPABASE_BUCKET_USERS`       | Nombre del bucket para avatares de usuarios   |
-| `SUPABASE_BUCKET_STORES`      | Nombre del bucket para logos de comercios     |
+| `PORT`                        | Puerto del servidor (default: 3000)           |
