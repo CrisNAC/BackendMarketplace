@@ -10,39 +10,62 @@ import { parsePositiveInteger } from "../../../lib/validators.js";
 import { createNotificationService } from "../../notifications/notification.service.js";
 import { NOTIFICATION_MESSAGES } from "../../notifications/notification.constant.js";
 
-const mapOrderResponse = (order) => ({
-  id: order.id_order,
-  status: order.order_status,
-  deliveryUnavailable: Boolean(order.delivery_unavailable),
-  total: Number(order.total),
-  shippingCost: Number(order.shipping_cost ?? 0),
-  shippingDistanceKm:
-    order.shipping_distance_km === null || order.shipping_distance_km === undefined
-      ? null
-      : Number(order.shipping_distance_km),
-  notes: order.notes ?? null,
-  address: order.address ? {
-    id: order.address.id_address,
-    address: order.address.address,
-    city: order.address.city,
-    region: order.address.region
-  } : null,
-  store: order.store ? {
-    id: order.store.id_store,
-    name: order.store.name
-  } : null,
-  items: order.order_items.map((item) => ({
-    id: item.id_order_item,
-    name: item.product?.name ?? "Producto",
-    quantity: item.quantity,
-    price: Number(item.price),
-    originalPrice: Number(item.original_price),
-    isOfferApplied: item.is_offer_applied,
-    subtotal: Number(item.subtotal),
-  })),
-  createdAt: order.created_at,
-  updatedAt: order.updated_at
-});
+const mapOrderResponse = async (order, prismaOrTx) => {
+  // Calcular el número secuencial de orden para esa tienda
+  const orderCount = await prismaOrTx.orders.count({
+    where: {
+      fk_store: order.fk_store,
+      id_order: { lte: order.id_order },
+      status: true
+    }
+  });
+
+  const orderSequence = String(orderCount).padStart(6, '0');
+  
+  // Generar orderNumber con formato ORD-{secuencial}-HH-MM-DD-MM-YYYY
+  const date = new Date(order.created_at);
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const orderNumber = `ORD-${orderSequence}-${hours}-${minutes}-${day}-${month}-${year}`;
+
+  return {
+    id: order.id_order,
+    orderNumber,
+    status: order.order_status,
+    deliveryUnavailable: Boolean(order.delivery_unavailable),
+    total: Number(order.total),
+    shippingCost: Number(order.shipping_cost ?? 0),
+    shippingDistanceKm:
+      order.shipping_distance_km === null || order.shipping_distance_km === undefined
+        ? null
+        : Number(order.shipping_distance_km),
+    notes: order.notes ?? null,
+    address: order.address ? {
+      id: order.address.id_address,
+      address: order.address.address,
+      city: order.address.city,
+      region: order.address.region
+    } : null,
+    store: order.store ? {
+      id: order.store.id_store,
+      name: order.store.name
+    } : null,
+    items: order.order_items.map((item) => ({
+      id: item.id_order_item,
+      name: item.product?.name ?? "Producto",
+      quantity: item.quantity,
+      price: Number(item.price),
+      originalPrice: Number(item.original_price),
+      isOfferApplied: item.is_offer_applied,
+      subtotal: Number(item.subtotal),
+    })),
+    createdAt: order.created_at,
+    updatedAt: order.updated_at
+  };
+};
 
 const DISTANCE_THRESHOLD_KM = 2;
 
@@ -453,7 +476,7 @@ export const createOrderService = async (
     });
   });
 
-  return mapOrderResponse(createdOrder);
+  return mapOrderResponse(createdOrder, tx);
 };
 
 /**
@@ -529,7 +552,7 @@ export const getOrdersService = async (authenticatedUserId, customerId) => {
     }
   });
 
-  return orders.map(mapOrderResponse);
+  return Promise.all(orders.map(o => mapOrderResponse(o, prisma)));
 };
 
 export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
@@ -581,7 +604,9 @@ export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
     },
     select: {
       id_order: true,
+      fk_store: true,
       updated_at: true,
+      created_at: true,
       store: {
         select: {
           name: true
@@ -607,20 +632,41 @@ export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
     }
   });
 
-  return pendingOrders
-    .map((order) => {
-      const latestAssignment = order.delivery_assignments[0];
-      if (!latestAssignment) return null;
+  return Promise.all(
+    pendingOrders
+      .map(async (order) => {
+        const latestAssignment = order.delivery_assignments[0];
+        if (!latestAssignment) return null;
 
-      return {
-        orderId: order.id_order,
-        deliveryId: latestAssignment.fk_delivery,
-        deliveryName: latestAssignment.delivery?.user?.name ?? "Delivery",
-        storeName: order.store?.name ?? "Comercio",
-        deliveredAt: order.updated_at
-      };
-    })
-    .filter(Boolean);
+        // Calcular el número secuencial de orden para esa tienda
+        const orderCount = await prisma.orders.count({
+          where: {
+            fk_store: order.fk_store,
+            id_order: { lte: order.id_order },
+            status: true
+          }
+        });
+
+        const orderSequence = String(orderCount).padStart(6, '0');
+        const date = new Date(order.created_at);
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        const orderNumber = `ORD-${orderSequence}-${hours}-${minutes}-${day}-${month}-${year}`;
+
+        return {
+          orderId: order.id_order,
+          orderNumber,
+          deliveryId: latestAssignment.fk_delivery,
+          deliveryName: latestAssignment.delivery?.user?.name ?? "Delivery",
+          storeName: order.store?.name ?? "Comercio",
+          deliveredAt: order.updated_at
+        };
+      })
+      .filter(Boolean)
+  );
 };
 
 export const createDeliveryReviewService = async (
@@ -844,7 +890,7 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
   ]);
 
   return {
-    orders: orders.map(mapOrderResponse),
+    orders: await Promise.all(orders.map(o => mapOrderResponse(o, prisma))),
     total,
     page,
     limit,
@@ -989,5 +1035,5 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
     return updatedOrder;
   });
 
-  return mapOrderResponse(updated);
+  return mapOrderResponse(updated, prisma);
 };
