@@ -313,7 +313,9 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
     throw { status: 400, message: "ID de orden inválido" };
   }
 
-  return prisma.$transaction(async (tx) => {
+  const pendingAuditLogs = [];
+
+  const result = await prisma.$transaction(async (tx) => {
     await expireStalePendingAssignments({ fk_order: parsedOrderId }, tx);
 
     const assignment = await tx.deliveryAssignments.findFirst({
@@ -352,23 +354,30 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
         data: { order_status: "SHIPPED", delivery_unavailable: false }
       });
 
-      logSecurityEvent("ASSIGNMENT_STATUS_CHANGED", {
-        assignmentId: assignment.id_delivery_assignment,
-        orderId: parsedOrderId,
-        deliveryId: assignment.fk_delivery,
-        previousStatus: "PENDING",
-        newStatus: "ACCEPTED",
-        actorUserId: userId,
-      });
-
-      logSecurityEvent("ORDER_STATUS_CHANGED", {
-        orderId: parsedOrderId,
-        previousStatus: assignment.order?.order_status ?? null,
-        newStatus: "SHIPPED",
-        actorUserId: userId,
-        actorRole: "DELIVERY",
-        source: "assignment_accept",
-      });
+      pendingAuditLogs.push(
+        {
+          event: "ASSIGNMENT_STATUS_CHANGED",
+          details: {
+            assignmentId: assignment.id_delivery_assignment,
+            orderId: parsedOrderId,
+            deliveryId: assignment.fk_delivery,
+            previousStatus: "PENDING",
+            newStatus: "ACCEPTED",
+            actorUserId: userId,
+          },
+        },
+        {
+          event: "ORDER_STATUS_CHANGED",
+          details: {
+            orderId: parsedOrderId,
+            previousStatus: assignment.order?.order_status ?? null,
+            newStatus: "SHIPPED",
+            actorUserId: userId,
+            actorRole: "DELIVERY",
+            source: "assignment_accept",
+          },
+        }
+      );
 
       return updated;
     }
@@ -376,15 +385,18 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
     const outcome = await closePendingAndReassign(tx, assignment, "REJECTED", { reason: "reject" });
 
     if (outcome.reassigned) {
-      logSecurityEvent("ASSIGNMENT_STATUS_CHANGED", {
-        assignmentId: assignment.id_delivery_assignment,
-        orderId: parsedOrderId,
-        deliveryId: assignment.fk_delivery,
-        previousStatus: "PENDING",
-        newStatus: "REJECTED",
-        actorUserId: userId,
-        reassigned: true,
-        newAssignmentId: outcome.assignment?.id_delivery_assignment ?? null,
+      pendingAuditLogs.push({
+        event: "ASSIGNMENT_STATUS_CHANGED",
+        details: {
+          assignmentId: assignment.id_delivery_assignment,
+          orderId: parsedOrderId,
+          deliveryId: assignment.fk_delivery,
+          previousStatus: "PENDING",
+          newStatus: "REJECTED",
+          actorUserId: userId,
+          reassigned: true,
+          newAssignmentId: outcome.assignment?.id_delivery_assignment ?? null,
+        },
       });
 
       return {
@@ -394,14 +406,17 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
       };
     }
 
-    logSecurityEvent("ASSIGNMENT_STATUS_CHANGED", {
-      assignmentId: assignment.id_delivery_assignment,
-      orderId: parsedOrderId,
-      deliveryId: assignment.fk_delivery,
-      previousStatus: "PENDING",
-      newStatus: "REJECTED",
-      actorUserId: userId,
-      reassigned: false,
+    pendingAuditLogs.push({
+      event: "ASSIGNMENT_STATUS_CHANGED",
+      details: {
+        assignmentId: assignment.id_delivery_assignment,
+        orderId: parsedOrderId,
+        deliveryId: assignment.fk_delivery,
+        previousStatus: "PENDING",
+        newStatus: "REJECTED",
+        actorUserId: userId,
+        reassigned: false,
+      },
     });
 
     return {
@@ -411,6 +426,12 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
       delivery_unavailable: true,
     };
   });
+
+  for (const { event, details } of pendingAuditLogs) {
+    logSecurityEvent(event, details);
+  }
+
+  return result;
 };
 
 export const getDeliveryOrderHistoryService = async (deliveryId, authenticatedUserId, filters, pagination) => {
