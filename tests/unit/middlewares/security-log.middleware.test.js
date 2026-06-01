@@ -50,9 +50,11 @@ describe("securityResponseLogger", () => {
       }),
     };
 
-    securityResponseLogger(req, res, vi.fn());
+    const next = vi.fn();
+    securityResponseLogger(req, res, next);
     listeners.finish();
 
+    expect(next).toHaveBeenCalledOnce();
     expect(logSpy).not.toHaveBeenCalled();
   });
 });
