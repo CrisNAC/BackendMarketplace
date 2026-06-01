@@ -4,8 +4,9 @@
 import { prisma } from "../../../lib/prisma.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { hashPassword, verifyPassword } from "../../../lib/utils/password.utils.js";
+import { verifyPassword } from "../../../lib/utils/password.utils.js";
 import { UnauthorizedError, ValidationError } from "../../../lib/errors.js";
+import { logSecurityEvent } from "../../../lib/security-logger.js";
 
 dotenv.config();
 
@@ -27,6 +28,10 @@ export const login = async (req, res, next) => {
 
     // Validación de campos requeridos
     if (!email || !password) {
+      logSecurityEvent("LOGIN_FAILED", {
+        reason: "missing_credentials",
+        email: email ?? null,
+      });
       return next(new ValidationError("Debe ingresar email y contraseña"));
     }
 
@@ -39,7 +44,10 @@ export const login = async (req, res, next) => {
     });
 
     if (!user) {
-      // SEGURIDAD: mensaje genérico para no revelar si el email existe
+      logSecurityEvent("LOGIN_FAILED", {
+        reason: "invalid_credentials",
+        email,
+      });
       return next(new UnauthorizedError("Credenciales inválidas"));
     }
 
@@ -48,13 +56,15 @@ export const login = async (req, res, next) => {
     try {
       passwordMatch = await verifyPassword(password, user.password_hash);
     } catch (bcryptError) {
-      // Error técnico en bcrypt (hash corrupto, etc)
-      // Loguear para debugging pero no exponer al cliente
       console.error("[LOGIN_BCRYPT_ERROR]", bcryptError.message);
       return next(new UnauthorizedError("Credenciales inválidas"));
     }
 
     if (!passwordMatch) {
+      logSecurityEvent("LOGIN_FAILED", {
+        reason: "invalid_credentials",
+        email,
+      });
       return next(new UnauthorizedError("Credenciales inválidas"));
     }
 
