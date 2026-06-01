@@ -12,15 +12,22 @@ import { NOTIFICATION_MESSAGES } from "../../notifications/notification.constant
 
 const mapOrderResponse = async (order, prismaOrTx) => {
   // Calcular el número secuencial de orden para esa tienda
-  const orderCount = await prismaOrTx.orders.count({
+  // Contar órdenes previas por fecha de creación
+  const ordersBefore = await prismaOrTx.orders.count({
     where: {
       fk_store: order.fk_store,
-      id_order: { lte: order.id_order },
+      OR: [
+        { created_at: { lt: order.created_at } },
+        { 
+          created_at: order.created_at,
+          id_order: { lt: order.id_order }
+        }
+      ],
       status: true
     }
   });
 
-  const orderSequence = String(orderCount).padStart(6, '0');
+  const orderSequence = String(ordersBefore + 1).padStart(4, '0');
   
   // Generar orderNumber con formato ORD-{secuencial}-HH-MM-DD-MM-YYYY
   const date = new Date(order.created_at);
@@ -639,15 +646,21 @@ export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
         if (!latestAssignment) return null;
 
         // Calcular el número secuencial de orden para esa tienda
-        const orderCount = await prisma.orders.count({
+        const ordersBefore = await prisma.orders.count({
           where: {
             fk_store: order.fk_store,
-            id_order: { lte: order.id_order },
+            OR: [
+              { created_at: { lt: order.created_at } },
+              { 
+                created_at: order.created_at,
+                id_order: { lt: order.id_order }
+              }
+            ],
             status: true
           }
         });
 
-        const orderSequence = String(orderCount).padStart(6, '0');
+        const orderSequence = String(ordersBefore + 1).padStart(6, '0');
         const date = new Date(order.created_at);
         const hours = String(date.getUTCHours()).padStart(2, '0');
         const minutes = String(date.getUTCMinutes()).padStart(2, '0');
