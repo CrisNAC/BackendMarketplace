@@ -10,9 +10,8 @@ import { parsePositiveInteger } from "../../../lib/validators.js";
 import { createNotificationService } from "../../notifications/notification.service.js";
 import { NOTIFICATION_MESSAGES } from "../../notifications/notification.constant.js";
 
-
-//Generar orderNumber con formato ORD-{SEQ}-HH-MM-DD-MM-YYYY
-
+// Calcular el número secuencial de orden para esa tienda
+// Contar órdenes previas por fecha de creación
 const generateOrderNumber = async (order, prismaOrTx) => {
   const ordersBefore = await prismaOrTx.orders.count({
     where: {
@@ -27,7 +26,7 @@ const generateOrderNumber = async (order, prismaOrTx) => {
       status: true
     }
   });
-
+ 
   const orderSequence = String(ordersBefore + 1).padStart(4, '0');
   
   const date = new Date(order.created_at);
@@ -40,9 +39,6 @@ const generateOrderNumber = async (order, prismaOrTx) => {
   return `ORD-${orderSequence}-${hours}-${minutes}-${day}-${month}-${year}`;
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MAPPER: Convertir respuesta raw de Prisma al formato API
-// ═══════════════════════════════════════════════════════════════════════════
 const mapOrderResponse = async (order, prismaOrTx) => {
   const orderNumber = await generateOrderNumber(order, prismaOrTx);
 
@@ -82,9 +78,6 @@ const mapOrderResponse = async (order, prismaOrTx) => {
   };
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// CONSTANTS & UTILITIES
-// ═══════════════════════════════════════════════════════════════════════════
 const DISTANCE_THRESHOLD_KM = 2;
 
 const roundToTwoDecimals = (value) => Number(Number(value).toFixed(2));
@@ -229,10 +222,6 @@ const buildShippingQuote = async ({ storeId, userId, addressId }) => {
   };
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SERVICES
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const getOrderShippingQuoteService = async (
   authenticatedUserId,
   { cartId, addressId }
@@ -265,6 +254,20 @@ export const getOrderShippingQuoteService = async (
   });
 };
 
+/**
+ * Crea un pedido confirmando el carrito activo del usuario.
+ * Calcula los precios históricos de cada item, marca el carrito como CHECKED_OUT
+ * y crea la orden con sus items en una sola transacción.
+ *
+ * POST /api/orders/
+ * Body:
+ * {
+ *   "fk_cart": 1,         // id del carrito activo a confirmar
+ *   "fk_address": 1,      // id de la dirección de entrega
+ *   "total": 150000,      // total calculado en el frontend por ahora, debido a que no hay registro de costo de envío, o sea andres lo hace
+ *   "notes": "Puedo recibir solo de mañana" // esto es opcional
+ * }
+ */
 export const createOrderService = async (
   authenticatedUserId,
   { cartId, addressId, notes, shippingMethod = "pickup" }
@@ -275,6 +278,7 @@ export const createOrderService = async (
   const normalizedShippingMethod =
     shippingMethod === "standard" ? "standard" : "pickup";
 
+  // Validar que el carrito existe, está activa y pertenece al usuario
   const cart = await prisma.carts.findFirst({
     where: {
       id_cart: resolvedCartId,
@@ -311,14 +315,17 @@ export const createOrderService = async (
     throw new NotFoundError("Carrito no encontrado");
   }
 
+  // Un carrito solo puede convertirse en pedido una vez
   if (cart.order) {
     throw new ConflictError("Este carrito ya fue convertido en un pedido");
   }
 
+  // El carrito debe tener al menos un item
   if (cart.items.length === 0) {
     throw new ValidationError("El carrito no tiene productos");
   }
 
+  // Validar que todos los productos siguen activos y visibles
   const unavailable = cart.items.filter(
     (item) => !item.product.status || !item.product.visible
   );
@@ -338,6 +345,7 @@ export const createOrderService = async (
     throw new ValidationError("Debes seleccionar una dirección para envío estándar");
   }
 
+  // Calcular precios historicos por item
   const itemsData = cart.items.map((item) => {
     const isOfferApplied = item.product.is_offer && item.product.offer_price != null;
     const price = isOfferApplied ? Number(item.product.offer_price) : Number(item.product.price);
@@ -377,6 +385,7 @@ export const createOrderService = async (
 
   const total = roundToTwoDecimals(itemsTotal + shippingCost);
 
+  // Crear orden, items y marcar carrito como CHECKED_OUT en una sola transacción
   const createdOrder = await prisma.$transaction(async (tx) => {
     const order = await tx.orders.create({
       data: {
@@ -419,6 +428,7 @@ export const createOrderService = async (
       });
     }
 
+    // Marcar todos los carritos CHECKED_OUT anteriores como ABANDONED
     await tx.carts.updateMany({
       where: {
         fk_user: resolvedUserId,
@@ -428,11 +438,13 @@ export const createOrderService = async (
       data: { cart_status: "ABANDONED" }
     });
 
+    // Ahora sí marcar el carrito actual como CHECKED_OUT
     await tx.carts.update({
       where: { id_cart: resolvedCartId },
       data: { cart_status: "CHECKED_OUT" }
     });
 
+    // crear notificación de nuevo pedido para el cliente
     const { title, message } = NOTIFICATION_MESSAGES.ORDER_CONFIRMED(order.id_order);
     await createNotificationService(tx, { userId: resolvedUserId, title, message, reference_id: order.id_order });
 
@@ -477,12 +489,22 @@ export const createOrderService = async (
   return mapOrderResponse(createdOrder, prisma);
 };
 
+/**
+ * Obtener el historial de pedidos de un cliente.
+ * Si el usuario autenticado es el mismo cliente, ve todos sus pedidos.
+ * Si es un SELLER, solo puede ver los pedidos de ese cliente que pertenecen a su tienda.
+ *
+ * GET /api/users/:customerId/orders
+ * Params:
+ *   customerId — id del cliente cuyos pedidos se quieren ver
+ */
 export const getOrdersService = async (authenticatedUserId, customerId) => {
   const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
   const resolvedCustomerId = parsePositiveInteger(customerId, "customerId");
 
   let storeId = null;
 
+  // si son distintos users, se verifica que el user auth sea SELLER y tenga un store con pedidos de customerId
   if (resolvedCustomerId !== resolvedUserId) {
     const store = await prisma.stores.findFirst({
       where: {
@@ -505,7 +527,7 @@ export const getOrdersService = async (authenticatedUserId, customerId) => {
     where: {
       fk_user: resolvedCustomerId,
       status: true,
-      ...(storeId && { fk_store: storeId })
+      ...(storeId && { fk_store: storeId }) // si el user es SELLER filtra pedidos por su tienda
     },
     orderBy: { created_at: "desc" },
     select: {
@@ -769,10 +791,27 @@ export const createDeliveryReviewService = async (
   }
 };
 
+/**
+ * Obtener los pedidos de una tienda con filtros opcionales.
+ * Solo el dueño del comercio puede acceder.
+ *
+ * GET /api/orders/store/:storeId
+ * Params:
+ *   storeId — id del comercio
+ * Query:
+ * {
+ *   "order_status": "PENDING",       // opcional — filtra por estado
+ *   "date_from": "2025-01-01",       // opcional — fecha inicio del rango
+ *   "date_to": "2025-12-31",         // opcional — fecha fin del rango
+ *   "page": 1,                       // opcional — pagina actual (default: 1)
+ *   "limit": 10                      // opcional — resultados por página (default: 10)
+ * }
+ */
 export const getStoreOrdersService = async (authenticatedUserId, storeId, filters) => {
   const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
   const resolvedStoreId = parsePositiveInteger(storeId, 'storeId');
 
+  // validar que el comercio existe y pertenece al usuario autenticado
   const store = await prisma.stores.findFirst({
     where: { id_store: resolvedStoreId, fk_user: resolvedUserId, status: true }
   });
@@ -854,10 +893,27 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
   };
 };
 
+/**
+ * Actualizar el estado de un pedido según el rol del usuario autenticado.
+ * Cada rol tiene transiciones permitidas específicas:
+ *   - SELLER: PENDING → PROCESSING (acepta) | PENDING → CANCELLED (rechaza)
+ *             PROCESSING → SHIPPED (envio) | PROCESSING → DELIVERED (retiro en tienda)
+ *   - DELIVERY: SHIPPED → DELIVERED (entrega)
+ *   - CUSTOMER: PENDING → CANCELLED (cancela antes de que el comercio acepte)
+ *
+ * PATCH /api/orders/:orderId/status
+ * Params:
+ *   orderId — id del pedido a modificar
+ * Body:
+ * {
+ *   "order_status": "PROCESSING" // nuevo estado a asignar
+ * }
+ */
 export const updateOrderStatusService = async (authenticatedUserId, orderId, order_status) => {
   const resolvedUserId = parsePositiveInteger(authenticatedUserId, "userId");
   const resolvedOrderId = parsePositiveInteger(orderId, "orderId");
 
+  //obtener rol del usuario autenticado
   const user = await prisma.users.findFirst({
     where: { id_user: resolvedUserId, status: true },
     select: { role: true }
@@ -865,6 +921,7 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
 
   if (!user) throw new NotFoundError("Usuario no encontrado.");
 
+  //validar que el pedido existe
   const order = await prisma.orders.findFirst({
     where: { id_order: resolvedOrderId, status: true },
     select: { id_order: true, order_status: true, fk_store: true, fk_address: true }
@@ -872,6 +929,7 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
 
   if (!order) throw new NotFoundError("Pedido no encontrado.");
 
+  //validar que el comercio del pedido pertenece al user de rol SELLER
   if (user.role === "SELLER") {
     const store = await prisma.stores.findFirst({
       where: { id_store: order.fk_store, fk_user: resolvedUserId, status: true }
@@ -880,6 +938,7 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
     if (!store) throw new ForbiddenError("No tienes permisos para modificar este pedido.");
   }
 
+  //validar que el pedido pertenece al CUSTOMER autenticado
   if (user.role === "CUSTOMER") {
     const customerOrder = await prisma.orders.findFirst({
       where: { id_order: resolvedOrderId, fk_user: resolvedUserId, status: true }
@@ -888,6 +947,7 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
     if (!customerOrder) throw new ForbiddenError("No tienes permisos para modificar este pedido.");
   }
 
+  //validar transiciones permitidas por rol de user autenticado
   const isPickup = order.fk_address == null;
   const allowedTransitions = {
     SELLER: {
@@ -898,7 +958,7 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
       SHIPPED: ["DELIVERED"]
     },
     CUSTOMER: {
-      PENDING: ["CANCELLED"]
+      PENDING: ["CANCELLED"] //el cliente puede cancelar solo hasta antes de que se acepte el pedido
     }
   };
 
@@ -916,7 +976,7 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
     const updatedOrder = await tx.orders.update({
       where: {
         id_order: resolvedOrderId,
-        order_status: order.order_status
+        order_status: order.order_status  // condicional atómico — falla si otro request ya cambió el status
       },
       data: { order_status },
       select: {
