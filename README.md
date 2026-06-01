@@ -57,3 +57,41 @@
 ### Enums
 - Nombres en **PascalCase** — `Role`, `OrderStatus`, `DeliveryStatus`
 - Valores en **UPPER_CASE** — `ADMIN`, `PROCESSING`, `ON_THE_WAY`
+
+## Seguridad
+### Variables de entorno
+El proyecto usa un archivo `.env` para configuración sensible. **Nunca commitear `.env` al repositorio.**
+Copiá `.env.example` a `.env` y completá las variables con las credenciales reales (pedir a Kisser):
+```bash
+cp .env.example .env
+```
+El servidor **no arranca** si alguna variable obligatoria falta — verás un error como:
+```
+Faltan las siguientes variables de entorno:
+   - JWT_SECRET
+   - SUPABASE_URL
+```
+
+### Variables requeridas
+| Variable                      | Descripción                                   |
+|-------------------------------|-----------------------------------------------|
+| `DATABASE_URL`                | URL de conexión pooling a Supabase            |
+| `DIRECT_URL`                  | URL directa para migraciones Prisma           |
+| `JWT_SECRET`                  | Clave secreta para firmar tokens JWT          |
+| `SUPABASE_URL`                | URL del proyecto Supabase                     |
+| `SUPABASE_SERVICE_ROLE_KEY`   | Service role key de Supabase                  |
+| `SUPABASE_BUCKET_PRODUCTS`    | Nombre del bucket para imágenes de productos  |
+| `SUPABASE_BUCKET_USERS`       | Nombre del bucket para avatares de usuarios   |
+| `SUPABASE_BUCKET_STORES`      | Nombre del bucket para logos de comercios     |
+
+### Variables opcionales
+| Variable                      | Descripción                                   |
+|-------------------------------|-----------------------------------------------|
+| `FRONTEND_URL`                | URL del frontend (para CORS)                  |
+| `EMAIL_HOST`                  | Host SMTP para envío de emails                |
+| `EMAIL_PORT`                  | Puerto SMTP                                   |
+| `EMAIL_SECURE`                | `true` para SSL, `false` para TLS             |
+| `EMAIL_USER`                  | Usuario de la cuenta de email                 |
+| `EMAIL_PASS`                  | Contraseña de la cuenta de email              |
+| `ORS_API_KEY`                 | API key de OpenRouteService (distancias)      |
+| `PORT`                        | Puerto del servidor (default: 3000)           |
