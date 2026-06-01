@@ -82,6 +82,40 @@ const DISTANCE_THRESHOLD_KM = 2;
 
 const roundToTwoDecimals = (value) => Number(Number(value).toFixed(2));
 
+// Select estándar para órdenes con relaciones (eliminates duplicación)
+const ORDER_SELECT = {
+  id_order: true,
+  fk_store: true,
+  order_status: true,
+  delivery_unavailable: true,
+  total: true,
+  shipping_cost: true,
+  shipping_distance_km: true,
+  notes: true,
+  created_at: true,
+  updated_at: true,
+  address: {
+    select: { id_address: true, address: true, city: true, region: true }
+  },
+  store: {
+    select: { id_store: true, name: true }
+  },
+  order_items: {
+    where: { status: true },
+    select: {
+      id_order_item: true,
+      quantity: true,
+      price: true,
+      original_price: true,
+      is_offer_applied: true,
+      subtotal: true,
+      product: {
+        select: { name: true }
+      }
+    }
+  }
+};
+
 const getRouteDistanceKm = async (coordinates) => {
   if (!process.env.ORS_API_KEY) {
     throw new ValidationError("Servicio de geolocalización no disponible");
@@ -450,39 +484,7 @@ export const createOrderService = async (
 
     return tx.orders.findUnique({
       where: { id_order: order.id_order },
-      select: {
-        id_order: true,
-        order_status: true,
-        fk_store: true,
-        total: true,
-        shipping_cost: true,
-        shipping_distance_km: true,
-        notes: true,
-        created_at: true,
-        updated_at: true,
-        address: {
-          select: { id_address: true, address: true, city: true, region: true }
-        },
-        store: {
-          select: { id_store: true, name: true }
-        },
-        order_items: {
-          where: { status: true },
-          select: {
-            id_order_item: true,
-            quantity: true,
-            price: true,
-            original_price: true,
-            is_offer_applied: true,
-            subtotal: true,
-            product: {
-              select: {
-                name: true
-              }
-            }
-          }
-        }
-      }
+      select: ORDER_SELECT
     });
   });
 
@@ -530,37 +532,7 @@ export const getOrdersService = async (authenticatedUserId, customerId) => {
       ...(storeId && { fk_store: storeId }) // si el user es SELLER filtra pedidos por su tienda
     },
     orderBy: { created_at: "desc" },
-    select: {
-      id_order: true,
-      fk_store: true,
-      order_status: true,
-      total: true,
-      shipping_cost: true,
-      shipping_distance_km: true,
-      notes: true,
-      created_at: true,
-      updated_at: true,
-      address: {
-        select: { id_address: true, address: true, city: true, region: true }
-      },
-      store: {
-        select: { id_store: true, name: true }
-      },
-      order_items: {
-        where: { status: true },
-        select: {
-          id_order_item: true,
-          quantity: true,
-          price: true,
-          original_price: true,
-          is_offer_applied: true,
-          subtotal: true,
-          product: {
-            select: { name: true }
-          }
-        }
-      }
-    }
+    select: ORDER_SELECT
   });
 
   return Promise.all(orders.map(o => mapOrderResponse(o, prisma)));
@@ -613,34 +585,7 @@ export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
     orderBy: {
       updated_at: "desc"
     },
-    select: {
-      id_order: true,
-      fk_store: true,
-      updated_at: true,
-      created_at: true,
-      store: {
-        select: {
-          name: true
-        }
-      },
-      delivery_assignments: {
-        where: { status: true },
-        orderBy: [{ assignment_sequence: "desc" }, { assigned_at: "desc" }],
-        take: 1,
-        select: {
-          fk_delivery: true,
-          delivery: {
-            select: {
-              user: {
-                select: {
-                  name: true
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    select: ORDER_SELECT
   });
 
   const results = await Promise.all(
@@ -848,38 +793,7 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
       orderBy: { created_at: "desc" },
       skip: (page - 1) * limit,
       take: limit,
-      select: {
-        id_order: true,
-        fk_store: true,
-        order_status: true,
-        delivery_unavailable: true,
-        total: true,
-        shipping_cost: true,
-        shipping_distance_km: true,
-        notes: true,
-        created_at: true,
-        updated_at: true,
-        address: {
-          select: { id_address: true, address: true, city: true, region: true }
-        },
-        store: {
-          select: { id_store: true, name: true }
-        },
-        order_items: {
-          where: { status: true },
-          select: {
-            id_order_item: true,
-            quantity: true,
-            price: true,
-            original_price: true,
-            is_offer_applied: true,
-            subtotal: true,
-            product: {
-              select: { name: true }
-            }
-          }
-        }
-      }
+      select: ORDER_SELECT
     }),
     prisma.orders.count({ where })
   ]);
@@ -979,37 +893,7 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
         order_status: order.order_status  // condicional atómico — falla si otro request ya cambió el status
       },
       data: { order_status },
-      select: {
-        id_order: true,
-        fk_store: true,
-        order_status: true,
-        total: true,
-        shipping_cost: true,
-        shipping_distance_km: true,
-        notes: true,
-        created_at: true,
-        updated_at: true,
-        address: {
-          select: { id_address: true, address: true, city: true, region: true }
-        },
-        store: {
-          select: { id_store: true, name: true }
-        },
-        order_items: {
-          where: { status: true },
-          select: {
-            id_order_item: true,
-            quantity: true,
-            price: true,
-            original_price: true,
-            is_offer_applied: true,
-            subtotal: true,
-            product: {
-              select: { name: true }
-            }
-          }
-        }
-      }
+      select: ORDER_SELECT
     });
 
     if (!updatedOrder) {
