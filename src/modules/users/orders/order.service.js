@@ -10,9 +10,9 @@ import { parsePositiveInteger } from "../../../lib/validators.js";
 import { createNotificationService } from "../../notifications/notification.service.js";
 import { NOTIFICATION_MESSAGES } from "../../notifications/notification.constant.js";
 
-const mapOrderResponse = async (order, prismaOrTx) => {
-  // Calcular el número secuencial de orden para esa tienda
-  // Contar órdenes previas por fecha de creación
+// Calcular el número secuencial de orden para esa tienda
+// Contar órdenes previas por fecha de creación
+const generateOrderNumber = async (order, prismaOrTx) => {
   const ordersBefore = await prismaOrTx.orders.count({
     where: {
       fk_store: order.fk_store,
@@ -26,17 +26,20 @@ const mapOrderResponse = async (order, prismaOrTx) => {
       status: true
     }
   });
-
+ 
   const orderSequence = String(ordersBefore + 1).padStart(4, '0');
   
-  // Generar orderNumber con formato ORD-{secuencial}-HH-MM-DD-MM-YYYY
   const date = new Date(order.created_at);
   const hours = String(date.getUTCHours()).padStart(2, '0');
   const minutes = String(date.getUTCMinutes()).padStart(2, '0');
   const day = String(date.getUTCDate()).padStart(2, '0');
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const year = date.getUTCFullYear();
-  const orderNumber = `ORD-${orderSequence}-${hours}-${minutes}-${day}-${month}-${year}`;
+  
+  return `ORD-${orderSequence}-${hours}-${minutes}-${day}-${month}-${year}`;
+};
+const mapOrderResponse = async (order, prismaOrTx) => {
+  const orderNumber = await generateOrderNumber(order, prismaOrTx);
 
   return {
     id: order.id_order,
@@ -646,28 +649,7 @@ export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
         if (!latestAssignment) return null;
 
         // Calcular el número secuencial de orden para esa tienda
-        const ordersBefore = await prisma.orders.count({
-          where: {
-            fk_store: order.fk_store,
-            OR: [
-              { created_at: { lt: order.created_at } },
-              { 
-                created_at: order.created_at,
-                id_order: { lt: order.id_order }
-              }
-            ],
-            status: true
-          }
-        });
-
-        const orderSequence = String(ordersBefore + 1).padStart(6, '0');
-        const date = new Date(order.created_at);
-        const hours = String(date.getUTCHours()).padStart(2, '0');
-        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-        const day = String(date.getUTCDate()).padStart(2, '0');
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const year = date.getUTCFullYear();
-        const orderNumber = `ORD-${orderSequence}-${hours}-${minutes}-${day}-${month}-${year}`;
+        const orderNumber = await generateOrderNumber(order, prisma);
 
         return {
           orderId: order.id_order,
