@@ -1,5 +1,6 @@
 //delivery-assignments.service.js
 import { prisma } from '../../../lib/prisma.js';
+import { logSecurityEvent } from '../../../lib/security-logger.js';
 import {
   activePendingAssignmentWhere,
   closePendingAndReassign,
@@ -88,6 +89,14 @@ export const createAssignmentService = async (data) => {
         fk_order,
         fk_delivery,
       });
+    });
+
+    logSecurityEvent("ASSIGNMENT_STATUS_CHANGED", {
+      assignmentId: newDeliveryAssignment.id_delivery_assignment,
+      orderId: fk_order,
+      deliveryId: newDeliveryAssignment.fk_delivery,
+      previousStatus: null,
+      newStatus: newDeliveryAssignment.assignment_status ?? "PENDING",
     });
 
     return newDeliveryAssignment;
@@ -286,6 +295,15 @@ export const completeAssignmentService = async (id_delivery_assignment, id_user)
     return updatedAssignment;
   });
 
+  logSecurityEvent("ASSIGNMENT_STATUS_CHANGED", {
+    assignmentId: id_delivery_assignment,
+    orderId: assignment.fk_order,
+    deliveryId: assignment.fk_delivery,
+    previousStatus: "ACCEPTED",
+    newStatus: "DELIVERED",
+    actorUserId: id_user,
+  });
+
   return updated;
 };
 
@@ -334,18 +352,57 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
         data: { order_status: "SHIPPED", delivery_unavailable: false }
       });
 
+      logSecurityEvent("ASSIGNMENT_STATUS_CHANGED", {
+        assignmentId: assignment.id_delivery_assignment,
+        orderId: parsedOrderId,
+        deliveryId: assignment.fk_delivery,
+        previousStatus: "PENDING",
+        newStatus: "ACCEPTED",
+        actorUserId: userId,
+      });
+
+      logSecurityEvent("ORDER_STATUS_CHANGED", {
+        orderId: parsedOrderId,
+        previousStatus: assignment.order?.order_status ?? null,
+        newStatus: "SHIPPED",
+        actorUserId: userId,
+        actorRole: "DELIVERY",
+        source: "assignment_accept",
+      });
+
       return updated;
     }
 
     const outcome = await closePendingAndReassign(tx, assignment, "REJECTED", { reason: "reject" });
 
     if (outcome.reassigned) {
+      logSecurityEvent("ASSIGNMENT_STATUS_CHANGED", {
+        assignmentId: assignment.id_delivery_assignment,
+        orderId: parsedOrderId,
+        deliveryId: assignment.fk_delivery,
+        previousStatus: "PENDING",
+        newStatus: "REJECTED",
+        actorUserId: userId,
+        reassigned: true,
+        newAssignmentId: outcome.assignment?.id_delivery_assignment ?? null,
+      });
+
       return {
         ...outcome.assignment,
         reassigned: true,
         delivery_unavailable: false,
       };
     }
+
+    logSecurityEvent("ASSIGNMENT_STATUS_CHANGED", {
+      assignmentId: assignment.id_delivery_assignment,
+      orderId: parsedOrderId,
+      deliveryId: assignment.fk_delivery,
+      previousStatus: "PENDING",
+      newStatus: "REJECTED",
+      actorUserId: userId,
+      reassigned: false,
+    });
 
     return {
       assignment_status: "REJECTED",

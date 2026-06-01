@@ -5,6 +5,7 @@ import { prisma } from "../../../../src/lib/prisma.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { logSecurityEvent } from "../../../lib/security-logger.js";
 
 dotenv.config();
 //const prisma = new PrismaClient();
@@ -13,6 +14,10 @@ export const login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
+        logSecurityEvent("LOGIN_FAILED", {
+            reason: "missing_credentials",
+            email: email ?? null,
+        });
         return res.status(400).json({
             success: false,
             error: "Debe ingresar email y contraseña",
@@ -28,6 +33,10 @@ export const login = async (req, res) => {
         });
 
         if (!user) {
+            logSecurityEvent("LOGIN_FAILED", {
+                reason: "invalid_credentials",
+                email,
+            });
             return res.status(404).json({
                 success: false,
                 error: "Credenciales incorrectas",
@@ -41,6 +50,10 @@ export const login = async (req, res) => {
         );
 
         if (!passwordMatch) {
+            logSecurityEvent("LOGIN_FAILED", {
+                reason: "invalid_credentials",
+                email,
+            });
             return res.status(400).json({
                 success: false,
                 error: "Credenciales incorrectas",
