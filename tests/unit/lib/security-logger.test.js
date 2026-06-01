@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   sanitizeForLog,
   logSecurityEvent,
+  buildSecurityLogLine,
   normalizeKey,
 } from "../../../src/lib/security-logger.js";
 
@@ -61,9 +62,24 @@ describe("security-logger", () => {
     });
   });
 
+  describe("buildSecurityLogLine", () => {
+    it("no permite que details sobrescriba event ni timestamp reservados", () => {
+      const line = buildSecurityLogLine("ORDER_STATUS_CHANGED", {
+        event: "MALICIOUS",
+        timestamp: "1970-01-01T00:00:00.000Z",
+        orderId: 1,
+      });
+
+      const parsed = JSON.parse(line);
+      expect(parsed.event).toBe("ORDER_STATUS_CHANGED");
+      expect(parsed.timestamp).not.toBe("1970-01-01T00:00:00.000Z");
+      expect(parsed.orderId).toBe(1);
+    });
+  });
+
   describe("logSecurityEvent", () => {
     it("escribe JSON sanitizado sin passwords ni tokens", () => {
-      const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+      const writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 
       logSecurityEvent("LOGIN_FAILED", {
         email: "user@test.com",
@@ -71,8 +87,10 @@ describe("security-logger", () => {
         token: "no-debe-aparecer",
       });
 
-      expect(infoSpy).toHaveBeenCalledOnce();
-      const raw = infoSpy.mock.calls[0][1];
+      expect(writeSpy).toHaveBeenCalledOnce();
+      const output = writeSpy.mock.calls[0][0];
+      expect(output).toMatch(/^\[SECURITY\] /);
+      const raw = output.replace(/^\[SECURITY\] /, "").trimEnd();
       expect(raw).not.toContain("no-debe-aparecer");
       const parsed = JSON.parse(raw);
       expect(parsed.event).toBe("LOGIN_FAILED");
@@ -81,30 +99,24 @@ describe("security-logger", () => {
       expect(parsed.email).toBe("user@test.com");
     });
 
-    it("no permite que details sobrescriba event ni timestamp reservados", () => {
-      const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
-
-      logSecurityEvent("ORDER_STATUS_CHANGED", {
-        event: "MALICIOUS",
-        timestamp: "1970-01-01T00:00:00.000Z",
-        orderId: 1,
-      });
-
-      const parsed = JSON.parse(infoSpy.mock.calls[0][1]);
-      expect(parsed.event).toBe("ORDER_STATUS_CHANGED");
-      expect(parsed.timestamp).not.toBe("1970-01-01T00:00:00.000Z");
-      expect(parsed.orderId).toBe(1);
-    });
-
     it("no relanza si falla el logging", () => {
-      const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {
+      vi.spyOn(process.stdout, "write").mockImplementation(() => {
         throw new Error("logging down");
       });
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       expect(() => logSecurityEvent("LOGIN_FAILED", { email: "a@b.com" })).not.toThrow();
       expect(errorSpy).toHaveBeenCalled();
-      infoSpy.mockRestore();
+    });
+
+    it("descarta líneas inválidas sin escribir", () => {
+      const writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      logSecurityEvent("", { email: "a@b.com" });
+
+      expect(writeSpy).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
     });
   });
 });
