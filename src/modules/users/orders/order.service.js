@@ -9,6 +9,7 @@ import {
 import { parsePositiveInteger } from "../../../lib/validators.js";
 import { createNotificationService } from "../../notifications/notification.service.js";
 import { NOTIFICATION_MESSAGES } from "../../notifications/notification.constant.js";
+
 const mapOrderResponse = (order) => ({
   id: order.id_order,
   status: order.order_status,
@@ -25,6 +26,10 @@ const mapOrderResponse = (order) => ({
     address: order.address.address,
     city: order.address.city,
     region: order.address.region
+  } : null,
+  store: order.store ? {
+    id: order.store.id_store,
+    name: order.store.name
   } : null,
   items: order.order_items.map((item) => ({
     id: item.id_order_item,
@@ -425,6 +430,9 @@ export const createOrderService = async (
         address: {
           select: { id_address: true, address: true, city: true, region: true }
         },
+        store: {
+          select: { id_store: true, name: true }
+        },
         order_items: {
           where: { status: true },
           select: {
@@ -501,6 +509,9 @@ export const getOrdersService = async (authenticatedUserId, customerId) => {
       address: {
         select: { id_address: true, address: true, city: true, region: true }
       },
+      store: {
+        select: { id_store: true, name: true }
+      },
       order_items: {
         where: { status: true },
         select: {
@@ -509,7 +520,10 @@ export const getOrdersService = async (authenticatedUserId, customerId) => {
           price: true,
           original_price: true,
           is_offer_applied: true,
-          subtotal: true
+          subtotal: true,
+          product: {
+            select: { name: true }
+          }
         }
       }
     }
@@ -807,6 +821,9 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
         address: {
           select: { id_address: true, address: true, city: true, region: true }
         },
+        store: {
+          select: { id_store: true, name: true }
+        },
         order_items: {
           where: { status: true },
           select: {
@@ -933,6 +950,9 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
         updated_at: true,
         address: {
           select: { id_address: true, address: true, city: true, region: true }
+        },
+        store: {
+          select: { id_store: true, name: true }
         },
         order_items: {
           where: { status: true },
