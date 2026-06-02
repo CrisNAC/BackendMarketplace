@@ -1,6 +1,14 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { prisma, hashPassword, verifyPassword, UnauthorizedError, ValidationError } from "../../../lib/index.js";
+import { 
+  prisma, 
+  hashPassword, 
+  verifyPassword, 
+  UnauthorizedError, 
+  ValidationError, 
+  addToBlacklist, 
+  cleanExpiredTokens 
+} from "../../../lib/index.js";
 
 dotenv.config();
 
