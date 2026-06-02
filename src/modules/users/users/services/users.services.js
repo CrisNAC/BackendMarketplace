@@ -2,12 +2,10 @@
 //users.services.js
 import { prisma } from "../../../../lib/prisma.js";
 import { validateDeliveryPhone } from "../../../../lib/phone.js";
-import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "../../../../lib/email.service.js";
+import { hashPassword, verifyPassword } from "../../../../lib/utils/password.utils.js";
 
-//const prisma = new PrismaClient();
-const SALT_ROUNDS = 10;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const USER_PROFILE_SELECT = {
     id_user: true,
@@ -162,8 +160,15 @@ export const createUserService = async (data) => {
         throw error;
     }
 
-    //Hashear la password
-    const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+    // Hashear la contraseña usando password.utils.js
+    let password_hash;
+    try {
+        password_hash = await hashPassword(password);
+    } catch (hashError) {
+        const error = new Error(hashError.message);
+        error.statusCode = 400;
+        throw error;
+    }
 
     const newUser = await prisma.users.create({
         data: {
@@ -171,7 +176,7 @@ export const createUserService = async (data) => {
             email,
             password_hash,
             phone: phone ?? null,
-            role: "CUSTOMER", //default
+            role: "CUSTOMER",
         },
         select: {
             id_user: true,
@@ -185,7 +190,7 @@ export const createUserService = async (data) => {
     });
 
     return newUser;
-}
+};
 
 export const updateUserService = async (
     authenticatedUserId,
@@ -327,10 +332,18 @@ export const updateUserPasswordService = async (
         };
     }
 
-    const passwordMatch = await bcrypt.compare(
-        currentPassword,
-        userWithPassword.password_hash
-    );
+    // Verificar contraseña actual usando password.utils.js
+    let passwordMatch;
+    try {
+        passwordMatch = await verifyPassword(currentPassword, userWithPassword.password_hash);
+    } catch (verifyError) {
+        // Error técnico en bcrypt (hash corrupto)
+        console.error("[UPDATE_PASSWORD_VERIFY_ERROR]", verifyError.message);
+        throw {
+            status: 400,
+            message: "Error al verificar contraseña actual",
+        };
+    }
 
     if (!passwordMatch) {
         throw {
@@ -339,7 +352,16 @@ export const updateUserPasswordService = async (
         };
     }
 
-    const password_hash = await bcrypt.hash(newPassword.trim(), SALT_ROUNDS);
+    // Hashear nueva contraseña usando password.utils.js
+    let password_hash;
+    try {
+        password_hash = await hashPassword(newPassword.trim());
+    } catch (hashError) {
+        throw {
+            status: 400,
+            message: hashError.message,
+        };
+    }
 
     const updatedUser = await prisma.users.update({
         where: {
@@ -378,6 +400,7 @@ export const getUserProfileService = async (authenticatedUserId, requestedUserId
 
     return user;
 };
+
 const getAuthorizedUserForUpdateService = async (
     authenticatedUserId,
     requestedUserId
@@ -402,10 +425,10 @@ const getAuthorizedUserForUpdateService = async (
         throw { status: 404, message: "Usuario no encontrado o inactivo" };
     }
 
-    return user; // sin restricción de rol
+    return user;
 };
 
-const RESET_TOKEN_EXPIRY_MS = 10 * 60 * 1000; // 10 minutos
+const RESET_TOKEN_EXPIRY_MS = 10 * 60 * 1000;
 
 export const requestPasswordResetService = async (email) => {
     if (!email || !EMAIL_REGEX.test(email.trim())) {
@@ -464,7 +487,16 @@ export const resetPasswordService = async (token, newPassword) => {
         throw { status: 400, message: "La nueva contraseña debe tener al menos 8 caracteres" };
     }
 
-    const password_hash = await bcrypt.hash(newPassword.trim(), SALT_ROUNDS);
+    // Hashear nueva contraseña usando password.utils.js
+    let password_hash;
+    try {
+        password_hash = await hashPassword(newPassword.trim());
+    } catch (hashError) {
+        throw {
+            status: 400,
+            message: hashError.message,
+        };
+    }
 
     const result = await prisma.users.updateMany({
         where: {
