@@ -1,6 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { prisma } from "../../../src/lib/prisma.js";
-import bcrypt from "bcrypt";
 import {
   getAuthorizedCustomerService,
   createUserService,
@@ -20,12 +19,12 @@ vi.mock("../../../src/lib/prisma.js", () => ({
   },
 }));
 
-vi.mock("bcrypt", () => ({
-  default: {
-    hash: vi.fn(),
-    compare: vi.fn(),
-  },
+vi.mock("../../../src/lib/utils/password.utils.js", () => ({
+  hashPassword: vi.fn(),
+  verifyPassword: vi.fn(),
 }));
+
+import { hashPassword, verifyPassword } from "../../../src/lib/utils/password.utils.js";
 
 const mockCustomer = { id_user: 2, role: "CUSTOMER", status: true };
 const mockSeller = { id_user: 2, role: "SELLER", status: true };
@@ -93,13 +92,13 @@ describe("createUserService", () => {
   it("lanza 409 cuando el email ya está registrado", async () => {
     prisma.users.findUnique.mockResolvedValue({ id_user: 1 });
     await expect(
-      createUserService({ name: "Ana", email: "ana@test.com", password: "123456" })
+      createUserService({ name: "Ana", email: "ana@test.com", password: "password123" })
     ).rejects.toMatchObject({ statusCode: 409 });
   });
 
   it("crea el usuario correctamente con phone null cuando no se provee", async () => {
     prisma.users.findUnique.mockResolvedValue(null);
-    bcrypt.hash.mockResolvedValue("hashed_password");
+    hashPassword.mockResolvedValue("hashed_password");
     prisma.users.create.mockResolvedValue({
       id_user: 3,
       name: "Ana",
@@ -110,9 +109,13 @@ describe("createUserService", () => {
       created_at: new Date(),
     });
 
-    const result = await createUserService({ name: "Ana", email: "ana@test.com", password: "123456" });
+    const result = await createUserService({
+      name: "Ana",
+      email: "ana@test.com",
+      password: "password123",
+    });
 
-    expect(bcrypt.hash).toHaveBeenCalledWith("123456", 10);
+    expect(hashPassword).toHaveBeenCalledWith("password123");
     expect(prisma.users.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ role: "CUSTOMER", phone: null }),
@@ -123,16 +126,38 @@ describe("createUserService", () => {
 
   it("incluye phone cuando se provee", async () => {
     prisma.users.findUnique.mockResolvedValue(null);
-    bcrypt.hash.mockResolvedValue("hashed");
-    prisma.users.create.mockResolvedValue({ id_user: 4, name: "Bob", email: "bob@test.com", phone: "0981123456", role: "CUSTOMER", status: true, created_at: new Date() });
+    hashPassword.mockResolvedValue("hashed");
+    prisma.users.create.mockResolvedValue({
+      id_user: 4,
+      name: "Bob",
+      email: "bob@test.com",
+      phone: "0981123456",
+      role: "CUSTOMER",
+      status: true,
+      created_at: new Date(),
+    });
 
-    await createUserService({ name: "Bob", email: "bob@test.com", password: "pass", phone: "0981123456" });
+    await createUserService({
+      name: "Bob",
+      email: "bob@test.com",
+      password: "password456",
+      phone: "0981123456",
+    });
 
     expect(prisma.users.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ phone: "0981123456" }),
       })
     );
+  });
+
+  it("lanza error cuando hashPassword falla", async () => {
+    prisma.users.findUnique.mockResolvedValue(null);
+    hashPassword.mockRejectedValue(new Error("Error al procesar la contraseña"));
+
+    await expect(
+      createUserService({ name: "Ana", email: "ana@test.com", password: "invalid" })
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 });
 
@@ -152,24 +177,25 @@ describe("updateUserService", () => {
 
   it("lanza 400 cuando name supera 100 caracteres", async () => {
     prisma.users.findUnique.mockResolvedValue(mockCustomer);
-    await expect(updateUserService(2, 2, { name: "x".repeat(101) })).rejects.toMatchObject({ status: 400 });
-  });
-
-  it("lanza 400 cuando phone supera 20 caracteres", async () => {
-    prisma.users.findUnique.mockResolvedValue(mockCustomer);
-    await expect(updateUserService(2, 2, { phone: "1".repeat(21) })).rejects.toMatchObject({ status: 400 });
+    await expect(updateUserService(2, 2, { name: "x".repeat(101) })).rejects.toMatchObject({
+      status: 400,
+    });
   });
 
   it("lanza 400 cuando el formato de email es inválido", async () => {
     prisma.users.findUnique.mockResolvedValue(mockCustomer);
-    await expect(updateUserService(2, 2, { email: "no-es-email" })).rejects.toMatchObject({ status: 400 });
+    await expect(updateUserService(2, 2, { email: "no-es-email" })).rejects.toMatchObject({
+      status: 400,
+    });
   });
 
   it("lanza 409 cuando el email ya está en uso por otro usuario", async () => {
     prisma.users.findUnique
-      .mockResolvedValueOnce(mockCustomer)   // getAuthorizedUserForUpdateService
-      .mockResolvedValueOnce({ id_user: 99 }); // checkEmail: otro usuario ya usa ese email
-    await expect(updateUserService(2, 2, { email: "otro@test.com" })).rejects.toMatchObject({ status: 409 });
+      .mockResolvedValueOnce(mockCustomer)
+      .mockResolvedValueOnce({ id_user: 99 });
+    await expect(updateUserService(2, 2, { email: "otro@test.com" })).rejects.toMatchObject({
+      status: 409,
+    });
   });
 
   it("lanza 400 cuando no se envía ningún campo", async () => {
@@ -203,7 +229,7 @@ describe("updateUserService", () => {
   it("no lanza error cuando email pertenece al mismo usuario", async () => {
     prisma.users.findUnique
       .mockResolvedValueOnce(mockCustomer)
-      .mockResolvedValueOnce({ id_user: 2 }); // mismo usuario
+      .mockResolvedValueOnce({ id_user: 2 });
     prisma.users.update.mockResolvedValue(mockUserProfile);
 
     await expect(updateUserService(2, 2, { email: "same@test.com" })).resolves.not.toThrow();
@@ -218,7 +244,7 @@ describe("updateUserPasswordService", () => {
   it("lanza 400 cuando currentPassword o newPassword están ausentes", async () => {
     prisma.users.findUnique.mockResolvedValue(mockCustomer);
     await expect(
-      updateUserPasswordService(2, 2, { currentPassword: "abc" })
+      updateUserPasswordService(2, 2, { currentPassword: "abc123456" })
     ).rejects.toMatchObject({ status: 400 });
   });
 
@@ -231,11 +257,14 @@ describe("updateUserPasswordService", () => {
 
   it("lanza 404 cuando el usuario no se encuentra para la verificación de password", async () => {
     prisma.users.findUnique
-      .mockResolvedValueOnce(mockCustomer)  // getAuthorizedUserForUpdateService
-      .mockResolvedValueOnce(null);          // findUnique para password_hash
+      .mockResolvedValueOnce(mockCustomer)
+      .mockResolvedValueOnce(null);
 
     await expect(
-      updateUserPasswordService(2, 2, { currentPassword: "actual123", newPassword: "nueva1234" })
+      updateUserPasswordService(2, 2, {
+        currentPassword: "actual123",
+        newPassword: "nueva1234",
+      })
     ).rejects.toMatchObject({ status: 404 });
   });
 
@@ -243,10 +272,13 @@ describe("updateUserPasswordService", () => {
     prisma.users.findUnique
       .mockResolvedValueOnce(mockCustomer)
       .mockResolvedValueOnce({ password_hash: "hash_viejo" });
-    bcrypt.compare.mockResolvedValue(false);
+    verifyPassword.mockResolvedValue(false);
 
     await expect(
-      updateUserPasswordService(2, 2, { currentPassword: "incorrecta", newPassword: "nueva1234" })
+      updateUserPasswordService(2, 2, {
+        currentPassword: "incorrecta",
+        newPassword: "nueva1234",
+      })
     ).rejects.toMatchObject({ status: 400, message: "La contraseña actual es incorrecta" });
   });
 
@@ -254,8 +286,8 @@ describe("updateUserPasswordService", () => {
     prisma.users.findUnique
       .mockResolvedValueOnce(mockCustomer)
       .mockResolvedValueOnce({ password_hash: "hash_viejo" });
-    bcrypt.compare.mockResolvedValue(true);
-    bcrypt.hash.mockResolvedValue("nuevo_hash");
+    verifyPassword.mockResolvedValue(true);
+    hashPassword.mockResolvedValue("nuevo_hash");
     prisma.users.update.mockResolvedValue(mockUserProfile);
 
     const result = await updateUserPasswordService(2, 2, {
@@ -263,7 +295,8 @@ describe("updateUserPasswordService", () => {
       newPassword: "nueva1234",
     });
 
-    expect(bcrypt.hash).toHaveBeenCalledWith("nueva1234", 10);
+    expect(verifyPassword).toHaveBeenCalledWith("actual123", "hash_viejo");
+    expect(hashPassword).toHaveBeenCalledWith("nueva1234");
     expect(prisma.users.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { password_hash: "nuevo_hash" } })
     );

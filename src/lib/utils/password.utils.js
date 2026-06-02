@@ -39,10 +39,16 @@ export async function hashPassword(plainPassword) {
  * Compara contraseña en claro con hash bcrypt.
  * NUNCA loguea la contraseña.
  * 
+ * Retorna false en dos casos:
+ * - La contraseña no coincide con el hash (mismatch)
+ * - Hay un error técnico en bcrypt (hash corrupto, etc)
+ * 
+ * El cliente no puede distinguir entre ambos casos, lo cual es intencional
+ * para no revelar si hay un problema en el servidor.
+ * 
  * @param {string} plainPassword - Contraseña ingresada por el usuario
  * @param {string} hashedPassword - Hash almacenado en BD
- * @returns {Promise<boolean>} true si coincide, false si no
- * @throws {Error} Si hay error técnico en bcrypt (hash corrupto, etc)
+ * @returns {Promise<boolean>} true si coincide, false si no coincide o hay error
  */
 export async function verifyPassword(plainPassword, hashedPassword) {
   if (!plainPassword || !hashedPassword) {
@@ -52,9 +58,10 @@ export async function verifyPassword(plainPassword, hashedPassword) {
   try {
     return await bcrypt.compare(plainPassword, hashedPassword)
   } catch (error) {
-    // Loguear el error técnico para debugging en desarrollo
-    // pero NO exponer detalles en respuesta al cliente
+    // Error técnico de bcrypt (hash corrupto, encoding inválido, etc)
+    // Loguear para debugging pero retornar false (no lanzar excepción)
+    // Esto evita que el cliente vea un error 500 por un hash corrupto
     console.error('[PASSWORD_VERIFY_ERROR]', error.message)
-    throw new Error('Error al verificar contraseña')
+    return false
   }
 }
