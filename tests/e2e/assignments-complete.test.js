@@ -8,6 +8,7 @@ const mockTx = {
     update: vi.fn(),
   },
   orders: {
+    findUnique: vi.fn(),
     update: vi.fn(),
   },
 };
@@ -70,6 +71,7 @@ describe("POST /api/assignments/:id/complete", () => {
     vi.clearAllMocks();
 
     mockTx.deliveryAssignments.update.mockReset();
+    mockTx.orders.findUnique.mockReset();
     mockTx.orders.update.mockReset();
 
     prisma.deliveryAssignments.findUnique.mockReset();
@@ -79,6 +81,7 @@ describe("POST /api/assignments/:id/complete", () => {
 
   it("retrona 200 tras completar asignación con exito", async () => {
     prisma.deliveryAssignments.findUnique.mockResolvedValue(mockAcceptedAssignment);
+    mockTx.orders.findUnique.mockResolvedValue({ order_status: "SHIPPED" });
     mockTx.deliveryAssignments.update.mockResolvedValue(mockDeliveredAssignment);
     mockTx.orders.update.mockResolvedValue({ id_order: 100, order_status: "DELIVERED" });
 

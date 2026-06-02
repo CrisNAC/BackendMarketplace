@@ -23,8 +23,8 @@ const MAX_LOG_LINE_LENGTH = 8192;
 export function normalizeKey(key) {
   if (typeof key !== "string") return "";
   return key
-    .replaceAll(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .replaceAll("-", "_")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/-/g, "_")
     .toLowerCase();
 }
 
@@ -36,9 +36,9 @@ function isSensitiveKey(key) {
 
 function sanitizeLogString(str) {
   return str
-    .replaceAll(CONTROL_CHARS_PATTERN, "")
-    .replaceAll(JWT_PATTERN, "[REDACTED_JWT]")
-    .replaceAll(BEARER_PATTERN, "Bearer [REDACTED]");
+    .replace(CONTROL_CHARS_PATTERN, "")
+    .replace(JWT_PATTERN, "[REDACTED_JWT]")
+    .replace(BEARER_PATTERN, "Bearer [REDACTED]");
 }
 
 /**
