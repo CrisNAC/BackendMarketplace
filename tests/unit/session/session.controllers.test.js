@@ -14,7 +14,7 @@ vi.mock("../../../src/lib/prisma.js", () => ({
 vi.mock("jsonwebtoken", () => ({
   default: {
     verify: vi.fn(),
-  }
+  },
 }));
 
 describe("userSession controller", () => {
@@ -54,12 +54,18 @@ describe("userSession controller", () => {
 
     await userSession(req, res);
 
+    // Verificar que se llamó a findFirst con select (no include)
     expect(prisma.users.findFirst).toHaveBeenCalledWith({
       where: {
         id_user: 1,
         status: true,
       },
-      include: {
+      select: {
+        id_user: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
         store: {
           where: { status: true },
           select: { id_store: true },
@@ -82,6 +88,36 @@ describe("userSession controller", () => {
         role: "DELIVERY",
         id_store: null,
         id_delivery: 10,
+      },
+    });
+  });
+
+  it("should return user data with null relationships when user has no store or delivery", async () => {
+    jwt.verify.mockReturnValue({ id_user: 2 });
+
+    prisma.users.findFirst.mockResolvedValue({
+      id_user: 2,
+      name: "Regular User",
+      email: "user@example.com",
+      phone: "87654321",
+      role: "CUSTOMER",
+      store: null,
+      delivery: null,
+    });
+
+    await userSession(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      user: {
+        id_user: 2,
+        name: "Regular User",
+        email: "user@example.com",
+        phone: "87654321",
+        role: "CUSTOMER",
+        id_store: null,
+        id_delivery: null,
       },
     });
   });
