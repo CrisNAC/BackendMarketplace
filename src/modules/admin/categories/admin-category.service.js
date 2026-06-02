@@ -217,6 +217,7 @@ export const filterCategoriesWithProducts = async (
         icon: true,
         status: true,
         visible: true,
+        created_at: true,
         product_categories: {
           where: {
             status: true,
@@ -267,6 +268,7 @@ export const filterCategoriesWithProducts = async (
         icon: c.icon ?? null,
         status: c.status,
         visible: c.visible,
+        createdAt: c.created_at,
         productCount,
         products: {
           data: c.product_categories.map((relation) => relation.product).map((p) => ({
