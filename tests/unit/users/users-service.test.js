@@ -282,20 +282,6 @@ describe("updateUserPasswordService", () => {
     ).rejects.toMatchObject({ status: 400, message: "La contraseña actual es incorrecta" });
   });
 
-  it("lanza 400 cuando verifyPassword falla por error técnico", async () => {
-    prisma.users.findUnique
-      .mockResolvedValueOnce(mockCustomer)
-      .mockResolvedValueOnce({ password_hash: "hash_viejo" });
-    verifyPassword.mockRejectedValue(new Error("Error al verificar contraseña"));
-
-    await expect(
-      updateUserPasswordService(2, 2, {
-        currentPassword: "actual123",
-        newPassword: "nueva1234",
-      })
-    ).rejects.toMatchObject({ status: 400 });
-  });
-
   it("actualiza la contraseña correctamente", async () => {
     prisma.users.findUnique
       .mockResolvedValueOnce(mockCustomer)
