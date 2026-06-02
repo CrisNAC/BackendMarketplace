@@ -333,17 +333,8 @@ export const updateUserPasswordService = async (
     }
 
     // Verificar contraseña actual usando password.utils.js
-    let passwordMatch;
-    try {
-        passwordMatch = await verifyPassword(currentPassword, userWithPassword.password_hash);
-    } catch (verifyError) {
-        // Error técnico en bcrypt (hash corrupto)
-        console.error("[UPDATE_PASSWORD_VERIFY_ERROR]", verifyError.message);
-        throw {
-            status: 400,
-            message: "Error al verificar contraseña actual",
-        };
-    }
+    // verifyPassword retorna false si no coincide o hay error técnico
+    const passwordMatch = await verifyPassword(currentPassword, userWithPassword.password_hash);
 
     if (!passwordMatch) {
         throw {
