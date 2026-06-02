@@ -1,11 +1,14 @@
-//import { PrismaClient } from "@prisma/client";
-
-//session.controllers.js
-import { prisma } from "../../../lib/prisma.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { hashPassword, verifyPassword } from "../../../lib/utils/password.utils.js";
-import { UnauthorizedError, ValidationError } from "../../../lib/errors.js";
+import { 
+  prisma, 
+  hashPassword, 
+  verifyPassword, 
+  UnauthorizedError, 
+  ValidationError, 
+  addToBlacklist, 
+  cleanExpiredTokens 
+} from "../../../lib/index.js";
 
 dotenv.config();
 
@@ -25,12 +28,10 @@ export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Validación de campos requeridos
     if (!email || !password) {
       return next(new ValidationError("Debe ingresar email y contraseña"));
     }
 
-    // Buscar usuario activo con el email proporcionado
     const user = await prisma.users.findFirst({
       where: {
         email,
@@ -39,18 +40,13 @@ export const login = async (req, res, next) => {
     });
 
     if (!user) {
-      // SEGURIDAD: mensaje genérico para no revelar si el email existe
       return next(new UnauthorizedError("Credenciales inválidas"));
     }
 
-    // Verificar contraseña con bcrypt de forma segura
     let passwordMatch;
     try {
       passwordMatch = await verifyPassword(password, user.password_hash);
     } catch (bcryptError) {
-      // Error técnico en bcrypt (hash corrupto, etc)
-      // Loguear para debugging pero no exponer al cliente
-      console.error("[LOGIN_BCRYPT_ERROR]", bcryptError.message);
       return next(new UnauthorizedError("Credenciales inválidas"));
     }
 
@@ -58,7 +54,6 @@ export const login = async (req, res, next) => {
       return next(new UnauthorizedError("Credenciales inválidas"));
     }
 
-    // Generar JWT con expiración de 30 minutos
     const token = jwt.sign(
       {
         id_user: user.id_user,
@@ -69,12 +64,12 @@ export const login = async (req, res, next) => {
       { expiresIn: "30m" }
     );
 
-    // Establecer cookie segura con opciones según el ambiente
     res.cookie("userToken", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-      maxAge: 30 * 60 * 1000, // 30 minutos en milisegundos
+      maxAge: 30 * 60 * 1000,
+      path: "/",
     });
 
     return res.status(200).json({
@@ -88,8 +83,6 @@ export const login = async (req, res, next) => {
       },
     });
   } catch (error) {
-    // NO loguear detalles completos del error que puedan exponer contraseñas
-    console.error("[LOGIN_ERROR]", error.message);
     next(error);
   }
 };
@@ -103,10 +96,25 @@ export const login = async (req, res, next) => {
  */
 export const logout = async (req, res, next) => {
   try {
+    const token = req.cookies.userToken;
+
+    if (token) {
+      addToBlacklist(token);
+      cleanExpiredTokens((t) => {
+        try {
+          jwt.verify(t, process.env.JWT_SECRET);
+          return false;
+        } catch {
+          return true;
+        }
+      });
+    }
+
     res.clearCookie("userToken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+      path: "/",
     });
 
     return res.status(200).json({
@@ -114,7 +122,6 @@ export const logout = async (req, res, next) => {
       message: "Sesión cerrada correctamente",
     });
   } catch (error) {
-    console.error("[LOGOUT_ERROR]", error.message);
     next(error);
   }
 };
@@ -137,19 +144,16 @@ export const userSession = async (req, res, next) => {
       return next(new UnauthorizedError("No autenticado"));
     }
 
-    // Verificar y decodificar JWT
     let decodedToken;
     try {
       decodedToken = jwt.verify(token, process.env.JWT_SECRET);
     } catch (jwtError) {
-      // Diferenciar entre token expirado e inválido
       if (jwtError.name === "TokenExpiredError") {
         return next(new UnauthorizedError("Token expirado"));
       }
       return next(new UnauthorizedError("Token inválido"));
     }
 
-    // Buscar usuario activo en la base de datos
     const user = await prisma.users.findFirst({
       where: {
         id_user: decodedToken.id_user,
@@ -189,7 +193,6 @@ export const userSession = async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.error("[USER_SESSION_ERROR]", error.message);
     next(error);
   }
 };
