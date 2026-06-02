@@ -1,11 +1,11 @@
 //import { PrismaClient } from "@prisma/client";
 
 //session.controllers.js
-import { prisma } from "../../../../src/lib/prisma.js";
+import { prisma } from "../../../lib/prisma.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { hashPassword,verifyPassword } from "../../../lib/utils/password.utils.js";
-import { UnauthorizedError, ValidationError } from "../../lib/errors.js";
+import { UnauthorizedError, ValidationError } from "../../../lib/errors.js";
 
 dotenv.config();
 
