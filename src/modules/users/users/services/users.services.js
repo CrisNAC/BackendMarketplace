@@ -357,10 +357,9 @@ export const updateUserPasswordService = async (
     try {
         password_hash = await hashPassword(newPassword.trim());
     } catch (hashError) {
-        throw {
-            status: 400,
-            message: hashError.message,
-        };
+        const error = new Error(hashError.message);
+        error.status = 400;
+        throw error;
     }
 
     const updatedUser = await prisma.users.update({
@@ -492,10 +491,9 @@ export const resetPasswordService = async (token, newPassword) => {
     try {
         password_hash = await hashPassword(newPassword.trim());
     } catch (hashError) {
-        throw {
-            status: 400,
-            message: hashError.message,
-        };
+        const error = new Error(hashError.message);
+        error.status = 400;
+        throw error;
     }
 
     const result = await prisma.users.updateMany({
@@ -512,6 +510,8 @@ export const resetPasswordService = async (token, newPassword) => {
     });
 
     if (result.count === 0) {
-        throw { status: 400, message: "El enlace de recuperación no es válido o ha expirado" };
+        const error = new Error("El enlace de recuperación no es válido o ha expirado");
+        error.status = 400;
+        throw error;
     }
 };
