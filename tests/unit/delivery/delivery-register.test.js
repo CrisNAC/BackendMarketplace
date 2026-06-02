@@ -112,6 +112,7 @@ describe("POST /api/deliveries/register", () => {
       id_user: 10,
       role: "CUSTOMER",
       delivery: null,
+      phone: "1234567890"
     });
 
     prisma.users.update.mockResolvedValue({
@@ -136,6 +137,7 @@ describe("POST /api/deliveries/register", () => {
       .set("Cookie", authCookie)
       .send({ vehicleType: "MOTORCYCLE" });
 
+    if (res.status === 400) console.log(res.body);
     expect(res.status).toBe(200);
     expect(res.body.user.role).toBe("DELIVERY");
     expect(res.body.delivery.delivery_status).toBe("ACTIVE");
