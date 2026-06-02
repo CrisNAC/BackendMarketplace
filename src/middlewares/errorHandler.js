@@ -66,10 +66,6 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Error inesperado: loguear internamente pero NUNCA exponer detalles en respuesta
-  console.error(`[ERROR INESPERADO] ${req.method} ${req.path}`, err);
-
-  // Respuesta: SIEMPRE genérica, sin stack trace ni detalles internos
   return res.status(500).json({
     error: {
       code: 500,

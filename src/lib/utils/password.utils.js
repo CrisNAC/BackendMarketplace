@@ -30,7 +30,6 @@ export async function hashPassword(plainPassword) {
   try {
     return await bcrypt.hash(plainPassword, BCRYPT_ROUNDS)
   } catch (error) {
-    console.error('[PASSWORD_HASH_ERROR]', error.message)
     throw new Error('Error al procesar la contraseña')
   }
 }
@@ -58,10 +57,6 @@ export async function verifyPassword(plainPassword, hashedPassword) {
   try {
     return await bcrypt.compare(plainPassword, hashedPassword)
   } catch (error) {
-    // Error técnico de bcrypt (hash corrupto, encoding inválido, etc)
-    // Loguear para debugging pero retornar false (no lanzar excepción)
-    // Esto evita que el cliente vea un error 500 por un hash corrupto
-    console.error('[PASSWORD_VERIFY_ERROR]', error.message)
     return false
   }
 }

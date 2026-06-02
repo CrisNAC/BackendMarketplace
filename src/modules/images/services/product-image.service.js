@@ -51,9 +51,8 @@ export async function upsertProductImage(id, file, user) {
   if (oldPath && oldPath !== filePath) {
     try {
       await deleteImage(BUCKET, oldPath)
-    } catch (cleanupError) {
-      // El nuevo producto ya está guardado en BD, solo logueamos el fallo de limpieza
-      console.warn(`[WARN] No se pudo eliminar imagen antigua: ${oldPath}`, cleanupError)
+    } catch {
+      // silencioso — la imagen nueva ya está guardada en BD
     }
   }
 

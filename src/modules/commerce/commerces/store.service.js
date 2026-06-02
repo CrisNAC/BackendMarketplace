@@ -543,10 +543,8 @@ const deletePreviousStoreLogoFromStorage = async (previousLogo, nextLogo) => {
 
   try {
     await fs.unlink(previousLogoPath);
-  } catch (error) {
-    if (error.code !== "ENOENT") {
-      console.warn("No se pudo eliminar el logo anterior:", error.message);
-    }
+  } catch {
+    // silencioso
   }
 };
 
