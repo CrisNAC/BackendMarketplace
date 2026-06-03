@@ -26,4 +26,6 @@ vi.mock("../../src/config/jwt.config.js", () => ({
 
 const { default: app } = await import("../../src/app.js");
 
-defineDeliveryRegisterTests(app, deliveryRegisterHarness);
+defineDeliveryRegisterTests(app, deliveryRegisterHarness, {
+  includeUnauthenticatedCase: true,
+});
