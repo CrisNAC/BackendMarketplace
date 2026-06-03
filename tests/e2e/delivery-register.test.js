@@ -104,6 +104,7 @@ describe("POST /api/deliveries/register", () => {
     prisma.users.findUnique.mockResolvedValue({
       id_user: 10,
       role: "CUSTOMER",
+      phone: "1234567890",
       delivery: null,
     });
 
@@ -137,7 +138,7 @@ describe("POST /api/deliveries/register", () => {
     expect(prisma.users.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id_user: 10 },
-        data: { role: "DELIVERY" },
+        data: expect.objectContaining({ role: "DELIVERY" }),
       })
     );
     expect(prisma.deliveries.create).toHaveBeenCalledWith(

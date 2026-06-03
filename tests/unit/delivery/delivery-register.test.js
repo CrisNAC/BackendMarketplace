@@ -111,6 +111,7 @@ describe("POST /api/deliveries/register", () => {
     prisma.users.findUnique.mockResolvedValue({
       id_user: 10,
       role: "CUSTOMER",
+      phone: "1234567890",
       delivery: null,
     });
 

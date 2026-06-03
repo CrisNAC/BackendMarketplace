@@ -3,6 +3,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import { prisma } from "../../../src/lib/prisma.js";
 import {
   createAssignmentService,
+  getAssignmentByIdService,
   respondToAssignmentService,
   getDeliveryOrderHistoryService,
   getOrderAssignmentsService,
@@ -52,9 +53,11 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     },
     stores: {
       findUnique: vi.fn().mockResolvedValue({ fk_user: 1 }),
+      findFirst: vi.fn().mockResolvedValue({ id_store: 10 }),
     },
     deliveryAssignments: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
       update: vi.fn(),
@@ -74,7 +77,9 @@ vi.mock("../../../src/lib/prisma.js", () => ({
 const mockOrder = {
   id_order: 1,
   fk_store: 10,
+  fk_user: 20,
   order_status: "PENDING",
+  store: { fk_user: 1 },
 };
 
 const mockDelivery = {
@@ -137,8 +142,25 @@ describe("createAssignmentService", () => {
     prisma.orders.findUnique.mockResolvedValue(null);
 
     await expect(
-      createAssignmentService({ fk_order: 999, fk_delivery: 1 })
+      createAssignmentService({ fk_order: 999, fk_delivery: 1 }, { id_user: 1, role: "SELLER" })
     ).rejects.toMatchObject({ status: 404, message: /pedido no encontrado/i });
+  });
+
+  it("lanza error 403 cuando el usuario no es SELLER", async () => {
+    await expect(
+      createAssignmentService({ fk_order: 1, fk_delivery: 1 }, { id_user: 1, role: "CUSTOMER" })
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("lanza error 403 cuando el pedido no pertenece al comercio del SELLER", async () => {
+    prisma.orders.findUnique.mockResolvedValue({
+      ...mockOrder,
+      store: { fk_user: 99 }
+    });
+
+    await expect(
+      createAssignmentService({ fk_order: 1, fk_delivery: 1 }, { id_user: 1, role: "SELLER" })
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   it("lanza error 404 cuando se pasa fk_delivery y el delivery no existe", async () => {
@@ -146,7 +168,7 @@ describe("createAssignmentService", () => {
     prisma.deliveries.findUnique.mockResolvedValue(null);
 
     await expect(
-      createAssignmentService({ fk_order: 1, fk_delivery: 999 })
+      createAssignmentService({ fk_order: 1, fk_delivery: 999 }, { id_user: 1, role: "SELLER" })
     ).rejects.toMatchObject({ status: 404, message: /delivery no encontrado/i });
   });
 
@@ -157,7 +179,7 @@ describe("createAssignmentService", () => {
     mockTx.orders.update.mockResolvedValue({});
 
     await expect(
-      createAssignmentService({ fk_order: 1 })
+      createAssignmentService({ fk_order: 1 }, { id_user: 1, role: "SELLER" })
     ).rejects.toMatchObject({ status: 404, message: /no hay deliveries disponibles/i });
   });
 
@@ -171,7 +193,7 @@ describe("createAssignmentService", () => {
     });
 
     await expect(
-      createAssignmentService({ fk_order: 1, fk_delivery: 1 })
+      createAssignmentService({ fk_order: 1, fk_delivery: 1 }, { id_user: 1, role: "SELLER" })
     ).rejects.toMatchObject({ status: 409 });
   });
 
@@ -189,7 +211,7 @@ describe("createAssignmentService", () => {
       assignment_sequence: 1,
     });
 
-    const result = await createAssignmentService({ fk_order: 1, fk_delivery: 1 });
+    const result = await createAssignmentService({ fk_order: 1, fk_delivery: 1 }, { id_user: 1, role: "SELLER" });
 
     expect(mockTx.deliveryAssignments.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -217,7 +239,7 @@ describe("createAssignmentService", () => {
       assignment_sequence: 1,
     });
 
-    const result = await createAssignmentService({ fk_order: 1 });
+    const result = await createAssignmentService({ fk_order: 1 }, { id_user: 1, role: "SELLER" });
 
     expect(mockTx.deliveryAssignments.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -561,15 +583,26 @@ describe("getOrderAssignmentsService", () => {
 
   it("lanza 404 cuando el pedido no existe", async () => {
     prisma.orders.findUnique.mockResolvedValue(null);
-    await expect(getOrderAssignmentsService(1)).rejects.toMatchObject({ status: 404, message: "Pedido no encontrado" });
+    await expect(getOrderAssignmentsService(1, { id_user: 1, role: "SELLER" }))
+      .rejects.toMatchObject({ status: 404, message: "Pedido no encontrado" });
+  });
+
+  it("lanza 403 cuando DELIVERY no está asignado al pedido", async () => {
+    prisma.orders.findUnique.mockResolvedValue(mockOrder);
+    prisma.deliveryAssignments.findFirst.mockResolvedValue(null);
+
+    await expect(
+      getOrderAssignmentsService(1, { id_user: 5, role: "DELIVERY" })
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   it("retorna las asignaciones del pedido", async () => {
     prisma.orders.findUnique.mockResolvedValue(mockOrder);
+    prisma.stores.findFirst.mockResolvedValue({ id_store: 10 });
     prisma.deliveryAssignments.findMany
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([mockAssignmentPending]);
-    const result = await getOrderAssignmentsService(1);
+    const result = await getOrderAssignmentsService(1, { id_user: 1, role: "SELLER" });
     expect(result).toEqual([mockAssignmentPending]);
   });
 });
@@ -584,7 +617,8 @@ describe("getDeliveryAssignmentsService", () => {
 
   it("lanza 404 cuando el delivery no existe", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(null);
-    await expect(getDeliveryAssignmentsService(1)).rejects.toMatchObject({ status: 404, message: "Delivery no encontrado" });
+    await expect(getDeliveryAssignmentsService(1, { id_user: 5, role: "DELIVERY" }))
+      .rejects.toMatchObject({ status: 404, message: "Delivery no encontrado" });
   });
 
   it("retorna asignaciones sin filtro de status", async () => {
@@ -592,8 +626,16 @@ describe("getDeliveryAssignmentsService", () => {
     prisma.deliveryAssignments.findMany
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([mockAssignmentPending]);
-    const result = await getDeliveryAssignmentsService(1);
+    const result = await getDeliveryAssignmentsService(1, { id_user: 5, role: "DELIVERY" });
     expect(result).toEqual([mockAssignmentPending]);
+  });
+
+  it("lanza 403 cuando el delivery no pertenece al usuario autenticado", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue({ ...mockDelivery, fk_user: 99 });
+
+    await expect(
+      getDeliveryAssignmentsService(1, { id_user: 5, role: "DELIVERY" })
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   it("retorna asignaciones filtradas por status", async () => {
@@ -601,7 +643,7 @@ describe("getDeliveryAssignmentsService", () => {
     prisma.deliveryAssignments.findMany
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([mockAssignmentPending]);
-    await getDeliveryAssignmentsService(1, "PENDING");
+    await getDeliveryAssignmentsService(1, { id_user: 5, role: "DELIVERY" }, "PENDING");
     expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ assignment_status: "PENDING" }) })
     );
@@ -618,7 +660,8 @@ describe("getDeliveryPendingAssignmentsService", () => {
 
   it("lanza 404 cuando el delivery no existe", async () => {
     prisma.deliveries.findUnique.mockResolvedValue(null);
-    await expect(getDeliveryPendingAssignmentsService(1)).rejects.toMatchObject({ status: 404, message: "Delivery no encontrado" });
+    await expect(getDeliveryPendingAssignmentsService(1, { id_user: 5, role: "DELIVERY" }))
+      .rejects.toMatchObject({ status: 404, message: "Delivery no encontrado" });
   });
 
   it("retorna las asignaciones pendientes del delivery", async () => {
@@ -626,7 +669,7 @@ describe("getDeliveryPendingAssignmentsService", () => {
     prisma.deliveryAssignments.findMany
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([mockAssignmentPending]);
-    const result = await getDeliveryPendingAssignmentsService(1);
+    const result = await getDeliveryPendingAssignmentsService(1, { id_user: 5, role: "DELIVERY" });
     expect(result).toEqual([mockAssignmentPending]);
     expect(prisma.deliveryAssignments.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ assignment_status: "PENDING" }) })
@@ -641,20 +684,42 @@ describe("getAcceptedAssignmentService", () => {
 
   it("lanza 404 cuando el pedido no existe", async () => {
     prisma.orders.findUnique.mockResolvedValue(null);
-    await expect(getAcceptedAssignmentService(1)).rejects.toMatchObject({ status: 404, message: "Pedido no encontrado" });
+    await expect(getAcceptedAssignmentService(1, { id_user: 1, role: "SELLER" }))
+      .rejects.toMatchObject({ status: 404, message: "Pedido no encontrado" });
   });
 
   it("lanza 404 cuando no hay asignación aceptada", async () => {
     prisma.orders.findUnique.mockResolvedValue(mockOrder);
+    prisma.stores.findFirst.mockResolvedValue({ id_store: 10 });
     prisma.deliveryAssignments.findFirst.mockResolvedValue(null);
-    await expect(getAcceptedAssignmentService(1)).rejects.toMatchObject({ status: 404, message: "No hay asignación aceptada para este pedido" });
+    await expect(getAcceptedAssignmentService(1, { id_user: 1, role: "SELLER" }))
+      .rejects.toMatchObject({ status: 404, message: "No hay asignación aceptada para este pedido" });
   });
 
   it("retorna la asignación aceptada", async () => {
     const accepted = { ...mockAssignmentPending, assignment_status: "ACCEPTED" };
     prisma.orders.findUnique.mockResolvedValue(mockOrder);
+    prisma.stores.findFirst.mockResolvedValue({ id_store: 10 });
     prisma.deliveryAssignments.findFirst.mockResolvedValue(accepted);
-    const result = await getAcceptedAssignmentService(1);
+    const result = await getAcceptedAssignmentService(1, { id_user: 1, role: "SELLER" });
     expect(result.assignment_status).toBe("ACCEPTED");
+  });
+});
+
+// ─── getAssignmentByIdService ───────────────────────────────────────────────
+
+describe("getAssignmentByIdService", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("lanza 403 cuando el SELLER no es dueño del comercio", async () => {
+    prisma.deliveryAssignments.findUnique.mockResolvedValue({
+      ...mockAssignmentPending,
+      order: { ...mockAssignmentPending.order, store: { fk_user: 99 }, fk_user: 20 },
+      delivery: { id_delivery: 1, delivery_status: "ACTIVE", fk_user: 5 }
+    });
+
+    await expect(
+      getAssignmentByIdService(1, { id_user: 1, role: "SELLER" })
+    ).rejects.toMatchObject({ status: 403 });
   });
 });

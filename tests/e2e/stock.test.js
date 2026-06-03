@@ -12,7 +12,7 @@ vi.mock("../../src/lib/prisma.js", () => ({
         },
         carts: { findFirst: vi.fn(), upsert: vi.fn(), update: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
         cartItems: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), findMany: vi.fn() },
-        orders: { create: vi.fn(), findUnique: vi.fn() },
+        orders: { create: vi.fn(), findUnique: vi.fn(), count: vi.fn().mockResolvedValue(0) },
         orderItems: { createMany: vi.fn(), findMany: vi.fn() },
         notifications: { create: vi.fn() },
         $transaction: vi.fn()

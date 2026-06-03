@@ -249,6 +249,7 @@ describe("updateOrderStatusService", () => {
   it("DELIVERY SHIPPED → DELIVERED: transición permitida", async () => {
     prisma.users.findFirst.mockResolvedValue({ role: "DELIVERY" });
     prisma.orders.findFirst.mockResolvedValue({ id_order: 100, order_status: "SHIPPED", fk_store: 10 });
+    prisma.deliveryAssignments.findFirst.mockResolvedValue({ id_delivery_assignment: 1 });
 
     const mockTx = createMockTx({
       orders: { update: vi.fn().mockResolvedValue({ ...mockOrderFromDB, order_status: "DELIVERED" }) },
@@ -258,6 +259,14 @@ describe("updateOrderStatusService", () => {
     const result = await updateOrderStatusService(1, 100, "DELIVERED");
 
     expect(result.status).toBe("DELIVERED");
+  });
+
+  it("DELIVERY SHIPPED → DELIVERED: lanza ForbiddenError si no es el delivery asignado", async () => {
+    prisma.users.findFirst.mockResolvedValue({ role: "DELIVERY" });
+    prisma.orders.findFirst.mockResolvedValue({ id_order: 100, order_status: "SHIPPED", fk_store: 10 });
+    prisma.deliveryAssignments.findFirst.mockResolvedValue(null);
+
+    await expect(updateOrderStatusService(1, 100, "DELIVERED")).rejects.toThrow(ForbiddenError);
   });
 
   it("SELLER SHIPPED → DELIVERED: transición NO permitida", async () => {

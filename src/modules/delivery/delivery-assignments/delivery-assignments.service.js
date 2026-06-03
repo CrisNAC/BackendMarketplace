@@ -10,14 +10,80 @@ import {
   isAssignmentResponseWindowOpen,
 } from "./delivery-assignment-workflow.service.js";
 
-export const createAssignmentService = async (data) => {
+const resolveAuth = (authenticatedUser) => {
+  const id_user = authenticatedUser?.id_user ?? authenticatedUser?.id;
+  const role = authenticatedUser?.role;
+
+  if (!id_user || !role) {
+    throw { status: 403, message: "No tienes permiso para acceder a este recurso" };
+  }
+
+  return { id_user, role };
+};
+
+const ensureOrderAccess = async (order, auth) => {
+  if (auth.role === "SELLER") {
+    const store = await prisma.stores.findFirst({
+      where: { id_store: order.fk_store, fk_user: auth.id_user, status: true },
+      select: { id_store: true }
+    });
+
+    if (!store) {
+      throw { status: 403, message: "No tienes permiso para acceder a este pedido" };
+    }
+
+    return;
+  }
+
+  if (auth.role === "CUSTOMER") {
+    if (order.fk_user !== auth.id_user) {
+      throw { status: 403, message: "No tienes permiso para acceder a este pedido" };
+    }
+    return;
+  }
+
+  if (auth.role === "DELIVERY") {
+    const assignment = await prisma.deliveryAssignments.findFirst({
+      where: {
+        fk_order: order.id_order,
+        status: true,
+        delivery: { fk_user: auth.id_user }
+      },
+      select: { id_delivery_assignment: true }
+    });
+
+    if (!assignment) {
+      throw { status: 403, message: "No tienes permiso para acceder a este pedido" };
+    }
+
+    return;
+  }
+
+  throw { status: 403, message: "No tienes permiso para acceder a este recurso" };
+};
+
+export const createAssignmentService = async (data, authenticatedUser) => {
+  const auth = resolveAuth(authenticatedUser);
+  if (auth.role !== "SELLER") {
+    throw { status: 403, message: "No tienes permiso para asignar deliveries" };
+  }
+
   const { fk_order, fk_delivery: fk_delivery_input, status } = data;
 
   const order = await prisma.orders.findUnique({
-    where: { id_order: fk_order }
+    where: { id_order: fk_order },
+    select: {
+      id_order: true,
+      fk_store: true,
+      store: { select: { fk_user: true } }
+    }
   });
   if (!order) {
     throw { status: 404, message: "Pedido no encontrado" };
+  }
+
+  if (order.store?.fk_user !== auth.id_user) {
+    throw { status: 403, message: "No tienes permiso para asignar este pedido" };
   }
 
   try {
@@ -74,10 +140,14 @@ export const createAssignmentService = async (data) => {
         fk_delivery = delivery.id_delivery;
       } else {
         const delivery = await tx.deliveries.findUnique({
-          where: { id_delivery: fk_delivery }
+          where: { id_delivery: fk_delivery },
+          select: { id_delivery: true, delivery_status: true, status: true, fk_store: true }
         });
         if (!delivery) {
           throw { status: 404, message: "Delivery no encontrado" };
+        }
+        if (delivery.fk_store !== order.fk_store) {
+          throw { status: 403, message: "El delivery no pertenece al comercio del pedido" };
         }
         if (delivery.delivery_status !== "ACTIVE" || !delivery.status) {
           throw { status: 400, message: "El delivery debe estar activo para recibir pedidos" };
@@ -100,15 +170,23 @@ export const createAssignmentService = async (data) => {
 };
 
 // Obtener asignación por ID
-export const getAssignmentByIdService = async (id_delivery_assignment) => {
+export const getAssignmentByIdService = async (id_delivery_assignment, authenticatedUser) => {
+  const auth = resolveAuth(authenticatedUser);
+
   const assignment = await prisma.deliveryAssignments.findUnique({
     where: { id_delivery_assignment },
     include: {
       order: {
-        select: { id_order: true, total: true, created_at: true }
+        select: {
+          id_order: true,
+          total: true,
+          created_at: true,
+          fk_user: true,
+          store: { select: { fk_user: true } }
+        }
       },
       delivery: {
-        select: { id_delivery: true, delivery_status: true }
+        select: { id_delivery: true, delivery_status: true, fk_user: true }
       }
     }
   });
@@ -117,17 +195,45 @@ export const getAssignmentByIdService = async (id_delivery_assignment) => {
     throw { status: 404, message: "Asignación no encontrada" };
   }
 
+  if (auth.role === "SELLER") {
+    if (assignment.order?.store?.fk_user !== auth.id_user) {
+      throw { status: 403, message: "No tienes permiso para ver esta asignación" };
+    }
+  } else if (auth.role === "CUSTOMER") {
+    if (assignment.order?.fk_user !== auth.id_user) {
+      throw { status: 403, message: "No tienes permiso para ver esta asignación" };
+    }
+  } else if (auth.role === "DELIVERY") {
+    if (assignment.delivery?.fk_user !== auth.id_user) {
+      throw { status: 403, message: "No tienes permiso para ver esta asignación" };
+    }
+  } else {
+    throw { status: 403, message: "No tienes permiso para ver esta asignación" };
+  }
+
   return assignment;
 };
 // Obtener asignaciones de un pedido
-export const getOrderAssignmentsService = async (id_order) => {
+export const getOrderAssignmentsService = async (id_order, authenticatedUser) => {
+  const auth = resolveAuth(authenticatedUser);
+  if (![
+    "SELLER",
+    "CUSTOMER",
+    "DELIVERY",
+  ].includes(auth.role)) {
+    throw { status: 403, message: "No tienes permiso para ver asignaciones" };
+  }
+
   const order = await prisma.orders.findUnique({
-    where: { id_order }
+    where: { id_order },
+    select: { id_order: true, fk_store: true, fk_user: true }
   });
 
   if (!order) {
     throw { status: 404, message: "Pedido no encontrado" };
   }
+
+  await ensureOrderAccess(order, auth);
 
   await expireStalePendingAssignments({ fk_order: id_order });
 
@@ -144,13 +250,23 @@ export const getOrderAssignmentsService = async (id_order) => {
   return assignments;
 };
 // Obtener asignaciones de un delivery 
-export const getDeliveryAssignmentsService = async (id_delivery, status = null) => {
+export const getDeliveryAssignmentsService = async (id_delivery, authenticatedUser, status = null) => {
+  const auth = resolveAuth(authenticatedUser);
+  if (auth.role !== "DELIVERY") {
+    throw { status: 403, message: "No tienes permiso para ver asignaciones de delivery" };
+  }
+
   const delivery = await prisma.deliveries.findUnique({
-    where: { id_delivery }
+    where: { id_delivery },
+    select: { id_delivery: true, fk_user: true }
   });
 
   if (!delivery) {
     throw { status: 404, message: "Delivery no encontrado" };
+  }
+
+  if (delivery.fk_user !== auth.id_user) {
+    throw { status: 403, message: "No tienes permiso para ver asignaciones de este delivery" };
   }
 
   await expireStalePendingAssignments({ fk_delivery: id_delivery });
@@ -193,13 +309,23 @@ export const getDeliveryAssignmentsService = async (id_delivery, status = null) 
   return assignments;
 };
 // Obtener asignaciones PENDING de un delivery
-export const getDeliveryPendingAssignmentsService = async (id_delivery) => {
+export const getDeliveryPendingAssignmentsService = async (id_delivery, authenticatedUser) => {
+  const auth = resolveAuth(authenticatedUser);
+  if (auth.role !== "DELIVERY") {
+    throw { status: 403, message: "No tienes permiso para ver asignaciones de delivery" };
+  }
+
   const delivery = await prisma.deliveries.findUnique({
-    where: { id_delivery }
+    where: { id_delivery },
+    select: { id_delivery: true, fk_user: true }
   });
 
   if (!delivery) {
     throw { status: 404, message: "Delivery no encontrado" };
+  }
+
+  if (delivery.fk_user !== auth.id_user) {
+    throw { status: 403, message: "No tienes permiso para ver asignaciones de este delivery" };
   }
 
   await expireStalePendingAssignments({ fk_delivery: id_delivery });
@@ -220,14 +346,26 @@ export const getDeliveryPendingAssignmentsService = async (id_delivery) => {
   return pendingAssignments;
 };
 // Obtener la asignación aceptada de un pedido
-export const getAcceptedAssignmentService = async (id_order) => {
+export const getAcceptedAssignmentService = async (id_order, authenticatedUser) => {
+  const auth = resolveAuth(authenticatedUser);
+  if (![
+    "SELLER",
+    "CUSTOMER",
+    "DELIVERY",
+  ].includes(auth.role)) {
+    throw { status: 403, message: "No tienes permiso para ver asignaciones" };
+  }
+
   const order = await prisma.orders.findUnique({
-    where: { id_order }
+    where: { id_order },
+    select: { id_order: true, fk_store: true, fk_user: true }
   });
 
   if (!order) {
     throw { status: 404, message: "Pedido no encontrado" };
   }
+
+  await ensureOrderAccess(order, auth);
 
   const acceptedAssignment = await prisma.deliveryAssignments.findFirst({
     where: {
