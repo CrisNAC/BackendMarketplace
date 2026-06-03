@@ -1,8 +1,11 @@
 import { Router } from "express";
 import authenticate from "../../../../config/jwt.config.js";
+import { validate } from "../../../../middlewares/validate.middleware.js";
 import { reportProductReview } from "./review-report.controller.js";
 import { parsePagination } from "../../../../middlewares/pagination.middleware.js";
 import {getReviewReportsFiltered, resolveReviewReport} from "./review-report.controller.js";
+import { ReviewIdParamDTO, ReportIdParamDTO } from "../../../global/dtos/common/params.dto.js";
+import { CreateReviewReportDTO, ResolveReviewReportDTO } from "../../../global/dtos/review-reports/review-report.dto.js";
 
 const router = Router({ mergeParams: true });
 
@@ -64,8 +67,8 @@ const router = Router({ mergeParams: true });
  *       409:
  *         description: Ya has reportado esta reseña
  */
-router.post("/reviews/:reviewId", authenticate, reportProductReview);
+router.post("/reviews/:reviewId", authenticate, validate(ReviewIdParamDTO, "params"), validate(CreateReviewReportDTO, "body"), reportProductReview);
 router.get("/reviews/filtered", authenticate, parsePagination, getReviewReportsFiltered);
-router.put("/reviews/:reportId", authenticate, resolveReviewReport);
+router.put("/reviews/:reportId", authenticate, validate(ReportIdParamDTO, "params"), validate(ResolveReviewReportDTO, "body"), resolveReviewReport);
 
 export default router;

@@ -3,6 +3,7 @@ import authenticate from "../../../../config/jwt.config.js";
 import { requireRole } from "../../../../middlewares/auth.middleware.js";
 import { ROLES } from "../../../../constants/roles.constant.js";
 import { parsePagination } from "../../../../middlewares/pagination.middleware.js";
+import { validate } from "../../../../middlewares/validate.middleware.js";
 import {
   getProductsReports,
   updateProductReport,
@@ -12,6 +13,8 @@ import {
   checkProductReport,
   resolveProductReport,
 } from "./product-report.controller.js";
+import { ReportIdParamDTO } from "../../../global/dtos/common/params.dto.js";
+import { CreateProductReportDTO, UpdateProductReportDTO, ResolveProductReportDTO } from "../../../global/dtos/product-reports/product-report.dto.js";
 
 
 const router = Router({ mergeParams: true });
@@ -192,18 +195,18 @@ router.get("/products/filtered", authenticate, parsePagination, getProductsRepor
  *       404:
  *         description: Reporte, usuario o comercio no encontrado
  */
-router.put("/products/:reportId", authenticate, updateProductReport);
+router.put("/products/:reportId", authenticate, validate(ReportIdParamDTO, "params"), validate(UpdateProductReportDTO, "body"), updateProductReport);
 
 // GET /api/reports/products/reasons — Catálogo de motivos (sin auth, usado por el frontend para poblar el select)
 router.get("/products/reasons", getProductReportReasons);
 
 // POST /api/reports/products — Cliente reporta un producto
-router.post("/products", authenticate, requireRole(ROLES.CUSTOMER), createProductReport);
+router.post("/products", authenticate, requireRole(ROLES.CUSTOMER), validate(CreateProductReportDTO, "body"), createProductReport);
 
 // GET /api/reports/products/check?productId= — Cliente verifica si ya reportó un producto
 router.get("/products/check", authenticate, requireRole(ROLES.CUSTOMER), checkProductReport);
 
 // PATCH /api/reports/products/:reportId/resolve — Admin resuelve o rechaza un reporte
-router.patch("/products/:reportId/resolve", authenticate, requireRole(ROLES.ADMIN), resolveProductReport);
+router.patch("/products/:reportId/resolve", authenticate, requireRole(ROLES.ADMIN), validate(ReportIdParamDTO, "params"), validate(ResolveProductReportDTO, "body"), resolveProductReport);
 
 export default router;

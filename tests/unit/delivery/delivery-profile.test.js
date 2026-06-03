@@ -99,7 +99,12 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
       .send({ name: "Nombre" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/ID inválido/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "id" })
+      ])
+    );
   });
 
   // --- Autenticación y autorización ---

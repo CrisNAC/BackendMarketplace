@@ -157,7 +157,12 @@ describe("PATCH /api/commerces/:id/status", () => {
             .send({});
 
         expect(res.status).toBe(400);
-        expect(res.body.message).toMatch(/store_status es requerido/i);
+        expect(res.body.message).toBe("Error de validación");
+        expect(res.body.errors).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ field: "store_status" })
+            ])
+        );
     });
 
     it("devuelve 400 cuando store_status tiene un valor inválido", async () => {
@@ -169,7 +174,12 @@ describe("PATCH /api/commerces/:id/status", () => {
             .send({ store_status: "SUSPENDIDO" });
 
         expect(res.status).toBe(400);
-        expect(res.body.message).toMatch(/ACTIVE o INACTIVE/i);
+        expect(res.body.message).toBe("Error de validación");
+        expect(res.body.errors).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ field: "store_status" })
+            ])
+        );
     });
 
     it("devuelve 200 y mensaje correcto al deshabilitar el comercio", async () => {

@@ -123,6 +123,13 @@ export const UpdateStoreDTO = z
     }
   );
 
+// ─── UPDATE STATUS ───────────────────────────────────────────────
+export const UpdateStoreStatusDTO = z.object({
+    store_status: z.enum(["ACTIVE", "INACTIVE"], {
+        error: "store_status debe ser ACTIVE o INACTIVE"
+    })
+});
+
 // ─── FILTER ──────────────────────────────────────────────────────
 export const FilterStoreDTO = z.object({
   name: z.string().optional(),

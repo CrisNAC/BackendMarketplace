@@ -4,6 +4,7 @@ import authenticate from "../../../config/jwt.config.js";
 import { ROLES } from "../../../constants/roles.constant.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
 import { upload } from "../../../middlewares/upload.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
 import {
   registerDelivery,
   updateDeliveryStatus,
@@ -11,6 +12,8 @@ import {
   getDeliveryById,
   updateDeliveryProfile
 } from "./delivery.controller.js";
+import { IdParamDTO } from "../../global/dtos/common/params.dto.js";
+import { RegisterDeliveryDTO, UpdateDeliveryStatusDTO, UpdateDeliveryProfileDTO } from "../../global/dtos/deliveries/deliveries.dto.js";
 
 const router = Router();
 
@@ -67,11 +70,11 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/DeliveryRegisterConflictResponse'
  */
-router.post("/register", authenticate, registerDelivery);
+router.post("/register", authenticate, validate(RegisterDeliveryDTO, "body"), registerDelivery);
 
 
 // Rutas protegidas
-router.patch("/:id/status", authenticate, requireRole(ROLES.DELIVERY), updateDeliveryStatus);
+router.patch("/:id/status", authenticate, requireRole(ROLES.DELIVERY), validate(IdParamDTO, "params"), validate(UpdateDeliveryStatusDTO, "body"), updateDeliveryStatus);
 router.get("/:id/assignments", authenticate, requireRole(ROLES.DELIVERY), getPendingAssignments);
 router.get("/:id", authenticate, requireRole(ROLES.DELIVERY), getDeliveryById);
 
@@ -138,7 +141,7 @@ router.get("/:id", authenticate, requireRole(ROLES.DELIVERY), getDeliveryById);
  *             schema:
  *               $ref: '#/components/schemas/DeliveryProfileErrorResponse'
  */
-router.put("/:id", authenticate, requireRole(ROLES.DELIVERY), upload.single("avatarUrl"), updateDeliveryProfile);
+router.put("/:id", authenticate, requireRole(ROLES.DELIVERY), upload.single("avatarUrl"), validate(IdParamDTO, "params"), validate(UpdateDeliveryProfileDTO, "body"), updateDeliveryProfile);
 
 
 

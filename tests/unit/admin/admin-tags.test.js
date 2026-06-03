@@ -127,7 +127,12 @@ describe("POST /api/admin/tags", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/no puede estar vacío/i);
+    expect(res.body).toMatchObject({
+      message: "Error de validación",
+      errors: expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringMatching(/no puede estar vacío/i) })
+      ])
+    });
   });
 
   it("devuelve 400 cuando name no se envía", async () => {
@@ -139,7 +144,12 @@ describe("POST /api/admin/tags", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/no puede estar vacío/i);
+    expect(res.body).toMatchObject({
+      message: "Error de validación",
+      errors: expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringMatching(/no puede estar vacío/i) })
+      ])
+    });
   });
 
   it("devuelve 400 cuando name supera 20 caracteres", async () => {
@@ -151,7 +161,12 @@ describe("POST /api/admin/tags", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/no puede superar/i);
+    expect(res.body).toMatchObject({
+      message: "Error de validación",
+      errors: expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringMatching(/no puede superar/i) })
+      ])
+    });
   });
 
   it("devuelve 400 cuando ya existe una etiqueta activa con el mismo nombre", async () => {
@@ -412,7 +427,12 @@ describe("PATCH /api/admin/tags/:id", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/no puede estar vacío/i);
+    expect(res.body).toMatchObject({
+      message: "Error de validación",
+      errors: expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringMatching(/no puede estar vacío/i) })
+      ])
+    });
   });
 
   it("devuelve 400 cuando name supera 20 caracteres", async () => {
@@ -424,7 +444,12 @@ describe("PATCH /api/admin/tags/:id", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/no puede superar/i);
+    expect(res.body).toMatchObject({
+      message: "Error de validación",
+      errors: expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringMatching(/no puede superar/i) })
+      ])
+    });
   });
 
   it("devuelve 404 cuando la etiqueta no existe", async () => {
