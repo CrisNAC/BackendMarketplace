@@ -59,7 +59,7 @@ const createMockTx = (overrides = {}) => ({
   products: { update: vi.fn().mockResolvedValue({}) },
   notifications: { create: vi.fn().mockResolvedValue({}) },
   deliveries: { findFirst: vi.fn() },
-  deliveryAssignments: { findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]), create: vi.fn() },
+  deliveryAssignments: { findFirst: vi.fn().mockResolvedValue({ id_delivery_assignment: 1 }), findMany: vi.fn().mockResolvedValue([]), create: vi.fn() },
   ...overrides,
 });
 
@@ -265,6 +265,11 @@ describe("updateOrderStatusService", () => {
     prisma.users.findFirst.mockResolvedValue({ role: "DELIVERY" });
     prisma.orders.findFirst.mockResolvedValue({ id_order: 100, order_status: "SHIPPED", fk_store: 10 });
     prisma.deliveryAssignments.findFirst.mockResolvedValue(null);
+
+    const mockTx = createMockTx({
+      deliveryAssignments: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), create: vi.fn() },
+    });
+    prisma.$transaction.mockImplementation(async (fn) => fn(mockTx));
 
     await expect(updateOrderStatusService(1, 100, "DELIVERED")).rejects.toThrow(ForbiddenError);
   });
