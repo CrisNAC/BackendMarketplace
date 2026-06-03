@@ -1,176 +1,29 @@
-import { vi, describe, it, expect, beforeEach } from "vitest";
-import request from "supertest";
-import app from "../../src/app.js";
-import { prisma } from "../../src/lib/prisma.js";
+import { vi } from "vitest";
+import { defineDeliveryRegisterTests } from "../helpers/delivery-register.harness.js";
 
-const { mockAuthenticate } = vi.hoisted(() => ({
-  mockAuthenticate: vi.fn(),
-}));
-
-vi.mock("../../src/lib/prisma.js", () => ({
-  prisma: {
-    users: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
-    },
-    deliveries: {
-      create: vi.fn(),
-    },
+const deliveryRegisterHarness = vi.hoisted(() => {
+  const mockAuthenticate = vi.fn();
+  const prisma = {
+    users: { findUnique: vi.fn(), update: vi.fn() },
+    deliveries: { create: vi.fn() },
     $transaction: vi.fn(async (operations) => {
       if (typeof operations === "function") {
         return operations(prisma);
       }
       return Promise.all(operations);
     }),
-  },
+  };
+  return { mockAuthenticate, prisma };
+});
+
+vi.mock("../../src/lib/prisma.js", () => ({
+  prisma: deliveryRegisterHarness.prisma,
 }));
 
 vi.mock("../../src/config/jwt.config.js", () => ({
-  default: mockAuthenticate,
+  default: deliveryRegisterHarness.mockAuthenticate,
 }));
 
-const authCookie = "userToken=mock-token";
-const validPhone = "0987654321";
-const registerPayload = { vehicleType: "MOTORCYCLE", phone: validPhone };
+const { default: app } = await import("../../src/app.js");
 
-function setupAuthenticatedCustomer() {
-  mockAuthenticate.mockImplementation((req, res, next) => {
-    if (!req.cookies?.userToken) {
-      return res.status(401).json({
-        errors: { auth: { message: "No autenticado" } },
-      });
-    }
-
-    req.user = { id_user: 10, email: "customer@test.com", role: "CUSTOMER" };
-    next();
-  });
-}
-
-function expectValidationError(res) {
-  expect(res.status).toBe(400);
-  expect(res.body.error.code).toBe(400);
-  expect(res.body.error.message).toMatch(/datos inválidos/i);
-  expect(res.body.error.details?.length).toBeGreaterThan(0);
-}
-
-describe("POST /api/deliveries/register", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    setupAuthenticatedCustomer();
-  });
-
-  it("retorna 400 cuando vehicleType no se envía", async () => {
-    const res = await request(app)
-      .post("/api/deliveries/register")
-      .set("Cookie", authCookie)
-      .send({ phone: validPhone });
-
-    expectValidationError(res);
-  });
-
-  it("retorna 400 cuando vehicleType es inválido", async () => {
-    const res = await request(app)
-      .post("/api/deliveries/register")
-      .set("Cookie", authCookie)
-      .send({ vehicleType: "PLANE", phone: validPhone });
-
-    expectValidationError(res);
-  });
-
-  it("retorna 404 cuando el usuario no existe", async () => {
-    prisma.users.findUnique.mockResolvedValue(null);
-
-    const res = await request(app)
-      .post("/api/deliveries/register")
-      .set("Cookie", authCookie)
-      .send({ vehicleType: "CAR", phone: validPhone });
-
-    expect(res.status).toBe(404);
-    expect(res.body.error.message).toMatch(/usuario no encontrado/i);
-  });
-
-  it("retorna 403 cuando el usuario no es CUSTOMER", async () => {
-    prisma.users.findUnique.mockResolvedValue({
-      id_user: 10,
-      role: "SELLER",
-      delivery: null,
-    });
-
-    const res = await request(app)
-      .post("/api/deliveries/register")
-      .set("Cookie", authCookie)
-      .send({ vehicleType: "CAR", phone: validPhone });
-
-    expect(res.status).toBe(403);
-    expect(res.body.error.message).toMatch(/solo un usuario customer/i);
-  });
-
-  it("retorna 409 cuando el usuario ya es delivery", async () => {
-    prisma.users.findUnique.mockResolvedValue({
-      id_user: 10,
-      role: "DELIVERY",
-      delivery: { id_delivery: 5 },
-    });
-
-    const res = await request(app)
-      .post("/api/deliveries/register")
-      .set("Cookie", authCookie)
-      .send({ vehicleType: "BICYCLE", phone: validPhone });
-
-    expect(res.status).toBe(409);
-    expect(res.body.error.message).toMatch(/ya está registrado como delivery/i);
-  });
-
-  it("retorna 200 y crea el delivery con estado ACTIVE", async () => {
-    prisma.users.findUnique.mockResolvedValue({
-      id_user: 10,
-      role: "CUSTOMER",
-      phone: validPhone,
-      delivery: null,
-    });
-
-    prisma.users.update.mockResolvedValue({
-      id_user: 10,
-      name: "Juan",
-      email: "customer@test.com",
-      phone: validPhone,
-      role: "DELIVERY",
-    });
-
-    prisma.deliveries.create.mockResolvedValue({
-      id_delivery: 1,
-      fk_user: 10,
-      fk_store: null,
-      delivery_status: "ACTIVE",
-      vehicle_type: "MOTORCYCLE",
-      status: true,
-    });
-
-    const res = await request(app)
-      .post("/api/deliveries/register")
-      .set("Cookie", authCookie)
-      .send(registerPayload);
-
-    expect(res.status).toBe(200);
-    expect(res.body.user.role).toBe("DELIVERY");
-    expect(res.body.delivery.delivery_status).toBe("ACTIVE");
-    expect(res.body.delivery.fk_store).toBe(null);
-    expect(res.body.delivery.vehicle_type).toBe("MOTORCYCLE");
-    expect(prisma.users.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id_user: 10 },
-        data: { role: "DELIVERY", phone: validPhone },
-      })
-    );
-    expect(prisma.deliveries.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          fk_user: 10,
-          fk_store: null,
-          delivery_status: "ACTIVE",
-          vehicle_type: "MOTORCYCLE",
-        }),
-      })
-    );
-  });
-});
+defineDeliveryRegisterTests(app, deliveryRegisterHarness);

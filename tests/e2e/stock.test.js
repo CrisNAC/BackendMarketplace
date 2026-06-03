@@ -38,6 +38,7 @@ vi.mock("jsonwebtoken", async () => {
 import request from "supertest";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
+import { stubOrderCountForCreateOrder } from "../helpers/order-e2e.harness.js";
 
 const sellerCookie = "userToken=seller-token";
 const customerCookie = "userToken=customer-token";
@@ -245,7 +246,7 @@ describe("POST /api/orders", () => {
 
         const mockProductsUpdate = vi.fn().mockResolvedValue({});
         const mockOrderCreate = vi.fn().mockResolvedValue({ id_order: 500 });
-        prisma.orders.count.mockResolvedValue(0);
+        stubOrderCountForCreateOrder(prisma);
         const mockOrderFind = vi.fn().mockResolvedValue({
             id_order: 500,
             fk_store: 3,
