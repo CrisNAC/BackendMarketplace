@@ -28,8 +28,6 @@ export const createStore = async (req, res) => {
 
     return res.status(201).json(store);
   } catch (error) {
-    console.error("Error creando comercio:", error);
-
     if (error.status) {
       return res.status(error.status).json({ message: error.message });
     }
@@ -185,7 +183,6 @@ export const deleteStore = async (req, res) => {
     //primeramente se hace la comprobacion de que el usuario este autenticado
     const token = req.cookies.userToken;
     if (!token) {
-      console.error("Usuario no autenticado.");
       return res.status(401).json({ message: "Usuario no autenticado." });
     }
 
@@ -199,14 +196,10 @@ export const deleteStore = async (req, res) => {
 
     //se ejecuta el servicio delete
     await deleteStoreService(id_user, id_store);
-
-    //en caso de exito se retorna el emsaje correspondiente
-    console.info("Se eliminó correctamente el comercio...")
     return res.status(204).send();
   }
   catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message })
-    console.error("Error al eliminar el comercio: ", error);
     return res.status(500).json({ message: "Error interno del servidor." })
   }
 }

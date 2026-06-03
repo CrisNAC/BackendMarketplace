@@ -49,9 +49,8 @@ export async function upsertStoreImage(id, file, user) {
   if (oldPath && oldPath !== filePath) {
     try {
       await deleteImage(BUCKET, oldPath)
-    } catch (cleanupError) {
-      // El nuevo logo ya está guardado en BD, solo logueamos el fallo de limpieza
-      console.warn(`[WARN] No se pudo eliminar imagen antigua: ${oldPath}`, cleanupError)
+    } catch {
+      // silencioso — el nuevo logo ya está guardado en BD
     }
   }
 
@@ -78,8 +77,6 @@ export async function removeStoreImage(id, user) {
   })
 
   if (filePath) {
-    await deleteImage(BUCKET, filePath).catch((cleanupError) => {
-      console.warn(`[WARN] No se pudo eliminar logo en storage: ${filePath}`, cleanupError)
-    })
+    await deleteImage(BUCKET, filePath).catch(() => {})
   }
 }

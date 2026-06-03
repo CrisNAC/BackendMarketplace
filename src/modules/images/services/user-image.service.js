@@ -49,9 +49,8 @@ export async function upsertUserImage(id, file, authUser) {
   if (oldPath && oldPath !== filePath) {
     try {
       await deleteImage(BUCKET, oldPath)
-    } catch (cleanupError) {
-      // El nuevo avatar ya está guardado en BD, solo logueamos el fallo de limpieza
-      console.warn(`[WARN] No se pudo eliminar imagen antigua: ${oldPath}`, cleanupError)
+    } catch {
+      // silencioso — el nuevo avatar ya está guardado en BD
     }
   }
 

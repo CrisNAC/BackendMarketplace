@@ -1,4 +1,3 @@
-/** Zona horaria para horarios de comercio (HH:mm ingresados en hora local). */
 export const STORE_TIMEZONE =
   process.env.STORE_TIMEZONE?.trim() || "America/Asuncion";
 

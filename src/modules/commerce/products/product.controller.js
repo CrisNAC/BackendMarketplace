@@ -22,8 +22,6 @@ export const createProduct = async (req, res) => {
     const product = await createProductService(req.user.id_user, req.body);
     return res.status(201).json(product);
   } catch (error) {
-    console.error("Error creando producto:", error);
-
     return res.status(error.status || 500).json({
       message: error.message || "Error interno del servidor"
     });
@@ -44,8 +42,6 @@ export const updateProduct = async (req, res) => {
 
     return res.status(200).json(product);
   } catch (error) {
-    console.error("Error actualizando producto:", error);
-
     return res.status(error.status || error.statusCode || 500).json({
       message: error.message || "Error interno del servidor"
     });
@@ -61,11 +57,9 @@ export const updateProduct = async (req, res) => {
 export const getProductsSearch = async (request, response) => {
   try {
     const filterProducts = await getProductsSearchService(request.validated ?? request.query);
-    console.info("Obteniendo productos...")
     return response.status(200).json(filterProducts);
   }
   catch (error) {
-    console.error("Error al obtener productos:", error);
     return response.status(error.status || 500).json({message: error.message || "Error interno del servidor."});
   }
 };
@@ -97,11 +91,9 @@ export const getProductById = async (request, response) => {
         message:"Producto no encontrado"
       });
     }
-    console.info("Obteniendo producto por id...");
     return response.status(200).json(product);
   }
   catch(error){
-    console.error("Error al obtener producto:", error);
     return response.status(error.status || 500).json({
       message:error.message || "Error interno del servidor."
     });
@@ -164,7 +156,6 @@ export const compareProducts = async (request, response) => {
       pagination: result.pagination
     });
   } catch (error) {
-    console.error("Error al comparar productos:", error);
     return response
       .status(error.status || 500)
       .json({ message: error.message || "Error interno del servidor." });
@@ -197,13 +188,10 @@ export const filterProducts = async (req, res) => {
 export const getRelatedProducts = async (request, response) => {
   try {
     const { id } = request.params;
-    const { limit } = request.query;
- 
-    const relatedProducts = await getRelatedProductsService(id, limit);
- 
+    const { limit } = request.query; 
+    const relatedProducts = await getRelatedProductsService(id, limit); 
     return response.status(200).json(relatedProducts);
   } catch (error) {
-    console.error("Error al obtener productos relacionados:", error);
     return response.status(error.status || 500).json({
       message: error.message || "Error interno del servidor"
     });

@@ -7,7 +7,6 @@ export const getDistance = async (req, res, next) => {
       return res.status(400).json({ error: "Se requieren al menos 2 puntos" });
 
     if (!process.env.ORS_API_KEY) {
-      console.error("ORS_API_KEY no está configurada");
       return res.status(500).json({ error: "Servicio de geolocalización no disponible" });
     }
     
