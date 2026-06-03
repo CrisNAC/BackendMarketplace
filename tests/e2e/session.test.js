@@ -13,15 +13,12 @@ vi.mock("../../src/lib/prisma.js", () => ({
   },
 }));
 
-// Mock de bcrypt para evitar hashing real en tests
-vi.mock("bcrypt", () => ({
-  default: {
-    compare: vi.fn(),
-    hash: vi.fn(),
-  },
+vi.mock("../../src/lib/utils/password.utils.js", () => ({
+  verifyPassword: vi.fn(),
+  hashPassword: vi.fn(),
 }));
 
-import bcrypt from "bcrypt";
+import { verifyPassword } from "../../src/lib/utils/password.utils.js";
 
 const TEST_JWT_SECRET = "test-secret-session";
 
@@ -49,8 +46,7 @@ describe("POST /api/session", () => {
     const res = await request(app).post("/api/session").send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error).toMatch(/email.*contraseña/i);
+    expect(res.body.error.message).toMatch(/email.*contraseña/i);
   });
 
   it("devuelve 400 cuando falta solo el password", async () => {
@@ -59,37 +55,35 @@ describe("POST /api/session", () => {
       .send({ email: "usuario@test.com" });
 
     expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBeDefined();
   });
 
-  it("devuelve 404 cuando el usuario no existe", async () => {
+  it("devuelve 401 cuando el usuario no existe", async () => {
     prisma.users.findFirst.mockResolvedValue(null);
 
     const res = await request(app)
       .post("/api/session")
       .send({ email: "noexiste@test.com", password: "123456" });
 
-    expect(res.status).toBe(404);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error).toMatch(/credenciales incorrectas/i);
+    expect(res.status).toBe(401);
+    expect(res.body.error.message).toMatch(/credenciales inválidas/i);
   });
 
-  it("devuelve 400 cuando la contraseña no coincide", async () => {
+  it("devuelve 401 cuando la contraseña no coincide", async () => {
     prisma.users.findFirst.mockResolvedValue(mockUser);
-    bcrypt.compare.mockResolvedValue(false);
+    verifyPassword.mockResolvedValue(false);
 
     const res = await request(app)
       .post("/api/session")
       .send({ email: "usuario@test.com", password: "incorrecta" });
 
-    expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error).toMatch(/credenciales incorrectas/i);
+    expect(res.status).toBe(401);
+    expect(res.body.error.message).toMatch(/credenciales inválidas/i);
   });
 
   it("devuelve 200 con datos del usuario en login exitoso", async () => {
     prisma.users.findFirst.mockResolvedValue(mockUser);
-    bcrypt.compare.mockResolvedValue(true);
+    verifyPassword.mockResolvedValue(true);
 
     const res = await request(app)
       .post("/api/session")
@@ -115,7 +109,8 @@ describe("DELETE /api/session", () => {
     const res = await request(app).delete("/api/session");
 
     expect(res.status).toBe(200);
-    expect(res.body.message).toMatch(/hasta luego/i);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toMatch(/sesión cerrada/i);
     // La cookie debe estar siendo limpiada (valor vacío o expirada)
     const cookies = res.headers["set-cookie"];
     if (cookies) {
@@ -133,8 +128,8 @@ describe("GET /api/session/user-session", () => {
     const res = await request(app).get("/api/session/user-session");
 
     expect(res.status).toBe(401);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error).toMatch(/token/i);
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.message).toMatch(/token|autenticado/i);
   });
 
   it("devuelve 401 cuando el token es inválido o está expirado", async () => {
@@ -143,7 +138,7 @@ describe("GET /api/session/user-session", () => {
       .set("Cookie", "userToken=token-invalido");
 
     expect(res.status).toBe(401);
-    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBeDefined();
   });
 
   it("devuelve 200 con datos del usuario cuando el token es válido", async () => {
@@ -151,7 +146,11 @@ describe("GET /api/session/user-session", () => {
       { id_user: 1, email: "usuario@test.com", role: "CUSTOMER" },
       TEST_JWT_SECRET
     );
-    prisma.users.findFirst.mockResolvedValue({ ...mockUser, store: null });
+    prisma.users.findFirst.mockResolvedValue({
+      ...mockUser,
+      store: null,
+      delivery: null,
+    });
 
     const res = await request(app)
       .get("/api/session/user-session")
@@ -166,7 +165,7 @@ describe("GET /api/session/user-session", () => {
     });
   });
 
-  it("devuelve 404 cuando el usuario del token ya no existe en la BD", async () => {
+  it("devuelve 401 cuando el usuario del token ya no existe en la BD", async () => {
     const token = jwt.sign(
       { id_user: 999, email: "borrado@test.com", role: "CUSTOMER" },
       TEST_JWT_SECRET
@@ -177,7 +176,7 @@ describe("GET /api/session/user-session", () => {
       .get("/api/session/user-session")
       .set("Cookie", `userToken=${token}`);
 
-    expect(res.status).toBe(404);
-    expect(res.body.success).toBe(false);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBeDefined();
   });
 });
