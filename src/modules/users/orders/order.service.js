@@ -861,22 +861,6 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
     if (!customerOrder) throw new ForbiddenError("No tienes permisos para modificar este pedido.");
   }
 
-  if (user.role === "DELIVERY") {
-    const deliveryAssignment = await prisma.deliveryAssignments.findFirst({
-      where: {
-        fk_order: resolvedOrderId,
-        assignment_status: "ACCEPTED",
-        status: true,
-        delivery: { fk_user: resolvedUserId }
-      },
-      select: { id_delivery_assignment: true }
-    });
-
-    if (!deliveryAssignment) {
-      throw new ForbiddenError("No tienes permisos para modificar este pedido.");
-    }
-  }
-
   //validar transiciones permitidas por rol de user autenticado
   const isPickup = order.fk_address == null;
   const allowedTransitions = {
@@ -903,6 +887,22 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
   if (!allowed.includes(order_status)) throw new ValidationError(`Transicion invalida: ${order.order_status} a ${order_status}`);
 
   const updated = await prisma.$transaction(async (tx) => {
+    if (user.role === "DELIVERY") {
+      const deliveryAssignment = await tx.deliveryAssignments.findFirst({
+        where: {
+          fk_order: resolvedOrderId,
+          assignment_status: "ACCEPTED",
+          status: true,
+          delivery: { is: { fk_user: resolvedUserId } }
+        },
+        select: { id_delivery_assignment: true }
+      });
+
+      if (!deliveryAssignment) {
+        throw new ForbiddenError("No tienes permisos para modificar este pedido.");
+      }
+    }
+
     const updatedOrder = await tx.orders.update({
       where: {
         id_order: resolvedOrderId,

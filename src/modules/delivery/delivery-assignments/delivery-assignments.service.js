@@ -47,7 +47,7 @@ const ensureOrderAccess = async (order, auth) => {
       where: {
         fk_order: order.id_order,
         status: true,
-        delivery: { fk_user: auth.id_user }
+        delivery: { fk_user: auth.id_user, status: true }
       },
       select: { id_delivery_assignment: true }
     });
@@ -75,7 +75,7 @@ export const createAssignmentService = async (data, authenticatedUser) => {
     select: {
       id_order: true,
       fk_store: true,
-      store: { select: { fk_user: true } }
+      store: { select: { fk_user: true, status: true } }
     }
   });
   if (!order) {
@@ -83,6 +83,10 @@ export const createAssignmentService = async (data, authenticatedUser) => {
   }
 
   if (order.store?.fk_user !== auth.id_user) {
+    throw { status: 403, message: "No tienes permiso para asignar este pedido" };
+  }
+
+  if (!order.store?.status) {
     throw { status: 403, message: "No tienes permiso para asignar este pedido" };
   }
 
