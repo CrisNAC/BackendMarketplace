@@ -1,3 +1,11 @@
+# [SEC-A08] CI/CD Pipeline - Backend OpenMarket
+#
+# SEGURIDAD:
+# - Este pipeline solo se ejecuta en Pull Requests hacia ramas protegidas (dev, main).
+# - Ningún secreto está hardcodeado en el código. Todas las variables sensibles
+#   se inyectan desde GitHub Actions Secrets en tiempo de ejecución.
+# - El archivo .env está en .gitignore y nunca debe commitearse al repositorio.
+
 name: Vitest + Supertest (Backend)
 
 on:
@@ -24,6 +32,8 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+    # Todas las variables sensibles se inyectan desde GitHub Secrets.
+    # Nunca escribir valores reales aquí directamente.
     env:
         DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/test_db
         DIRECT_URL_TEST: postgresql://postgres:postgres@localhost:5432/test_db
