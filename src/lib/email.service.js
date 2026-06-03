@@ -1,8 +1,7 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export const sendPasswordResetEmail = async (email, token) => {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     const resetUrl = `${frontendUrl}/restablecer-contrasena/${token}`;
     const from = process.env.RESEND_FROM_EMAIL || "OpenMarket <onboarding@resend.dev>";
