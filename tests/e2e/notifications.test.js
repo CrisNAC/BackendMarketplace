@@ -4,7 +4,7 @@ vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
     users: { findUnique: vi.fn() },
     carts: { findFirst: vi.fn(), update: vi.fn() },
-    orders: { create: vi.fn(), findUnique: vi.fn() },
+    orders: { create: vi.fn(), findUnique: vi.fn(), count: vi.fn() },
     orderItems: { createMany: vi.fn() },
     products: { update: vi.fn() },
     notifications: { create: vi.fn() },
@@ -67,9 +67,13 @@ describe("POST /api/orders -> crea notificación", () => {
 
     const mockProductsUpdate = vi.fn().mockResolvedValue({});
     const mockOrderCreate = vi.fn().mockResolvedValue({ id_order: 500 });
+    prisma.orders.count.mockResolvedValue(0);
+
     const mockOrderFind = vi.fn().mockResolvedValue({
       id_order: 500,
+      fk_store: 3,
       order_status: "PENDING",
+      delivery_unavailable: false,
       total: 200,
       shipping_cost: 0,
       shipping_distance_km: null,

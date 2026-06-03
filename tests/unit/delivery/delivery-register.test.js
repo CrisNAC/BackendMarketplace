@@ -4,6 +4,10 @@ import request from "supertest";
 import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
 
+const { mockAuthenticate } = vi.hoisted(() => ({
+  mockAuthenticate: vi.fn(),
+}));
+
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
     users: {
@@ -13,12 +17,25 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     deliveries: {
       create: vi.fn(),
     },
-    $transaction: vi.fn((operations) => Promise.all(operations)),
+    $transaction: vi.fn(async (operations) => {
+      if (typeof operations === "function") {
+        return operations(prisma);
+      }
+      return Promise.all(operations);
+    }),
   },
 }));
 
 vi.mock("../../../src/config/jwt.config.js", () => ({
-  default: vi.fn((req, res, next) => {
+  default: mockAuthenticate,
+}));
+
+const authCookie = "userToken=mock-token";
+const validPhone = "0987654321";
+const registerPayload = { vehicleType: "MOTORCYCLE", phone: validPhone };
+
+function setupAuthenticatedCustomer() {
+  mockAuthenticate.mockImplementation((req, res, next) => {
     if (!req.cookies?.userToken) {
       return res.status(401).json({
         errors: { auth: { message: "No autenticado" } },
@@ -27,18 +44,26 @@ vi.mock("../../../src/config/jwt.config.js", () => ({
 
     req.user = { id_user: 10, email: "customer@test.com", role: "CUSTOMER" };
     next();
-  }),
-}));
+  });
+}
 
-const authCookie = "userToken=mock-token";
+function expectValidationError(res) {
+  expect(res.status).toBe(400);
+  expect(res.body.error.code).toBe(400);
+  expect(res.body.error.message).toMatch(/datos inválidos/i);
+  expect(res.body.error.details?.length).toBeGreaterThan(0);
+}
 
 describe("POST /api/deliveries/register", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupAuthenticatedCustomer();
+  });
 
   it("devuelve 401 cuando no hay autenticación", async () => {
     const res = await request(app)
       .post("/api/deliveries/register")
-      .send({ vehicleType: "MOTORCYCLE" });
+      .send(registerPayload);
 
     expect(res.status).toBe(401);
   });
@@ -47,20 +72,18 @@ describe("POST /api/deliveries/register", () => {
     const res = await request(app)
       .post("/api/deliveries/register")
       .set("Cookie", authCookie)
-      .send({});
+      .send({ phone: validPhone });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
+    expectValidationError(res);
   });
 
   it("devuelve 400 cuando vehicleType es inválido", async () => {
     const res = await request(app)
       .post("/api/deliveries/register")
       .set("Cookie", authCookie)
-      .send({ vehicleType: "PLANE" });
+      .send({ vehicleType: "PLANE", phone: validPhone });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
+    expectValidationError(res);
   });
 
   it("devuelve 404 cuando el usuario no existe", async () => {
@@ -69,7 +92,7 @@ describe("POST /api/deliveries/register", () => {
     const res = await request(app)
       .post("/api/deliveries/register")
       .set("Cookie", authCookie)
-      .send({ vehicleType: "CAR" });
+      .send({ vehicleType: "CAR", phone: validPhone });
 
     expect(res.status).toBe(404);
     expect(res.body.error.message).toMatch(/usuario no encontrado/i);
@@ -85,7 +108,7 @@ describe("POST /api/deliveries/register", () => {
     const res = await request(app)
       .post("/api/deliveries/register")
       .set("Cookie", authCookie)
-      .send({ vehicleType: "CAR" });
+      .send({ vehicleType: "CAR", phone: validPhone });
 
     expect(res.status).toBe(403);
     expect(res.body.error.message).toMatch(/solo un usuario customer/i);
@@ -101,7 +124,7 @@ describe("POST /api/deliveries/register", () => {
     const res = await request(app)
       .post("/api/deliveries/register")
       .set("Cookie", authCookie)
-      .send({ vehicleType: "BICYCLE" });
+      .send({ vehicleType: "BICYCLE", phone: validPhone });
 
     expect(res.status).toBe(409);
     expect(res.body.error.message).toMatch(/ya está registrado como delivery/i);
@@ -111,6 +134,7 @@ describe("POST /api/deliveries/register", () => {
     prisma.users.findUnique.mockResolvedValue({
       id_user: 10,
       role: "CUSTOMER",
+      phone: validPhone,
       delivery: null,
     });
 
@@ -118,7 +142,7 @@ describe("POST /api/deliveries/register", () => {
       id_user: 10,
       name: "Juan",
       email: "customer@test.com",
-      phone: "1234567890",
+      phone: validPhone,
       role: "DELIVERY",
     });
 
@@ -134,7 +158,7 @@ describe("POST /api/deliveries/register", () => {
     const res = await request(app)
       .post("/api/deliveries/register")
       .set("Cookie", authCookie)
-      .send({ vehicleType: "MOTORCYCLE" });
+      .send(registerPayload);
 
     expect(res.status).toBe(200);
     expect(res.body.user.role).toBe("DELIVERY");

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { DELIVERY_PHONE_MESSAGE, DELIVERY_PHONE_REGEX } from '../../../lib/phone.js';
 
 const vehicleTypeSchema = z.enum(["CAR", "MOTORCYCLE", "BICYCLE", "ON_FOOT"], {
-  errorMap: () => ({ message: "vehicleType debe ser CAR, MOTORCYCLE, BICYCLE o ON_FOOT" })
+  message: "vehicleType debe ser CAR, MOTORCYCLE, BICYCLE o ON_FOOT",
 });
 
 const deliveryPhoneSchema = z
