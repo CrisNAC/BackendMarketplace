@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const AdminCreateCategoryDTO = z.object({
-  name: z.string({ message: "El nombre de la categoría no puede estar vacío" })
+  name: z.string({ errorMap: () => ({ message: "El nombre de la categoría no puede estar vacío" }) })
     .trim()
     .min(1, "El nombre de la categoría no puede estar vacío")
     .max(100, "El nombre de la categoría no puede superar 100 caracteres"),

@@ -1,7 +1,13 @@
 import { z } from "zod";
 
-const dateString = z.string().refine((v) => !isNaN(new Date(v).getTime()), {
-  message: "debe ser una fecha válida"
+const dateString = z.string().superRefine((val, ctx) => {
+  const result = z.coerce.date().safeParse(val);
+  if (!result.success) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "debe ser una fecha válida"
+    });
+  }
 });
 
 export const AdminCreateBannerDTO = z.object({

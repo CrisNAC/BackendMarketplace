@@ -19,4 +19,6 @@ export const UpdateDeliveryProfileDTO = z.object({
   vehicleType: z.enum(["CAR", "MOTORCYCLE", "BICYCLE", "ON_FOOT"], {
     error: "vehicleType debe ser CAR, MOTORCYCLE, BICYCLE o ON_FOOT"
   }).optional()
+}).refine((value) => Object.keys(value).length > 0, {
+  message: "Al menos un campo debe estar presente"
 });
