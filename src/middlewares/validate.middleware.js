@@ -22,7 +22,7 @@ export const validate =
             if (section === "query") {
                 req.validated = result.data;
             } else {
-                req[section] = result.data;
+                Object.assign(req[section], result.data);
             }
 
             next();

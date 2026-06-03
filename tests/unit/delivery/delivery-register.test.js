@@ -50,7 +50,12 @@ describe("POST /api/deliveries/register", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "vehicleType" })
+      ])
+    );
   });
 
   it("devuelve 400 cuando vehicleType es inválido", async () => {
@@ -60,7 +65,12 @@ describe("POST /api/deliveries/register", () => {
       .send({ vehicleType: "PLANE" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "vehicleType" })
+      ])
+    );
   });
 
   it("devuelve 404 cuando el usuario no existe", async () => {
