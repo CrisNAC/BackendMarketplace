@@ -1,6 +1,7 @@
 //users.routes.js
 import { Router } from "express";
 import authenticate from "../../../../config/jwt.config.js";
+import { passwordResetRateLimiter } from "../../../../middlewares/rateLimiter.js";
 import {
     registerUser,
     updateUser,
@@ -16,7 +17,7 @@ const router = Router();
 router.post("/register", registerUser);
 
 // Password reset (sin autenticación)
-router.post("/forgot-password", requestPasswordReset);
+router.post("/forgot-password", passwordResetRateLimiter, requestPasswordReset);
 router.post("/validate-reset-token", validateResetToken);
 router.post("/reset-password", resetPassword);
 

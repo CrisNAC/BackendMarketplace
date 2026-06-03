@@ -1,22 +1,14 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || "587"),
-    secure: process.env.EMAIL_SECURE === "true",
-    family: 4, // fuerza IPv4, evita ENETUNREACH en entornos sin IPv6 (Render)
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendPasswordResetEmail = async (email, token) => {
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     const resetUrl = `${frontendUrl}/restablecer-contrasena/${token}`;
+    const from = process.env.RESEND_FROM_EMAIL || "OpenMarket <onboarding@resend.dev>";
 
-    await transporter.sendMail({
-        from: `"OpenMarket" <${process.env.EMAIL_USER}>`,
+    const { error } = await resend.emails.send({
+        from,
         to: email,
         subject: "Recuperación de contraseña",
         html: `
@@ -35,4 +27,8 @@ export const sendPasswordResetEmail = async (email, token) => {
             </div>
         `,
     });
+
+    if (error) {
+        throw new Error(`Error al enviar el correo de recuperación: ${error.message}`);
+    }
 };

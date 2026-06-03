@@ -7,6 +7,7 @@ const requiredEnvVars = [
   'SUPABASE_BUCKET_PRODUCTS',
   'SUPABASE_BUCKET_USERS',
   'SUPABASE_BUCKET_STORES',
+  'RESEND_API_KEY',
 ]
 
 export function validateEnv() {
