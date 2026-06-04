@@ -3,7 +3,6 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
-import { expectValidationError } from "../helpers/expect-validation-error.js";
 
 vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
@@ -258,7 +257,9 @@ describe("POST /api/commerces", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Solo Nombre" });
 
-    expectValidationError(res);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors.length).toBeGreaterThan(0);
   });
 
   it("devuelve 400 cuando el email tiene formato inválido", async () => {
@@ -281,7 +282,12 @@ describe("POST /api/commerces", () => {
         distance_price: 15000,
       });
 
-    expectValidationError(res, "email");
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "email" }),
+      ])
+    );
   });
 
   it("devuelve 409 cuando el usuario ya tiene un comercio registrado", async () => {
@@ -395,7 +401,12 @@ describe("PUT /api/commerces/:id", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({});
 
-    expectValidationError(res);
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringMatching(/al menos un campo/i) }),
+      ])
+    );
   });
 
   it("devuelve 200 con el comercio actualizado", async () => {

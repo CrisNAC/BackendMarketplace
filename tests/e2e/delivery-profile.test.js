@@ -153,9 +153,7 @@ describe("PUT /api/deliveries/:id — E2E profile", () => {
     expect(res.body).toHaveProperty("vehicle_type", "BICYCLE");
   });
 
-  it("Body vacío retorna 400 por validación", async () => {
-    prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
-
+  it("Body vacío retorna 400 por validación de DTO", async () => {
     const res = await request(app)
       .put("/api/deliveries/1")
       .set("Cookie", authCookie(deliveryToken))
@@ -163,6 +161,8 @@ describe("PUT /api/deliveries/:id — E2E profile", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.message).toBe("Error de validación");
+    expect(prisma.users.update).not.toHaveBeenCalled();
+    expect(prisma.deliveries.update).not.toHaveBeenCalled();
   });
 
   it("Retorna 403 cuando rol no es DELIVERY", async () => {

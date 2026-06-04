@@ -75,13 +75,7 @@ const mockUpdatedDelivery = {
 };
 
 describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    prisma.deliveries.findUnique.mockReset();
-    prisma.users.findUnique.mockReset();
-    prisma.deliveries.update.mockReset();
-    prisma.users.update.mockReset();
-  });
+  beforeEach(() => vi.clearAllMocks());
 
   // Helper: ejecuta PUT /api/deliveries/:id con cookie de auth
   const putDelivery = (id, body) =>
@@ -261,21 +255,23 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Sin cambios (body vacío) ---
 
   it("devuelve 400 cuando se envía body vacío", async () => {
-    setupProfileMocks();
-
     const res = await putDelivery(1, {});
 
     expect(res.status).toBe(400);
     expect(res.body.message).toBe("Error de validación");
+    expect(prisma.users.update).not.toHaveBeenCalled();
+    expect(prisma.deliveries.update).not.toHaveBeenCalled();
   });
 
   // --- Error interno ---
 
   it("devuelve 500 cuando prisma falla inesperadamente", async () => {
+    prisma.deliveries.findUnique.mockReset();
     prisma.deliveries.findUnique.mockRejectedValue(new Error("Database error"));
 
     const res = await putDelivery(1, { name: "Nombre" });
 
     expect(res.status).toBe(500);
+    expect(res.body.error.message).toBe("Database error");
   });
 });

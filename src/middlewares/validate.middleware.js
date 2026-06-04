@@ -22,7 +22,7 @@ export const validate =
             // Contrato por sección: query → req.validated; params → mutar req.params
             // (misma referencia, merge de campos validados); body/otros → req[section].
             if (section === "query") {
-                req.validated = result.data;
+                req.validated = { ...(req.validated ?? {}), ...result.data };
             } else if (section === "params") {
                 Object.assign(req.params, result.data);
             } else {

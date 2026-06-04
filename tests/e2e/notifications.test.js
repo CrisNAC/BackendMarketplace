@@ -42,6 +42,7 @@ const customerCookie = "userToken=customer-token";
 describe("POST /api/orders -> crea notificación", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.orders.count.mockResolvedValue(0);
   });
 
   it("retorna 201 y crea notificación en la transacción al confirmar pedido", async () => {
