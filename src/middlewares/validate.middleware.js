@@ -21,6 +21,8 @@ export const validate =
 
             if (section === "query") {
                 req.validated = result.data;
+            } else if (section === "params") {
+                req.params = { ...req.params, ...result.data };
             } else {
                 req[section] = result.data;
             }

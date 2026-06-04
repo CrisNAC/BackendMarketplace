@@ -3,6 +3,7 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
+import { expectValidationError } from "../helpers/expect-validation-error.js";
 
 const {
   deliveriesMock,
@@ -108,9 +109,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .set("Cookie", authCookie(deliveryToken))
       .send({});
 
-    expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/datos inválidos/i);
-    expect(res.body.error.details?.length).toBeGreaterThan(0);
+    expectValidationError(res, "delivery_status");
   });
 
   it("retorna 400 cuando delivery_status es inválido", async () => {
@@ -119,9 +118,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .set("Cookie", authCookie(deliveryToken))
       .send({ delivery_status: "PAUSED" });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/datos inválidos/i);
-    expect(res.body.error.details?.length).toBeGreaterThan(0);
+    expectValidationError(res, "delivery_status");
   });
 
   it("retorna 403 cuando el rol no es DELIVERY", async () => {
@@ -140,8 +137,7 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .set("Cookie", authCookie(deliveryToken))
       .send({ delivery_status: "ACTIVE" });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/ID inválido/i);
+    expectValidationError(res, "id");
   });
 
   it("retorna 404 cuando el delivery no existe", async () => {

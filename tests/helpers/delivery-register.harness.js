@@ -22,9 +22,8 @@ export function setupAuthenticatedCustomer(mockAuthenticate) {
 
 function expectValidationError(res) {
   expect(res.status).toBe(400);
-  expect(res.body.error.code).toBe(400);
-  expect(res.body.error.message).toMatch(/datos inválidos/i);
-  expect(res.body.error.details?.length).toBeGreaterThan(0);
+  expect(res.body.message).toBe("Error de validación");
+  expect(res.body.errors?.length).toBeGreaterThan(0);
 }
 
 function setupSuccessfulRegisterMocks(prisma) {

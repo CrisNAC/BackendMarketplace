@@ -153,20 +153,16 @@ describe("PUT /api/deliveries/:id — E2E profile", () => {
     expect(res.body).toHaveProperty("vehicle_type", "BICYCLE");
   });
 
-  it("Body vacío no ejecuta updates y retorna 200", async () => {
-    prisma.deliveries.findUnique
-      .mockResolvedValueOnce(mockDelivery)
-      .mockResolvedValueOnce(mockUpdatedDeliveryBase());
+  it("Body vacío retorna 400 por validación", async () => {
+    prisma.deliveries.findUnique.mockResolvedValue(mockDelivery);
 
     const res = await request(app)
       .put("/api/deliveries/1")
       .set("Cookie", authCookie(deliveryToken))
       .send({});
 
-    expect(res.status).toBe(200);
-    // $transaction should not call updates for empty body; users.update and deliveries.update remain mocked but may not be called
-    expect(prisma.users.update).not.toHaveBeenCalled();
-    expect(prisma.deliveries.update).not.toHaveBeenCalled();
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Error de validación");
   });
 
   it("Retorna 403 cuando rol no es DELIVERY", async () => {

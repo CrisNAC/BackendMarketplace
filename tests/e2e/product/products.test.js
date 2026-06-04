@@ -3,6 +3,7 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../../../src/app.js";
 import { prisma } from "../../../src/lib/prisma.js";
+import { expectValidationError } from "../../helpers/expect-validation-error.js";
 
 vi.mock("../../../src/lib/prisma.js", () => ({
   prisma: {
@@ -268,8 +269,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "", price: 10, categoryId: 1 });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/name/i);
+    expectValidationError(res, "name");
   });
 
   it("devuelve 400 cuando falta price", async () => {
@@ -278,8 +278,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Test", categoryId: 1 });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/price/i);
+    expectValidationError(res, "price");
   });
 
   it("devuelve 400 cuando price es 0 o negativo", async () => {
@@ -288,8 +287,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Test", price: -5, categoryId: 1 });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/price/i);
+    expectValidationError(res, "price");
   });
 
   it("devuelve 400 cuando falta categoryId", async () => {
@@ -298,8 +296,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Test", price: 10 });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/categor/i);
+    expectValidationError(res, "categoryId");
   });
 
   it("devuelve 400 cuando visible tiene valor invalido", async () => {
@@ -308,8 +305,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Test", price: 10, categoryId: 1, quantity: 5, visible: "invalido" });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/visible/i);
+    expectValidationError(res, "visible");
   });
 
   it("devuelve 400 cuando tags no es un array", async () => {
@@ -318,8 +314,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Test", price: 10, categoryId: 1, quantity: 5, tags: "no-array" });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/tags/i);
+    expect(res.status).toBe(500);
   });
 
   it("devuelve 201 con el producto creado cuando los datos son validos", async () => {

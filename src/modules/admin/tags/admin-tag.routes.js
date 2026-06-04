@@ -1,6 +1,12 @@
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
+import { IdParamDTO } from "../../../modules/global/dtos/base/base.param.dto.js";
+import {
+  AdminCreateTagDTO,
+  AdminUpdateTagDTO
+} from "../../../modules/global/dtos/product-tags/admin-tag.dto.js";
 import {
   createAdminTag,
   getAdminTags,
@@ -56,7 +62,7 @@ const router = Router();
  *       403:
  *         description: Sin permisos de administrador
  */
-router.post("/", authenticate, requireRole(ROLES.ADMIN), createAdminTag);
+router.post("/", authenticate, requireRole(ROLES.ADMIN), validate(AdminCreateTagDTO, "body"), createAdminTag);
 
 /**
  * @swagger
@@ -153,7 +159,7 @@ router.get("/", authenticate, requireRole(ROLES.ADMIN), getAdminTags);
  *       404:
  *         description: Etiqueta no encontrada
  */
-router.patch("/:id", authenticate, requireRole(ROLES.ADMIN), updateAdminTag);
+router.patch("/:id", authenticate, requireRole(ROLES.ADMIN), validate(IdParamDTO, "params"), validate(AdminUpdateTagDTO, "body"), updateAdminTag);
 
 /**
  * @swagger
@@ -181,6 +187,6 @@ router.patch("/:id", authenticate, requireRole(ROLES.ADMIN), updateAdminTag);
  *       404:
  *         description: Etiqueta no encontrada
  */
-router.delete("/:id", authenticate, requireRole(ROLES.ADMIN), deleteAdminTag);
+router.delete("/:id", authenticate, requireRole(ROLES.ADMIN), validate(IdParamDTO, "params"), deleteAdminTag);
 
 export { router as adminTagRoutes };

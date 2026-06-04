@@ -75,7 +75,13 @@ const mockUpdatedDelivery = {
 };
 
 describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.deliveries.findUnique.mockReset();
+    prisma.users.findUnique.mockReset();
+    prisma.deliveries.update.mockReset();
+    prisma.users.update.mockReset();
+  });
 
   // Helper: ejecuta PUT /api/deliveries/:id con cookie de auth
   const putDelivery = (id, body) =>
@@ -99,7 +105,12 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
       .send({ name: "Nombre" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/ID inválido/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "id" })
+      ])
+    );
   });
 
   // --- Autenticación y autorización ---
@@ -249,14 +260,13 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
 
   // --- Sin cambios (body vacío) ---
 
-  it("devuelve 200 cuando se envía body vacío (sin cambios)", async () => {
+  it("devuelve 400 cuando se envía body vacío", async () => {
     setupProfileMocks();
 
     const res = await putDelivery(1, {});
 
-    expect(res.status).toBe(200);
-    expect(prisma.users.update).not.toHaveBeenCalled();
-    expect(prisma.deliveries.update).not.toHaveBeenCalled();
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Error de validación");
   });
 
   // --- Error interno ---

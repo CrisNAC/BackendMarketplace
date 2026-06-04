@@ -3,6 +3,7 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
+import { expectValidationError } from "../helpers/expect-validation-error.js";
 
 vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
@@ -231,8 +232,7 @@ describe("POST /api/stores/{id}/deliveries", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({});
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/fk_user es requerido/i);
+    expectValidationError(res, "fk_user");
   });
 
   it("Retorna 403 cuando el usuario no es dueño del store", async () => {
@@ -442,8 +442,7 @@ describe("POST /api/stores/{id}/deliveries", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ fk_user: -5 });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/id numérico válido/i);
+    expectValidationError(res, "fk_user");
   });
 
   it("Validación de fk_user no acepta strings", async () => {
@@ -454,8 +453,7 @@ describe("POST /api/stores/{id}/deliveries", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ fk_user: "abc" });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/id numérico válido/i);
+    expectValidationError(res, "fk_user");
   });
 
   it("Retorna 401 cuando no hay autenticación", async () => {

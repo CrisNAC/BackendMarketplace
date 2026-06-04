@@ -2,6 +2,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
+import { expectValidationError } from "../helpers/expect-validation-error.js";
 
 // Mock Prisma
 vi.mock("../../src/lib/prisma.js", () => ({
@@ -175,8 +176,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
       .send({ rating: 0, comment: "Buen servicio" })
       .expect(400);
 
-    expect(res.body.error.code).toBe(400);
-    expect(res.body.error.message).toMatch(/entre 1 y 5/i);
+    expectValidationError(res, "rating");
   });
 
   it("retorna 400 cuando rating es mayor a cinco", async () => {
@@ -186,8 +186,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
       .send({ rating: 6, comment: "Buen servicio" })
       .expect(400);
 
-    expect(res.body.error.code).toBe(400);
-    expect(res.body.error.message).toMatch(/entre 1 y 5/i);
+    expectValidationError(res, "rating");
   });
 
   it("retorna 400 cuando comentario excede 1000 caracteres", async () => {
@@ -199,8 +198,7 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
       .send({ rating: 5, comment: longComment })
       .expect(400);
 
-    expect(res.body.error.code).toBe(400);
-    expect(res.body.error.message).toMatch(/no puede superar los 1000/i);
+    expectValidationError(res, "comment");
   });
 
   it("retorna 409 cuando el pedido ya tiene una calificación", async () => {

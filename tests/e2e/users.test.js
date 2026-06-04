@@ -3,6 +3,7 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
+import { expectValidationError } from "../helpers/expect-validation-error.js";
 
 vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
@@ -292,8 +293,7 @@ describe("PUT /api/users/:id_user/addresses/:id_address", () => {
       .set("Cookie", `userToken=${makeCustomerToken(1)}`)
       .send({});
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/al menos uno/i);
+    expectValidationError(res);
   });
 
   it("devuelve 200 con la dirección actualizada", async () => {

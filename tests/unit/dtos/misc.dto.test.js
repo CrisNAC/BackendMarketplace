@@ -335,16 +335,16 @@ describe("FilterWishlistDTO", () => {
 
 describe("CreateWishlistItemDTO", () => {
   it("acepta datos válidos", () => {
-    const result = CreateWishlistItemDTO.safeParse({ fk_product: 1, quantity: 2 });
+    const result = CreateWishlistItemDTO.safeParse({ productId: 1, quantity: 2 });
     expect(result.success).toBe(true);
   });
 
   it("falla cuando quantity es 0", () => {
-    const result = CreateWishlistItemDTO.safeParse({ fk_product: 1, quantity: 0 });
+    const result = CreateWishlistItemDTO.safeParse({ productId: 1, quantity: 0 });
     expect(result.success).toBe(false);
   });
 
-  it("falla cuando falta fk_product", () => {
+  it("falla cuando falta productId", () => {
     const result = CreateWishlistItemDTO.safeParse({ quantity: 1 });
     expect(result.success).toBe(false);
   });
