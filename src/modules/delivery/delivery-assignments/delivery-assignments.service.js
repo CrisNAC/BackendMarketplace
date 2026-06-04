@@ -266,7 +266,7 @@ export const getAcceptedAssignmentService = async (id_order) => {
 export const completeAssignmentService = async (id_delivery_assignment, id_user) => {
   const assignment = await prisma.deliveryAssignments.findUnique({
     where: { id_delivery_assignment },
-    include: { delivery: true }
+    include: { delivery: true, order: true }
   });
 
   if (!assignment) {
@@ -302,6 +302,15 @@ export const completeAssignmentService = async (id_delivery_assignment, id_user)
     previousStatus: "ACCEPTED",
     newStatus: "DELIVERED",
     actorUserId: id_user,
+  });
+
+  logSecurityEvent("ORDER_STATUS_CHANGED", {
+    orderId: assignment.fk_order,
+    previousStatus: assignment.order?.order_status ?? null,
+    newStatus: "DELIVERED",
+    actorUserId: id_user,
+    actorRole: "DELIVERY",
+    source: "assignment_complete",
   });
 
   return updated;
