@@ -142,7 +142,12 @@ describe("POST /api/admin/categories", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/no puede estar vacío/i);
+    expect(res.body).toMatchObject({
+      message: "Error de validación",
+      errors: expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringMatching(/no puede estar vacío/i) })
+      ])
+    });
   });
 
   it("devuelve 400 cuando ya existe una categoría activa con el mismo nombre", async () => {

@@ -50,6 +50,29 @@ export const UpdateOrderDTO = z
     .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "Debe enviar al menos un campo para actualizar"
 });
+
+export const CreateOrderBodyDTO = z.object({
+    cartId: z.number({ error: "cartId es requerido" }).int().positive("cartId debe ser un ID válido"),
+    addressId: z.number().int().positive("addressId debe ser un ID válido").nullable().optional(),
+    shippingMethod: z.enum(["pickup", "standard"], { error: "shippingMethod debe ser pickup o standard" }).optional(),
+    notes: z.string().max(2000, "notes no puede superar 2000 caracteres").nullable().optional()
+});
+
+export const ShippingQuoteBodyDTO = z.object({
+    cartId: z.number({ error: "cartId es requerido" }).int().positive("cartId debe ser un ID válido"),
+    addressId: z.number({ error: "addressId es requerido" }).int().positive("addressId debe ser un ID válido")
+});
+
+export const CreateDeliveryReviewDTO = z.object({
+    rating: z.number({ error: "rating es requerido" }).int().min(1, "rating mínimo es 1").max(5, "rating máximo es 5"),
+    comment: z.string().max(1000, "comment no puede superar 1000 caracteres").nullable().optional()
+});
+
+export const UpdateOrderStatusDTO = z.object({
+    order_status: z.enum(["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"], {
+        error: "order_status debe ser PENDING, PROCESSING, SHIPPED, DELIVERED o CANCELLED"
+    })
+});
 export const FilterOrderDTO = z.object({
     fk_user: z
         .string()

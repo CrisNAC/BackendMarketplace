@@ -67,7 +67,12 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
       .send({ name: "" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/nombre de la categoría no puede estar vacío/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "name" })
+      ])
+    );
   });
 
   it("devuelve 400 cuando el nombre es solo espacios en blanco", async () => {
@@ -77,7 +82,12 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
       .send({ name: "   " });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/nombre de la categoría no puede estar vacío/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "name" })
+      ])
+    );
   });
 
   it("devuelve 400 cuando el nombre no está presente en el cuerpo", async () => {
@@ -87,7 +97,12 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/nombre de la categoría no puede estar vacío/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "name" })
+      ])
+    );
   });
 
   it("devuelve 400 cuando el nombre excede 100 caracteres", async () => {
@@ -99,7 +114,12 @@ describe("POST /api/commerces/category-requests — Crear solicitud de categorí
       .send({ name: longName });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/no puede exceder 100 caracteres/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "name" })
+      ])
+    );
   });
 
   it("devuelve 409 Conflict cuando la categoría ya existe (aprobada)", async () => {

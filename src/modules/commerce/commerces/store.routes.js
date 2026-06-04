@@ -14,6 +14,8 @@ import {
 } from "./store.controller.js";
 import { parsePagination } from "../../../middlewares/pagination.middleware.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
+import { CreateStoreDTO, UpdateStoreDTO, UpdateStoreStatusDTO } from "../../global/dtos/commerce/store.request.dto.js";
+import { IdParamDTO } from "../../global/dtos/common/params.dto.js";
 import { FilterStoreProductsDTO } from "../../global/dtos/commerce/filter-store-products.dto.js";
 import { getStoreDashboard } from "./store-dashboard.controller.js";
 
@@ -59,7 +61,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/", authenticate, createStore);
+router.post("/", authenticate, validate(CreateStoreDTO, "body"), createStore);
 
 /**
  * @swagger
@@ -123,7 +125,7 @@ router.post("/", authenticate, createStore);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put("/:id", authenticate, updateStore);
+router.put("/:id", authenticate, validate(IdParamDTO, "params"), validate(UpdateStoreDTO, "body"), updateStore);
 
 /**
  * @swagger
@@ -315,7 +317,7 @@ router.get(
 );
 
 // PATCH /api/commerces/:id/status — habilitar/deshabilitar comercio
-router.patch("/:id/status", authenticate, updateStoreStatus);
+router.patch("/:id/status", authenticate, validate(IdParamDTO, "params"), validate(UpdateStoreStatusDTO, "body"), updateStoreStatus);
 
 /**
  * @swagger
@@ -360,7 +362,7 @@ router.patch("/:id/status", authenticate, updateStoreStatus);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete("/:id", deleteStore);
+router.delete("/:id", validate(IdParamDTO, "params"), deleteStore);
 
 // Dashboard del comercio — autenticado, solo el dueño
 router.get("/:id/dashboard", authenticate, getStoreDashboard);
