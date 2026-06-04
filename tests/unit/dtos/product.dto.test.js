@@ -96,6 +96,11 @@ describe("CreateProductDTO", () => {
     expect(result.data.tags).toEqual([1, 2, 3]);
   });
 
+  it("tags CSV rechaza notación hex o exponencial", () => {
+    expect(CreateProductDTO.safeParse({ name: "Laptop", price: 1000, categoryId: 1, tags: "0x10" }).success).toBe(false);
+    expect(CreateProductDTO.safeParse({ name: "Laptop", price: 1000, categoryId: 1, tags: "1e2" }).success).toBe(false);
+  });
+
   it("tags default es array vacío", () => {
     const result = CreateProductDTO.safeParse({ name: "Laptop", price: 1000, categoryId: 1 });
     expect(result.success).toBe(true);

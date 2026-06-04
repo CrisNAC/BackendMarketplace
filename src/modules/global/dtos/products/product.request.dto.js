@@ -10,8 +10,15 @@ const parseCsvTagIds = (val, ctx) => {
   for (const part of val.split(",")) {
     const trimmed = part.trim();
     if (!trimmed) continue;
-    const n = Number(trimmed);
-    if (!Number.isInteger(n) || n <= 0) {
+    if (!/^\d+$/.test(trimmed)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "tags debe contener IDs válidos",
+      });
+      return z.NEVER;
+    }
+    const n = Number.parseInt(trimmed, 10);
+    if (n <= 0) {
       ctx.addIssue({
         code: "custom",
         message: "tags debe contener IDs válidos",
