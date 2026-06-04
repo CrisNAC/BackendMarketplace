@@ -1,3 +1,5 @@
+import { expect } from "vitest";
+
 export function expectValidationError(res, field) {
   expect(res.status).toBe(400);
   expect(res.body.message).toBe("Error de validación");

@@ -314,7 +314,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Test", price: 10, categoryId: 1, quantity: 5, tags: "no-array" });
 
-    expect(res.status).toBe(500);
+    expectValidationError(res, "tags");
   });
 
   it("devuelve 201 con el producto creado cuando los datos son validos", async () => {

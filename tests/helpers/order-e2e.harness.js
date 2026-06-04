@@ -54,6 +54,10 @@ export const ORDER_CREATE_FIND_RESULT = {
 export function setupOrderCreateE2e(prisma, vi, options = {}) {
   const { trackNotifications = false } = options;
 
+  prisma.carts.findFirst.mockReset();
+  prisma.orders.count.mockReset();
+  prisma.$transaction.mockReset();
+
   prisma.carts.findFirst.mockResolvedValue(ORDER_CREATE_CART);
   prisma.orders.count.mockResolvedValue(0);
 
