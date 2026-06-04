@@ -293,7 +293,7 @@ describe("PUT /api/users/:id_user/addresses/:id_address", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/al menos uno/i);
+    expect(res.body.errors[0].message).toMatch(/al menos un/i);
   });
 
   it("devuelve 200 con la dirección actualizada", async () => {

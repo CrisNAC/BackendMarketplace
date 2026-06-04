@@ -1,5 +1,6 @@
 //order.service.js
 import { prisma } from "../../../lib/prisma.js";
+import { logSecurityEvent } from "../../../lib/security-logger.js";
 import {
   ValidationError,
   ForbiddenError,
@@ -931,6 +932,14 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
     }
 
     return updatedOrder;
+  });
+
+  logSecurityEvent("ORDER_STATUS_CHANGED", {
+    orderId: resolvedOrderId,
+    previousStatus: order.order_status,
+    newStatus: order_status,
+    actorUserId: resolvedUserId,
+    actorRole: user.role,
   });
 
   return mapOrderResponse(updated, prisma);

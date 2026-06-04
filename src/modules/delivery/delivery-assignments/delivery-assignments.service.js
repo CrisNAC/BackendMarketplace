@@ -1,5 +1,6 @@
 //delivery-assignments.service.js
 import { prisma } from '../../../lib/prisma.js';
+import { logSecurityEvent } from '../../../lib/security-logger.js';
 import {
   activePendingAssignmentWhere,
   closePendingAndReassign,
@@ -69,6 +70,7 @@ export const createAssignmentService = async (data, authenticatedUser) => {
   }
 
   const { fk_order, fk_delivery: fk_delivery_input, status } = data;
+  const pendingAuditLogs = [];
 
   const order = await prisma.orders.findUnique({
     where: { id_order: fk_order },
@@ -114,10 +116,32 @@ export const createAssignmentService = async (data, authenticatedUser) => {
             where: { id_delivery_assignment: pendingAssignment.id_delivery_assignment },
             data: { assignment_status: "REJECTED", status: false }
           });
+          pendingAuditLogs.push({
+            event: "ASSIGNMENT_STATUS_CHANGED",
+            details: {
+              assignmentId: pendingAssignment.id_delivery_assignment,
+              orderId: fk_order,
+              deliveryId: pendingAssignment.fk_delivery,
+              previousStatus: pendingAssignment.assignment_status,
+              newStatus: "REJECTED",
+              reason: "offline",
+            }
+          });
         } else if (isAssignmentResponseWindowOpen(pendingAssignment)) {
           throw { status: 409, message: "Ya hay una asignación pendiente para este pedido" };
         } else {
+          const previousStatus = pendingAssignment.assignment_status;
           await closePendingAndReassign(tx, pendingAssignment, "EXPIRED");
+          pendingAuditLogs.push({
+            event: "ASSIGNMENT_STATUS_CHANGED",
+            details: {
+              assignmentId: pendingAssignment.id_delivery_assignment,
+              orderId: fk_order,
+              deliveryId: pendingAssignment.fk_delivery,
+              previousStatus,
+              newStatus: "EXPIRED",
+            }
+          });
           const stillPending = await tx.deliveryAssignments.findFirst({
             where: { fk_order, ...activePendingAssignmentWhere() }
           });
@@ -163,6 +187,21 @@ export const createAssignmentService = async (data, authenticatedUser) => {
         fk_delivery,
       });
     });
+
+    pendingAuditLogs.push({
+      event: "ASSIGNMENT_STATUS_CHANGED",
+      details: {
+      assignmentId: newDeliveryAssignment.id_delivery_assignment,
+      orderId: fk_order,
+      deliveryId: newDeliveryAssignment.fk_delivery,
+      previousStatus: null,
+      newStatus: newDeliveryAssignment.assignment_status ?? "PENDING",
+      }
+    });
+
+    for (const { event, details } of pendingAuditLogs) {
+      logSecurityEvent(event, details);
+    }
 
     return newDeliveryAssignment;
   } catch (error) {
@@ -414,7 +453,14 @@ export const completeAssignmentService = async (id_delivery_assignment, id_user)
     throw { status: 403, message: "No tienes permiso para completar esta asignación" };
   }
 
+  let previousOrderStatus = null;
   const updated = await prisma.$transaction(async (tx) => {
+    const order = await tx.orders.findUnique({
+      where: { id_order: assignment.fk_order },
+      select: { order_status: true }
+    });
+    previousOrderStatus = order?.order_status ?? null;
+
     const updatedAssignment = await tx.deliveryAssignments.update({
       where: { id_delivery_assignment },
       data: { assignment_status: "DELIVERED" }
@@ -428,6 +474,24 @@ export const completeAssignmentService = async (id_delivery_assignment, id_user)
     return updatedAssignment;
   });
 
+  logSecurityEvent("ASSIGNMENT_STATUS_CHANGED", {
+    assignmentId: id_delivery_assignment,
+    orderId: assignment.fk_order,
+    deliveryId: assignment.fk_delivery,
+    previousStatus: "ACCEPTED",
+    newStatus: "DELIVERED",
+    actorUserId: id_user,
+  });
+
+  logSecurityEvent("ORDER_STATUS_CHANGED", {
+    orderId: assignment.fk_order,
+    previousStatus: previousOrderStatus,
+    newStatus: "DELIVERED",
+    actorUserId: id_user,
+    actorRole: "DELIVERY",
+    source: "assignment_complete",
+  });
+
   return updated;
 };
 
@@ -437,7 +501,9 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
     throw { status: 400, message: "ID de orden inválido" };
   }
 
-  return prisma.$transaction(async (tx) => {
+  const pendingAuditLogs = [];
+
+  const result = await prisma.$transaction(async (tx) => {
     await expireStalePendingAssignments({ fk_order: parsedOrderId }, tx);
 
     const assignment = await tx.deliveryAssignments.findFirst({
@@ -476,18 +542,70 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
         data: { order_status: "SHIPPED", delivery_unavailable: false }
       });
 
+      pendingAuditLogs.push(
+        {
+          event: "ASSIGNMENT_STATUS_CHANGED",
+          details: {
+            assignmentId: assignment.id_delivery_assignment,
+            orderId: parsedOrderId,
+            deliveryId: assignment.fk_delivery,
+            previousStatus: "PENDING",
+            newStatus: "ACCEPTED",
+            actorUserId: userId,
+          },
+        },
+        {
+          event: "ORDER_STATUS_CHANGED",
+          details: {
+            orderId: parsedOrderId,
+            previousStatus: assignment.order?.order_status ?? null,
+            newStatus: "SHIPPED",
+            actorUserId: userId,
+            actorRole: "DELIVERY",
+            source: "assignment_accept",
+          },
+        }
+      );
+
       return updated;
     }
 
     const outcome = await closePendingAndReassign(tx, assignment, "REJECTED", { reason: "reject" });
 
     if (outcome.reassigned) {
+      pendingAuditLogs.push({
+        event: "ASSIGNMENT_STATUS_CHANGED",
+        details: {
+          assignmentId: assignment.id_delivery_assignment,
+          orderId: parsedOrderId,
+          deliveryId: assignment.fk_delivery,
+          previousStatus: "PENDING",
+          newStatus: "REJECTED",
+          actorUserId: userId,
+          reassigned: true,
+          newAssignmentId: outcome.assignment?.id_delivery_assignment ?? null,
+        },
+      });
+
       return {
         ...outcome.assignment,
         reassigned: true,
         delivery_unavailable: false,
       };
     }
+
+    pendingAuditLogs.push({
+      event: "ASSIGNMENT_STATUS_CHANGED",
+      details: {
+        assignmentId: assignment.id_delivery_assignment,
+        orderId: parsedOrderId,
+        deliveryId: assignment.fk_delivery,
+        previousStatus: "PENDING",
+        newStatus: "REJECTED",
+        actorUserId: userId,
+        reassigned: false,
+      },
+    });
 
     return {
       assignment_status: "REJECTED",
@@ -496,6 +614,12 @@ export const respondToAssignmentService = async (orderId, userId, action) => {
       delivery_unavailable: true,
     };
   });
+
+  for (const { event, details } of pendingAuditLogs) {
+    logSecurityEvent(event, details);
+  }
+
+  return result;
 };
 
 export const getDeliveryOrderHistoryService = async (deliveryId, authenticatedUserId, filters, pagination) => {

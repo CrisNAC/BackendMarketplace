@@ -41,8 +41,12 @@ describe("POST /api/deliveries/register", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
-    expect(res.body.error.message).toMatch(/datos inválidos/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "vehicleType" }),
+      ])
+    );
   });
 
   it("retorna 400 cuando vehicleType es inválido", async () => {
@@ -52,8 +56,12 @@ describe("POST /api/deliveries/register", () => {
       .send({ vehicleType: "PLANE" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
-    expect(res.body.error.message).toMatch(/datos inválidos/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "vehicleType" }),
+      ])
+    );
   });
 
   it("retorna 404 cuando el usuario no existe", async () => {
@@ -104,8 +112,8 @@ describe("POST /api/deliveries/register", () => {
     prisma.users.findUnique.mockResolvedValue({
       id_user: 10,
       role: "CUSTOMER",
-      phone: "1234567890",
       delivery: null,
+      phone: "0981234567",
     });
 
     prisma.users.update.mockResolvedValue({
@@ -138,7 +146,10 @@ describe("POST /api/deliveries/register", () => {
     expect(prisma.users.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id_user: 10 },
-        data: expect.objectContaining({ role: "DELIVERY" }),
+        data: expect.objectContaining({
+          role: "DELIVERY",
+          phone: "0981234567",
+        }),
       })
     );
     expect(prisma.deliveries.create).toHaveBeenCalledWith(

@@ -32,8 +32,10 @@ import wishlistRoutes from "./modules/users/wishlist/wishlist.routes.js";
 import cartRoutes from "./modules/users/cart/cart.routes.js";
 
 import { orderRouter, userOrderRouter } from "./modules/users/orders/order.routes.js";
+import bannerRequestRoutes from "./modules/commerce/banner-requests/banner-request.routes.js";
 
 import { errorHandler } from "./middlewares/errorHandler.js";
+import { securityResponseLogger } from "./middlewares/security-log.middleware.js";
 import { NotFoundError } from "./lib/errors.js";
 
 import { setupSwagger } from "./config/swagger.config.js";
@@ -76,6 +78,7 @@ app.use((req, res, next) => {
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser());
+app.use(securityResponseLogger);
 
 const allowedOrigins = process.env.CORS_ORIGIN 
   ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
@@ -113,6 +116,7 @@ app.use("/api/commerces", commerceBusinessHoursRoutes);
 app.use("/api/deliveries", deliveryRouter);
 app.use("/api/stores", storeDeliveryRouter);
 app.use("/api/stores", storeDeliveryAssignmentRoutes);
+app.use("/api/stores/:storeId/banner-requests", bannerRequestRoutes);
 
 //Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
 //Se encuentra indexado
