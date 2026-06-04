@@ -71,7 +71,12 @@ describe("POST /api/assignments/:id/complete", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/ID inválido/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "id" })
+      ])
+    );
   });
 
   it("devuelve 404 cuando la asignación no existe", async () => {

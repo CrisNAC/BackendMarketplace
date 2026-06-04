@@ -2,6 +2,7 @@
 
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
 import { 
   getCarts, 
   addCartItem, 
@@ -11,6 +12,8 @@ import {
   deleteCart,
   deleteAllCarts
 } from "./cart.controller.js";
+import { CustomerIdParamDTO, CartIdParamDTO, CartItemIdParamDTO } from "../../global/dtos/common/params.dto.js";
+import { AddCartItemDTO, UpdateCartItemDTO } from "../../global/dtos/cart/cart.dto.js";
 
 const router = Router({ mergeParams: true });
 
@@ -109,7 +112,7 @@ router.get("/:customerId/carts", authenticate, getCarts);
  *             schema:
  *               $ref: '#/components/schemas/CartValidationError'
  */
-router.delete("/:customerId/carts", authenticate, deleteAllCarts);
+router.delete("/:customerId/carts", authenticate, validate(CustomerIdParamDTO, "params"), deleteAllCarts);
 
 /**
  * @swagger
@@ -179,7 +182,7 @@ router.delete("/:customerId/carts", authenticate, deleteAllCarts);
  *             schema:
  *               $ref: '#/components/schemas/CartErrorResponse'
  */
-router.post("/:customerId/cart/items", authenticate, addCartItem);
+router.post("/:customerId/cart/items", authenticate, validate(CustomerIdParamDTO, "params"), validate(AddCartItemDTO, "body"), addCartItem);
 
 /**
  * @swagger
@@ -303,7 +306,7 @@ router.get("/cart/:cartId/items", authenticate, getCartItemsById);
  *             schema:
  *               $ref: '#/components/schemas/CartErrorResponse'
  */
-router.delete("/:customerId/cart/:cartId", authenticate, deleteCart);
+router.delete("/:customerId/cart/:cartId", authenticate, validate(CustomerIdParamDTO, "params"), validate(CartIdParamDTO, "params"), deleteCart);
 
 /**
  * @swagger
@@ -348,7 +351,7 @@ router.delete("/:customerId/cart/:cartId", authenticate, deleteCart);
  *             schema:
  *               $ref: '#/components/schemas/CartErrorResponse'
  */
-router.delete("/cart/items/:cartItemId", authenticate, removeCartItem);
+router.delete("/cart/items/:cartItemId", authenticate, validate(CartItemIdParamDTO, "params"), removeCartItem);
 
 /**
  * @swagger
@@ -409,6 +412,6 @@ router.delete("/cart/items/:cartItemId", authenticate, removeCartItem);
  *             schema:
  *               $ref: '#/components/schemas/CartErrorResponse'
  */
-router.put("/cart/items/:cartItemId", authenticate, updateCartItemQuantity);
+router.put("/cart/items/:cartItemId", authenticate, validate(CartItemIdParamDTO, "params"), validate(UpdateCartItemDTO, "body"), updateCartItemQuantity);
 
 export default router;

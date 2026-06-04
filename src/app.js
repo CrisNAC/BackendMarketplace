@@ -77,8 +77,26 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser());
 
+const allowedOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : ["http://localhost:5173"];
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+  origin: function (origin, callback) {
+    // Permitir solicitudes sin origen (por ejemplo, Postman o backend-to-backend)
+    if (!origin) return callback(null, true);
+
+    // Evitar estrictamente el wildcard en producción cuando se requieren credenciales
+    if (allowedOrigins.includes('*')) {
+      return callback(new Error('CORS configured with wildcard (*) is not allowed when credentials are required.'), false);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, origin);
+    } else {
+      callback(new Error('Not allowed by CORS'), false);
+    }
+  },
   credentials: true
 }));
 

@@ -1,8 +1,10 @@
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
 import { createCategoryRequest } from "./category-request.controller.js";
 import { ROLES } from "../../../constants/roles.constant.js";
+import { CreateCategoryRequestDTO } from "../../global/dtos/category-requests/category-request.dto.js";
 
 const router = Router();
 
@@ -50,6 +52,7 @@ router.post(
   "/",
   authenticate,
   requireRole(ROLES.SELLER),
+  validate(CreateCategoryRequestDTO, "body"),
   createCategoryRequest
 );
 

@@ -16,6 +16,9 @@ import {
   getDeliveryOrderHistory,
 } from "./delivery-assignments.controller.js";
 import { parsePagination } from "../../../middlewares/pagination.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
+import { IdParamDTO, OrderIdParamDTO } from "../../global/dtos/common/params.dto.js";
+import { CreateAssignmentDTO, RespondToAssignmentDTO } from "../../global/dtos/delivery-assignments/delivery-assignments.dto.js";
 
 const router = Router();
 
@@ -143,7 +146,7 @@ const router = Router();
  *                       type: string
  *                       example: "Ya hay una asignación pendiente para este pedido"
  */
-router.post("/", authenticate, requireRole(ROLES.SELLER), createAssignment);
+router.post("/", authenticate, requireRole(ROLES.SELLER), validate(CreateAssignmentDTO, "body"), createAssignment);
 
 /**
  * @swagger
@@ -564,7 +567,7 @@ router.get("/orders/:orderId/accepted", authenticate, getAcceptedAssignment);
  *                       type: string
  *                       example: "Solo se pueden completar asignaciones aceptadas"
  */
-router.post("/:id/complete", authenticate, requireRole(ROLES.DELIVERY), completeAssignment);
+router.post("/:id/complete", authenticate, requireRole(ROLES.DELIVERY), validate(IdParamDTO, "params"), completeAssignment);
 
 /**
  * @swagger
@@ -622,7 +625,7 @@ router.post("/:id/complete", authenticate, requireRole(ROLES.DELIVERY), complete
  *                 - $ref: '#/components/schemas/DeliveryResponseNotFound'
  *                 - $ref: '#/components/schemas/DeliveryResponseNoAvailable'
  */
-router.post("/orders/:orderId/delivery-response", authenticate, requireRole(ROLES.DELIVERY), respondToAssignment);
+router.post("/orders/:orderId/delivery-response", authenticate, requireRole(ROLES.DELIVERY), validate(OrderIdParamDTO, "params"), validate(RespondToAssignmentDTO, "body"), respondToAssignment);
 
 /**
  * @swagger

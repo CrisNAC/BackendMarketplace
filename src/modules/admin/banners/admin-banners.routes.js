@@ -2,6 +2,13 @@ import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
 import { parsePagination } from "../../../middlewares/pagination.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
+import { IdParamDTO } from "../../../modules/global/dtos/base/base.param.dto.js";
+import {
+  AdminCreateBannerDTO,
+  AdminUpdateBannerDTO,
+  AdminToggleBannerActiveDTO
+} from "../../../modules/global/dtos/banners/admin-banner.dto.js";
 import { ROLES } from "../../../constants/roles.constant.js";
 import {
   createAdminBanner,
@@ -40,7 +47,7 @@ const router = Router();
  *       403:
  *         description: Sin permisos de administrador
  */
-router.post("/", authenticate, requireRole(ROLES.ADMIN), createAdminBanner);
+router.post("/", authenticate, requireRole(ROLES.ADMIN), validate(AdminCreateBannerDTO, "body"), createAdminBanner);
 
 /**
  * @swagger
@@ -123,7 +130,7 @@ router.get("/", authenticate, requireRole(ROLES.ADMIN), parsePagination, getAdmi
  *       404:
  *         description: Banner no encontrado
  */
-router.put("/:id", authenticate, requireRole(ROLES.ADMIN), updateAdminBanner);
+router.put("/:id", authenticate, requireRole(ROLES.ADMIN), validate(IdParamDTO, "params"), validate(AdminUpdateBannerDTO, "body"), updateAdminBanner);
 
 /**
  * @swagger
@@ -161,6 +168,6 @@ router.put("/:id", authenticate, requireRole(ROLES.ADMIN), updateAdminBanner);
  *       404:
  *         description: Banner no encontrado
  */
-router.patch("/:id/active", authenticate, requireRole(ROLES.ADMIN), toggleAdminBannerActive);
+router.patch("/:id/active", authenticate, requireRole(ROLES.ADMIN), validate(IdParamDTO, "params"), validate(AdminToggleBannerActiveDTO, "body"), toggleAdminBannerActive);
 
 export { router as adminBannersRoutes };

@@ -140,7 +140,12 @@ describe("POST /api/stores/:id/deliveries", () => {
       .set("Cookie", authCookie)
       .send({});
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/fk_user es requerido/);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "fk_user" })
+      ])
+    );
   });
 
   it("retorna 403 si la tienda no pertenece al usuario", async () => {

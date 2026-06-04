@@ -2,6 +2,7 @@ import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
 import { ROLES } from "../../../constants/roles.constant.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
 import {
   searchDeliveries,
   createDelivery,
@@ -9,6 +10,8 @@ import {
   deleteStoreDelivery,
   getStoreDeliveryReviews,
 } from "./delivery.controller.js";
+import { IdParamDTO, DeliveryIdParamDTO } from "../../global/dtos/common/params.dto.js";
+import { CreateStoreDeliveryDTO } from "../../global/dtos/commerce-deliveries/commerce-deliveries.dto.js";
 
 export const deliveryRouter = Router();
 export const storeDeliveryRouter = Router();
@@ -115,7 +118,7 @@ deliveryRouter.get("/search", authenticate, requireRole(ROLES.SELLER), searchDel
  *       409:
  *         description: El repartidor ya está vinculado a un comercio
  */
-storeDeliveryRouter.post("/:id/deliveries", authenticate, requireRole(ROLES.SELLER), createDelivery);
+storeDeliveryRouter.post("/:id/deliveries", authenticate, requireRole(ROLES.SELLER), validate(IdParamDTO, "params"), validate(CreateStoreDeliveryDTO, "body"), createDelivery);
 
 /**
  * @swagger
@@ -238,7 +241,7 @@ storeDeliveryRouter.get("/:id/deliveries", authenticate, requireRole(ROLES.SELLE
  *       404:
  *         description: Delivery no encontrado para este comercio
  */
-storeDeliveryRouter.delete("/:id/deliveries/:deliveryId", authenticate, requireRole(ROLES.SELLER), deleteStoreDelivery);
+storeDeliveryRouter.delete("/:id/deliveries/:deliveryId", authenticate, requireRole(ROLES.SELLER), validate(IdParamDTO, "params"), validate(DeliveryIdParamDTO, "params"), deleteStoreDelivery);
 
 /**
  * @swagger
