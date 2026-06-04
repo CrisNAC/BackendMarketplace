@@ -1,6 +1,8 @@
 import { prisma } from "../../../lib/prisma.js";
-import { NotFoundError, ValidationError } from "../../../lib/errors.js";
+import { ForbiddenError, NotFoundError, ValidationError } from "../../../lib/errors.js";
 import { validateId } from "../../../lib/validators.js";
+
+const VALID_DECISIONS = ["APPROVE", "REJECT"];
 
 const TITLE_MAX = 120;
 const URL_MAX = 500;
@@ -53,6 +55,7 @@ const parseDate = (value, fieldName, { required = false } = {}) => {
 
 const bannerSelect = {
   id_banner: true,
+  fk_store: true,
   title: true,
   description: true,
   image_url: true,
@@ -60,9 +63,12 @@ const bannerSelect = {
   start_at: true,
   end_at: true,
   is_active: true,
+  approval_status: true,
+  rejection_reason: true,
   status: true,
   created_at: true,
   updated_at: true,
+  store: { select: { id_store: true, name: true } },
 };
 
 const mapBannerResponse = (banner) => ({
@@ -74,6 +80,9 @@ const mapBannerResponse = (banner) => ({
   startAt: banner.start_at,
   endAt: banner.end_at ?? null,
   isActive: banner.is_active,
+  approvalStatus: banner.approval_status,
+  rejectionReason: banner.rejection_reason ?? null,
+  store: banner.store ?? null,
   status: banner.status,
   createdAt: banner.created_at,
   updatedAt: banner.updated_at,
@@ -103,6 +112,7 @@ export const createAdminBannerService = async (payload = {}) => {
       start_at: startAt,
       end_at: endAt,
       is_active: isActive,
+      approval_status: "ACTIVE",
       status: true,
     },
     select: bannerSelect,
@@ -224,6 +234,92 @@ export const updateAdminBannerService = async (bannerId, payload = {}) => {
 
   const updated = await prisma.banners.findUnique({
     where: { id_banner: id },
+    select: bannerSelect,
+  });
+
+  return mapBannerResponse(updated);
+};
+
+export const getBannerRequestsService = async (filters = {}, pagination = {}) => {
+  const where = { fk_store: { not: null }, status: true };
+
+  if (filters.approval_status) {
+    const validStatuses = ["PENDING", "ACTIVE", "REJECTED"];
+    if (!validStatuses.includes(filters.approval_status)) {
+      throw new ValidationError(`approval_status debe ser uno de: ${validStatuses.join(", ")}`);
+    }
+    where.approval_status = filters.approval_status;
+  } else {
+    where.approval_status = "PENDING";
+  }
+
+  if (filters.search?.toString().trim()) {
+    const term = filters.search.toString().trim();
+    where.OR = [
+      { title: { contains: term, mode: "insensitive" } },
+      { store: { name: { contains: term, mode: "insensitive" } } },
+    ];
+  }
+
+  const { page = 1, limit = 20, skip = 0 } = pagination;
+  const safeLimit = Number(limit) > 0 ? Number(limit) : 20;
+  const safeSkip = Number(skip) >= 0 ? Number(skip) : 0;
+
+  const [total, requests] = await Promise.all([
+    prisma.banners.count({ where }),
+    prisma.banners.findMany({
+      where,
+      skip: safeSkip,
+      take: safeLimit,
+      orderBy: { created_at: "desc" },
+      select: bannerSelect,
+    }),
+  ]);
+
+  return {
+    data: requests.map(mapBannerResponse),
+    pagination: {
+      total,
+      page,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+    },
+  };
+};
+
+export const processBannerRequestService = async (bannerId, payload = {}) => {
+  const id = validateId(bannerId);
+  const { decision, rejectionReason } = payload;
+
+  if (!decision || !VALID_DECISIONS.includes(decision)) {
+    throw new ValidationError(`decision debe ser uno de: ${VALID_DECISIONS.join(", ")}`);
+  }
+
+  if (decision === "REJECT" && (!rejectionReason || !rejectionReason.toString().trim())) {
+    throw new ValidationError("rejectionReason es requerido al rechazar una solicitud");
+  }
+
+  const request = await prisma.banners.findFirst({
+    where: { id_banner: id, fk_store: { not: null }, status: true },
+    select: { id_banner: true, approval_status: true },
+  });
+
+  if (!request) {
+    throw new NotFoundError("Solicitud de banner no encontrada");
+  }
+
+  if (request.approval_status !== "PENDING") {
+    throw new ValidationError("Solo se pueden procesar solicitudes en estado PENDING");
+  }
+
+  const data =
+    decision === "APPROVE"
+      ? { approval_status: "ACTIVE", is_active: true, rejection_reason: null }
+      : { approval_status: "REJECTED", is_active: false, rejection_reason: rejectionReason.toString().trim() };
+
+  const updated = await prisma.banners.update({
+    where: { id_banner: id },
+    data,
     select: bannerSelect,
   });
 

@@ -62,17 +62,22 @@ model Notifications {
 
 //------------------------------------BANNERS PROMOCIONALES----------------------------------------
 model Banners {
-  id_banner   Int      @id @default(autoincrement())
-  title       String   @db.VarChar(120)
-  description String?  @db.Text
-  image_url   String   @db.VarChar(500)
-  link_url    String?  @db.VarChar(500)
-  start_at    DateTime @db.Timestamptz
-  end_at      DateTime? @db.Timestamptz
-  is_active   Boolean  @default(true)
-  status      Boolean  @default(true)
-  created_at  DateTime @default(now()) @db.Timestamptz
-  updated_at  DateTime @updatedAt @db.Timestamptz
+  id_banner        Int             @id @default(autoincrement())
+  fk_store         Int?
+  title            String          @db.VarChar(120)
+  description      String?         @db.Text
+  image_url        String?         @db.VarChar(500)
+  link_url         String?         @db.VarChar(500)
+  start_at         DateTime        @db.Timestamptz
+  end_at           DateTime?       @db.Timestamptz
+  is_active        Boolean         @default(true)
+  approval_status  ApprovalStatus  @default(PENDING)
+  rejection_reason String?         @db.Text
+  status           Boolean         @default(true)
+  created_at       DateTime        @default(now()) @db.Timestamptz
+  updated_at       DateTime        @updatedAt @db.Timestamptz
+
+  store            Stores?         @relation(fields: [fk_store], references: [id_store])
 }
 
 //------------------------------------COMERCIOS----------------------------------------
@@ -103,6 +108,7 @@ model Stores {
   carts               Carts[]
   order               Orders[]
   business_hours      StoreBusinessHours[]
+  banner_requests     Banners[]
   //wishlist_items      WishlistItems[]
 }
 
