@@ -15,6 +15,8 @@ import {
   getAdminBanners,
   toggleAdminBannerActive,
   updateAdminBanner,
+  getBannerRequests,
+  processBannerRequest,
 } from "./admin-banners.controller.js";
 
 const router = Router();
@@ -169,5 +171,87 @@ router.put("/:id", authenticate, requireRole(ROLES.ADMIN), validate(IdParamDTO, 
  *         description: Banner no encontrado
  */
 router.patch("/:id/active", authenticate, requireRole(ROLES.ADMIN), validate(IdParamDTO, "params"), validate(AdminToggleBannerActiveDTO, "body"), toggleAdminBannerActive);
+
+/**
+ * @swagger
+ * /api/admin/banners/requests:
+ *   get:
+ *     summary: Listar solicitudes de banners por comercios (Admin)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: approval_status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, ACTIVE, REJECTED]
+ *         description: Filtrar por estado (por defecto PENDING)
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Buscar por título o nombre del comercio
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de solicitudes
+ *       401:
+ *         description: No autenticado
+ *       403:
+ *         description: Sin permisos de administrador
+ */
+router.get("/requests", authenticate, requireRole(ROLES.ADMIN), parsePagination, getBannerRequests);
+
+/**
+ * @swagger
+ * /api/admin/banners/requests/{id}:
+ *   patch:
+ *     summary: Aprobar o rechazar solicitud de banner (Admin)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la solicitud de banner
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - decision
+ *             properties:
+ *               decision:
+ *                 type: string
+ *                 enum: [APPROVE, REJECT]
+ *               rejectionReason:
+ *                 type: string
+ *                 description: Requerido si decision es REJECT
+ *     responses:
+ *       200:
+ *         description: Solicitud procesada correctamente
+ *       400:
+ *         description: Decisión inválida o solicitud ya procesada
+ *       401:
+ *         description: No autenticado
+ *       403:
+ *         description: Sin permisos de administrador
+ *       404:
+ *         description: Solicitud no encontrada
+ */
+router.patch("/requests/:id", authenticate, requireRole(ROLES.ADMIN), processBannerRequest);
 
 export { router as adminBannersRoutes };
