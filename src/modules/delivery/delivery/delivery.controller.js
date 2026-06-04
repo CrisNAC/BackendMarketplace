@@ -51,7 +51,7 @@ export const registerDelivery = async (req, res) => {
       return res.status(400).json({
         error: {
           code: 400,
-          message: error.issues[0]?.message ?? "Datos inválidos",
+          message: "Datos inválidos",
           details: error.issues,
         },
       });
