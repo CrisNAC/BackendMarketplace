@@ -167,12 +167,12 @@ router.patch("/:id/active", authenticate, requireRole(ROLES.ADMIN), toggleAdminB
 
 /**
  * @swagger
- * /api/admin/banner-requests:
+ * /api/admin/banners/requests:
  *   get:
  *     summary: Listar solicitudes de banners por comercios (Admin)
  *     tags: [Admin]
  *     security:
- *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: query
  *         name: approval_status
@@ -205,12 +205,12 @@ router.get("/requests", authenticate, requireRole(ROLES.ADMIN), parsePagination,
 
 /**
  * @swagger
- * /api/admin/banner-requests/{id}:
+ * /api/admin/banners/requests/{id}:
  *   patch:
  *     summary: Aprobar o rechazar solicitud de banner (Admin)
  *     tags: [Admin]
  *     security:
- *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id

@@ -137,19 +137,23 @@ export const deleteBannerRequestService = async (authenticatedUserId, storeIdStr
     throw new ValidationError("ID de solicitud inválido");
   }
 
-  const request = await prisma.banners.findFirst({
+  const exists = await prisma.banners.findFirst({
     where: { id_banner: bannerId, fk_store: store.id_store, status: true },
     select: { id_banner: true, approval_status: true },
   });
 
-  if (!request) throw new NotFoundError("Solicitud de banner no encontrada");
+  if (!exists) throw new NotFoundError("Solicitud de banner no encontrada");
 
-  if (request.approval_status !== "PENDING") {
+  if (exists.approval_status !== "PENDING") {
     throw new ValidationError("Solo se pueden cancelar solicitudes en estado PENDING");
   }
 
-  await prisma.banners.update({
-    where: { id_banner: bannerId },
+  const { count } = await prisma.banners.updateMany({
+    where: { id_banner: bannerId, fk_store: store.id_store, approval_status: "PENDING", status: true },
     data: { status: false },
   });
+
+  if (count === 0) {
+    throw new ValidationError("La solicitud ya fue procesada y no puede cancelarse");
+  }
 };

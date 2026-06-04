@@ -299,16 +299,16 @@ export const processBannerRequestService = async (bannerId, payload = {}) => {
     throw new ValidationError("rejectionReason es requerido al rechazar una solicitud");
   }
 
-  const request = await prisma.banners.findFirst({
+  const exists = await prisma.banners.findFirst({
     where: { id_banner: id, fk_store: { not: null }, status: true },
     select: { id_banner: true, approval_status: true },
   });
 
-  if (!request) {
+  if (!exists) {
     throw new NotFoundError("Solicitud de banner no encontrada");
   }
 
-  if (request.approval_status !== "PENDING") {
+  if (exists.approval_status !== "PENDING") {
     throw new ValidationError("Solo se pueden procesar solicitudes en estado PENDING");
   }
 
@@ -317,9 +317,17 @@ export const processBannerRequestService = async (bannerId, payload = {}) => {
       ? { approval_status: "ACTIVE", is_active: true, rejection_reason: null }
       : { approval_status: "REJECTED", is_active: false, rejection_reason: rejectionReason.toString().trim() };
 
-  const updated = await prisma.banners.update({
-    where: { id_banner: id },
+  const { count } = await prisma.banners.updateMany({
+    where: { id_banner: id, fk_store: { not: null }, approval_status: "PENDING", status: true },
     data,
+  });
+
+  if (count === 0) {
+    throw new ValidationError("La solicitud ya fue procesada por otro administrador");
+  }
+
+  const updated = await prisma.banners.findUnique({
+    where: { id_banner: id },
     select: bannerSelect,
   });
 
