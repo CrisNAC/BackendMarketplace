@@ -79,7 +79,7 @@ const mockOrder = {
   fk_store: 10,
   fk_user: 20,
   order_status: "PENDING",
-  store: { fk_user: 1 },
+  store: { fk_user: 1, status: true },
 };
 
 const mockDelivery = {

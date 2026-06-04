@@ -48,7 +48,7 @@ const ensureOrderAccess = async (order, auth) => {
       where: {
         fk_order: order.id_order,
         status: true,
-        delivery: { fk_user: auth.id_user, status: true }
+        delivery: { is: { fk_user: auth.id_user, status: true, delivery_status: 'ACTIVE' } }
       },
       select: { id_delivery_assignment: true }
     });
@@ -314,7 +314,10 @@ export const getDeliveryAssignmentsService = async (id_delivery, authenticatedUs
 
   await expireStalePendingAssignments({ fk_delivery: id_delivery });
 
-  const where = { fk_delivery: id_delivery };
+  const where = {
+    fk_delivery: id_delivery,
+    delivery: { is: { fk_user: auth.id_user, status: true, delivery_status: 'ACTIVE' } }
+  };
   if (status) {
     where.assignment_status = status;
   }
@@ -376,6 +379,7 @@ export const getDeliveryPendingAssignmentsService = async (id_delivery, authenti
   const pendingAssignments = await prisma.deliveryAssignments.findMany({
     where: {
       fk_delivery: id_delivery,
+      delivery: { is: { fk_user: auth.id_user, status: true, delivery_status: 'ACTIVE' } },
       ...activePendingAssignmentWhere(),
     },
     include: {

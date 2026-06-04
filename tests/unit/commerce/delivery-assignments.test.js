@@ -217,7 +217,7 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
     vi.mocked(prisma.orders.findUnique).mockResolvedValueOnce({
       id_order: 100,
       fk_store: 1,
-      store: { fk_user: 1 }
+      store: { fk_user: 1, status: true }
     });
     
     vi.mocked(prisma.deliveries.findUnique).mockResolvedValueOnce({
@@ -281,7 +281,7 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
     vi.mocked(prisma.orders.findUnique).mockResolvedValueOnce({
       id_order: 100,
       fk_store: 1,
-      store: { fk_user: 1 }
+      store: { fk_user: 1, status: true }
     });
     
     vi.mocked(prisma.deliveries.findUnique).mockResolvedValueOnce({

@@ -122,8 +122,7 @@ describe("POST /api/deliveries/register", () => {
       id_user: 10,
       role: "CUSTOMER",
       phone: "1234567890",
-      delivery: null,
-      phone: "1234567890"
+      delivery: null
     });
 
     prisma.users.update.mockResolvedValue({
