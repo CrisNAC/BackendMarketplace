@@ -258,7 +258,8 @@ describe("POST /api/commerces", () => {
       .send({ name: "Solo Nombre" });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/campos obligatorios/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors.length).toBeGreaterThan(0);
   });
 
   it("devuelve 400 cuando el email tiene formato inválido", async () => {
@@ -269,6 +270,7 @@ describe("POST /api/commerces", () => {
       .post("/api/commerces")
       .set("Cookie", `userToken=${sellerToken}`)
       .send({
+        fk_user: 1,
         category_ids: [1],
         name: "Tienda",
         email: "email-invalido",
@@ -281,7 +283,11 @@ describe("POST /api/commerces", () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/email/i);
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "email" }),
+      ])
+    );
   });
 
   it("devuelve 409 cuando el usuario ya tiene un comercio registrado", async () => {
@@ -292,6 +298,7 @@ describe("POST /api/commerces", () => {
       .post("/api/commerces")
       .set("Cookie", `userToken=${sellerToken}`)
       .send({
+        fk_user: 1,
         category_ids: [1],
         name: "Tienda",
         email: "nueva@test.com",
@@ -349,6 +356,7 @@ describe("POST /api/commerces", () => {
       .post("/api/commerces")
       .set("Cookie", `userToken=${sellerToken}`)
       .send({
+        fk_user: 1,
         category_ids: [1],
         name: "Nueva Tienda",
         email: "nueva@test.com",
@@ -394,7 +402,11 @@ describe("PUT /api/commerces/:id", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/al menos un campo/i);
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringMatching(/al menos un campo/i) }),
+      ])
+    );
   });
 
   it("devuelve 200 con el comercio actualizado", async () => {

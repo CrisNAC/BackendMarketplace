@@ -6,6 +6,7 @@ import { prisma } from "../../../src/lib/prisma.js";
 
 // Creamos los fns mockeados fuera para poder acceder a ellos en los tests
 const mockAssignmentsUpdate = vi.fn();
+const mockOrdersFindUnique = vi.fn();
 const mockOrdersUpdate = vi.fn();
 
 vi.mock("../../../src/lib/prisma.js", () => ({
@@ -24,7 +25,7 @@ vi.mock("../../../src/lib/prisma.js", () => ({
     $transaction: vi.fn((callback) =>
       callback({
         deliveryAssignments: { update: mockAssignmentsUpdate },
-        orders: { update: mockOrdersUpdate },
+        orders: { findUnique: mockOrdersFindUnique, update: mockOrdersUpdate },
       })
     ),
   },
@@ -61,6 +62,7 @@ describe("POST /api/assignments/:id/complete", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAssignmentsUpdate.mockReset();
+    mockOrdersFindUnique.mockReset();
     mockOrdersUpdate.mockReset();
   });
 
@@ -135,6 +137,7 @@ describe("POST /api/assignments/:id/complete", () => {
 
   it("devuelve 200 y marca la asignación como DELIVERED", async () => {
     prisma.deliveryAssignments.findUnique.mockResolvedValue(mockAssignmentAccepted);
+    mockOrdersFindUnique.mockResolvedValue({ order_status: "SHIPPED" });
     mockAssignmentsUpdate.mockResolvedValue({
       ...mockAssignmentAccepted,
       assignment_status: "DELIVERED",
@@ -155,6 +158,7 @@ describe("POST /api/assignments/:id/complete", () => {
 
   it("también actualiza el order_status a DELIVERED al completar", async () => {
     prisma.deliveryAssignments.findUnique.mockResolvedValue(mockAssignmentAccepted);
+    mockOrdersFindUnique.mockResolvedValue({ order_status: "SHIPPED" });
     mockAssignmentsUpdate.mockResolvedValue({
       ...mockAssignmentAccepted,
       assignment_status: "DELIVERED",

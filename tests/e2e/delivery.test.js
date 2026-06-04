@@ -232,7 +232,12 @@ describe("POST /api/stores/{id}/deliveries", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/fk_user es requerido/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "fk_user" }),
+      ])
+    );
   });
 
   it("Retorna 403 cuando el usuario no es dueño del store", async () => {
@@ -443,7 +448,12 @@ describe("POST /api/stores/{id}/deliveries", () => {
       .send({ fk_user: -5 });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/id numérico válido/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "fk_user" }),
+      ])
+    );
   });
 
   it("Validación de fk_user no acepta strings", async () => {
@@ -455,7 +465,12 @@ describe("POST /api/stores/{id}/deliveries", () => {
       .send({ fk_user: "abc" });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/id numérico válido/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "fk_user" }),
+      ])
+    );
   });
 
   it("Retorna 401 cuando no hay autenticación", async () => {
