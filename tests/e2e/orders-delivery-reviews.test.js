@@ -175,8 +175,12 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
       .send({ rating: 0, comment: "Buen servicio" })
       .expect(400);
 
-    expect(res.body.error.code).toBe(400);
-    expect(res.body.error.message).toMatch(/entre 1 y 5/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "rating" }),
+      ])
+    );
   });
 
   it("retorna 400 cuando rating es mayor a cinco", async () => {
@@ -186,8 +190,12 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
       .send({ rating: 6, comment: "Buen servicio" })
       .expect(400);
 
-    expect(res.body.error.code).toBe(400);
-    expect(res.body.error.message).toMatch(/entre 1 y 5/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "rating" }),
+      ])
+    );
   });
 
   it("retorna 400 cuando comentario excede 1000 caracteres", async () => {
@@ -199,8 +207,12 @@ describe("GET /api/orders/pending-delivery-reviews & POST /api/orders/:orderId/d
       .send({ rating: 5, comment: longComment })
       .expect(400);
 
-    expect(res.body.error.code).toBe(400);
-    expect(res.body.error.message).toMatch(/no puede superar los 1000/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "comment" }),
+      ])
+    );
   });
 
   it("retorna 409 cuando el pedido ya tiene una calificación", async () => {

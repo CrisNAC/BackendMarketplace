@@ -34,6 +34,7 @@ import cartRoutes from "./modules/users/cart/cart.routes.js";
 import { orderRouter, userOrderRouter } from "./modules/users/orders/order.routes.js";
 
 import { errorHandler } from "./middlewares/errorHandler.js";
+import { securityResponseLogger } from "./middlewares/security-log.middleware.js";
 import { NotFoundError } from "./lib/errors.js";
 
 import { setupSwagger } from "./config/swagger.config.js";
@@ -76,6 +77,7 @@ app.use((req, res, next) => {
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser());
+app.use(securityResponseLogger);
 
 const allowedOrigins = process.env.CORS_ORIGIN 
   ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())

@@ -4,7 +4,7 @@ vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
     users: { findUnique: vi.fn() },
     carts: { findFirst: vi.fn(), update: vi.fn() },
-    orders: { create: vi.fn(), findUnique: vi.fn() },
+    orders: { create: vi.fn(), findUnique: vi.fn(), count: vi.fn() },
     orderItems: { createMany: vi.fn() },
     products: { update: vi.fn() },
     notifications: { create: vi.fn() },
@@ -41,6 +41,7 @@ const customerCookie = "userToken=customer-token";
 describe("POST /api/orders -> crea notificación", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.orders.count.mockResolvedValue(0);
   });
 
   it("retorna 201 y crea notificación en la transacción al confirmar pedido", async () => {
