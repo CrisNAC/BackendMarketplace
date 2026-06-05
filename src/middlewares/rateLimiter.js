@@ -5,10 +5,11 @@ const jsonResponse = (message) => ({
   message,
 });
 
-// Login: 5 intentos por IP cada 15 minutos
+// Login: 10 intentos fallidos por IP cada 15 minutos
 export const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 5,
+  limit: 10,
+  skipSuccessfulRequests: true,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skip: () => process.env.NODE_ENV === 'test',
@@ -17,10 +18,10 @@ export const loginRateLimiter = rateLimit({
   ),
 });
 
-// Recuperar contraseña: 3 solicitudes por IP cada hora
+// Recuperar contraseña: 5 solicitudes por IP cada hora
 export const passwordResetRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  limit: 3,
+  limit: 5,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skip: () => process.env.NODE_ENV === 'test',

@@ -64,6 +64,9 @@ import { bannerRoutes } from "./modules/global/banners/banners.routes.js";
 
 const app = express();
 
+// Confiar en el primer proxy (Render, Heroku, Nginx, etc.)
+app.set('trust proxy', 1);
+
 // Seguridad HTTP con Helmet
 app.use(helmet());
 app.use((req, res, next) => {
