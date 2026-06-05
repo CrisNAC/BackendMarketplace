@@ -1,5 +1,22 @@
 import { z } from "zod";
 
+const emptyToNull = (v) => (v === "" || v === null ? null : v);
+
+const numericString = (errorMsg) =>
+  z.preprocess(
+    emptyToNull,
+    z.coerce.number({ error: errorMsg }).positive(errorMsg)
+  );
+
+const optionalNumericString = z.preprocess(
+  emptyToNull,
+  z.coerce
+    .number()
+    .positive()
+    .nullable()
+    .optional()
+);
+
 const booleanish = z.union([
   z.boolean(),
   z.enum(["true", "false", "1", "0"]).transform((v) => v === "true" || v === "1")
@@ -41,22 +58,19 @@ export const CreateProductDTO = z.object({
     .min(1, "name no puede estar vacio")
     .max(100, "name no puede superar 100 caracteres"),
 
-  price: z
-    .number({ error: "price es requerido" })
-    .positive("price debe ser mayor a 0"),
+  price: numericString("price es requerido"),
 
-  offerPrice: z
-    .number()
-    .positive("offerPrice debe ser mayor a 0")
-    .nullable()
-    .optional(),
+  offerPrice: optionalNumericString,
 
   isOffer: booleanish.optional(),
 
-  categoryId: z
-    .number({ error: "categoryId es requerido" })
-    .int("categoryId debe ser entero")
-    .positive("categoryId debe ser un ID valido"),
+  categoryId: z.preprocess(
+    emptyToNull,
+    z.coerce
+      .number({ error: "categoryId es requerido" })
+      .int("categoryId debe ser entero")
+      .positive("categoryId debe ser un ID valido")
+  ),
 
   description: z
     .string()
@@ -64,12 +78,15 @@ export const CreateProductDTO = z.object({
     .nullable()
     .optional(),
 
-  quantity: z
-    .number()
-    .int("quantity debe ser entero")
-    .min(0, "quantity no puede ser negativo")
-    .nullable()
-    .optional(),
+  quantity: z.preprocess(
+    emptyToNull,
+    z.coerce
+      .number()
+      .int("quantity debe ser entero")
+      .min(0, "quantity no puede ser negativo")
+      .nullable()
+      .optional()
+  ),
 
   tags: productTagsSchema.optional().default([]),
 
@@ -84,24 +101,26 @@ export const UpdateProductDTO = z
       .max(100, "name no puede superar 100 caracteres")
       .optional(),
 
-    price: z
-      .number({ error: "price debe ser numero" })
-      .positive("price debe ser mayor a 0")
-      .optional(),
+    price: z.preprocess(
+      emptyToNull,
+      z.coerce
+        .number({ error: "price debe ser numero" })
+        .positive("price debe ser mayor a 0")
+        .optional()
+    ),
 
-    offerPrice: z
-      .number()
-      .positive("offerPrice debe ser mayor a 0")
-      .nullable()
-      .optional(),
+    offerPrice: optionalNumericString,
 
     isOffer: booleanish.optional(),
 
-    categoryId: z
-      .number({ error: "categoryId debe ser numero" })
-      .int()
-      .positive("categoryId debe ser un ID valido")
-      .optional(),
+    categoryId: z.preprocess(
+      emptyToNull,
+      z.coerce
+        .number({ error: "categoryId debe ser numero" })
+        .int()
+        .positive("categoryId debe ser un ID valido")
+        .optional()
+    ),
 
     description: z
       .string()
@@ -109,12 +128,15 @@ export const UpdateProductDTO = z
       .nullable()
       .optional(),
 
-    quantity: z
-      .number()
-      .int("quantity debe ser entero")
-      .min(0, "quantity no puede ser negativo")
-      .nullable()
-      .optional(),
+    quantity: z.preprocess(
+      emptyToNull,
+      z.coerce
+        .number()
+        .int("quantity debe ser entero")
+        .min(0, "quantity no puede ser negativo")
+        .nullable()
+        .optional()
+    ),
 
     tags: productTagsSchema.optional(),
 
