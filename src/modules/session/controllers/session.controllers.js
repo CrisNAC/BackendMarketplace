@@ -33,8 +33,10 @@ function normalizeEmailForLog(email) {
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : "";
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       logSecurityEvent("LOGIN_FAILED", {
         reason: "missing_credentials",
         email: normalizeEmailForLog(email),
@@ -44,7 +46,7 @@ export const login = async (req, res, next) => {
 
     const user = await prisma.users.findFirst({
       where: {
-        email,
+        email: normalizedEmail,
         status: true,
       },
     });
