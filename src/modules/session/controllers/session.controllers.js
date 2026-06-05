@@ -12,6 +12,12 @@ import { logSecurityEvent } from "../../../lib/security-logger.js";
 
 dotenv.config();
 
+function normalizeEmailForLog(email) {
+  if (email == null || typeof email !== "string") return null;
+  const trimmed = email.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 /**
  * POST /api/session
  * Inicia sesión con email y contraseña.
@@ -31,7 +37,7 @@ export const login = async (req, res, next) => {
     if (!email || !password) {
       logSecurityEvent("LOGIN_FAILED", {
         reason: "missing_credentials",
-        email: email ?? null,
+        email: normalizeEmailForLog(email),
       });
       return next(new ValidationError("Debe ingresar email y contraseña"));
     }
@@ -46,7 +52,7 @@ export const login = async (req, res, next) => {
     if (!user) {
       logSecurityEvent("LOGIN_FAILED", {
         reason: "invalid_credentials",
-        email,
+        email: normalizeEmailForLog(email),
       });
       return next(new UnauthorizedError("Credenciales inválidas"));
     }
@@ -54,14 +60,20 @@ export const login = async (req, res, next) => {
     let passwordMatch;
     try {
       passwordMatch = await verifyPassword(password, user.password_hash);
-    } catch (bcryptError) {
+    } catch {
+      logSecurityEvent("LOGIN_FAILED", {
+        reason: "password_verification_error",
+        email: normalizeEmailForLog(email),
+        userId: user.id_user,
+      });
       return next(new UnauthorizedError("Credenciales inválidas"));
     }
 
     if (!passwordMatch) {
       logSecurityEvent("LOGIN_FAILED", {
         reason: "invalid_credentials",
-        email,
+        email: normalizeEmailForLog(email),
+        userId: user.id_user,
       });
       return next(new UnauthorizedError("Credenciales inválidas"));
     }

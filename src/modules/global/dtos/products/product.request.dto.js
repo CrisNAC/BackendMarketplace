@@ -5,6 +5,36 @@ const booleanish = z.union([
   z.enum(["true", "false", "1", "0"]).transform((v) => v === "true" || v === "1")
 ]);
 
+const parseCsvTagIds = (val, ctx) => {
+  const ids = [];
+  for (const part of val.split(",")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    if (!/^\d+$/.test(trimmed)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "tags debe contener IDs válidos",
+      });
+      return z.NEVER;
+    }
+    const n = Number.parseInt(trimmed, 10);
+    if (n <= 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "tags debe contener IDs válidos",
+      });
+      return z.NEVER;
+    }
+    ids.push(n);
+  }
+  return ids;
+};
+
+const productTagsSchema = z.union([
+  z.array(z.number().int().positive("tags debe contener IDs válidos")),
+  z.string().transform(parseCsvTagIds),
+]);
+
 export const CreateProductDTO = z.object({
   name: z
     .string({ error: "name es requerido" })
@@ -41,21 +71,7 @@ export const CreateProductDTO = z.object({
     .nullable()
     .optional(),
 
-  tags: z
-    .union([
-      z.array(z.number().int().positive()),
-      z.string().transform((val) =>
-        val.split(",").map((v) => {
-          const n = Number(v.trim());
-          if (!Number.isInteger(n) || n <= 0) {
-            throw new Error("tag invalido");
-          }
-          return n;
-        })
-      )
-    ])
-    .optional()
-    .default([]),
+  tags: productTagsSchema.optional().default([]),
 
   visible: booleanish.optional()
 });
@@ -100,20 +116,7 @@ export const UpdateProductDTO = z
       .nullable()
       .optional(),
 
-    tags: z
-      .union([
-        z.array(z.number().int().positive()),
-        z.string().transform((val) =>
-          val.split(",").map((v) => {
-            const n = Number(v.trim());
-            if (!Number.isInteger(n) || n <= 0) {
-              throw new Error("tag invalido");
-            }
-            return n;
-          })
-        )
-      ])
-      .optional(),
+    tags: productTagsSchema.optional(),
 
     visible: booleanish.optional()
   })

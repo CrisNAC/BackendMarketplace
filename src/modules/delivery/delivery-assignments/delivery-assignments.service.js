@@ -442,7 +442,7 @@ export const getAcceptedAssignmentService = async (id_order, authenticatedUser) 
 export const completeAssignmentService = async (id_delivery_assignment, id_user) => {
   const assignment = await prisma.deliveryAssignments.findUnique({
     where: { id_delivery_assignment },
-    include: { delivery: true }
+    include: { delivery: true, order: true }
   });
 
   if (!assignment) {
