@@ -590,7 +590,7 @@ export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
       ...ORDER_SELECT,
       delivery_assignments: {
         where: { status: true },
-        orderBy: { created_at: "desc" },
+        orderBy: [{ assignment_sequence: "desc" }, { assigned_at: "desc" }],
         take: 1,
         select: {
           fk_delivery: true,
