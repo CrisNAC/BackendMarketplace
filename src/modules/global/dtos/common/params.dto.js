@@ -43,3 +43,19 @@ export const DeliveryIdParamDTO = z.object({
 export const AddressIdParamDTO = z.object({
   id_address: z.string().regex(/^[1-9]\d*$/, "id_address debe ser un ID válido").transform(Number).pipe(z.number().int().positive("id_address debe ser un ID válido"))
 });
+
+export const CustomerCartIdParamDTO = z.object({
+  customerId: z.string().regex(/^[1-9]\d*$/, "customerId debe ser un ID válido").transform(Number).pipe(z.number().int().positive("customerId debe ser un ID válido")),
+  cartId: z.string().regex(/^[1-9]\d*$/, "cartId debe ser un ID válido").transform(Number).pipe(z.number().int().positive("cartId debe ser un ID válido"))
+});
+
+export const CustomerWishlistIdParamDTO = z.object({
+  customerId: z.string().regex(/^[1-9]\d*$/, "customerId debe ser un ID válido").transform(Number).pipe(z.number().int().positive("customerId debe ser un ID válido")),
+  wishlistId: z.string().regex(/^[1-9]\d*$/, "wishlistId debe ser un ID válido").transform(Number).pipe(z.number().int().positive("wishlistId debe ser un ID válido"))
+});
+
+export const CustomerWishlistProductIdParamDTO = z.object({
+  customerId: z.string().regex(/^[1-9]\d*$/, "customerId debe ser un ID válido").transform(Number).pipe(z.number().int().positive("customerId debe ser un ID válido")),
+  wishlistId: z.string().regex(/^[1-9]\d*$/, "wishlistId debe ser un ID válido").transform(Number).pipe(z.number().int().positive("wishlistId debe ser un ID válido")),
+  productId: z.string().regex(/^[1-9]\d*$/, "productId debe ser un ID válido").transform(Number).pipe(z.number().int().positive("productId debe ser un ID válido"))
+});
