@@ -100,6 +100,23 @@ describe("POST /api/session", () => {
     expect(res.headers["set-cookie"]).toBeDefined();
     expect(res.headers["set-cookie"][0]).toMatch(/userToken=/);
   });
+
+  it("acepta email con mayúsculas y busca en minúsculas", async () => {
+    prisma.users.findFirst.mockResolvedValue(mockUser);
+    verifyPassword.mockResolvedValue(true);
+
+    const res = await request(app)
+      .post("/api/session")
+      .send({ email: "Usuario@Test.com", password: "correcta" });
+
+    expect(res.status).toBe(200);
+    expect(prisma.users.findFirst).toHaveBeenCalledWith({
+      where: {
+        email: "usuario@test.com",
+        status: true,
+      },
+    });
+  });
 });
 
 // ─── DELETE /api/session (logout) ────────────────────────────────────────────
