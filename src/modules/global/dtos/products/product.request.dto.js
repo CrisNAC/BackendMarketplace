@@ -70,7 +70,9 @@ export const CreateProductDTO = z.object({
       .number({ error: "categoryId es requerido" })
       .int("categoryId debe ser entero")
       .positive("categoryId debe ser un ID valido")
-  ),
+  ).optional(),
+
+  categoryIds: z.array(z.number().int().positive()).optional(),
 
   description: z
     .string()
