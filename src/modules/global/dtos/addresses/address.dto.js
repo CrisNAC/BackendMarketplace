@@ -1,6 +1,23 @@
 import { z } from "zod";
 import { BaseResponseDTO } from "../base/base.response.dto.js";
-// ─── REQUEST ─────────────────────────────────────────────────────
+
+const coordinateNumber = (message) =>
+    z.preprocess((val) => {
+        if (val === undefined || val === null || val === '') return val;
+        const num = Number(val);
+        return Number.isFinite(num) ? num : val;
+    }, z.number({ error: message }));
+
+export const CreateUserAddressDTO = z.object({
+    address: z
+        .string({ error: "address es requerido" })
+        .trim()
+        .min(1, "address no puede estar vacío")
+        .max(500, "address no puede superar 500 caracteres"),
+    latitude: coordinateNumber("latitude es requerida"),
+    longitude: coordinateNumber("longitude es requerida"),
+});
+
 export const CreateAddressDTO = z.object({
     fk_user: z
         .number({ error: "fk_user es requerido" })
