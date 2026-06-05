@@ -12,7 +12,7 @@ import {
   deleteCart,
   deleteAllCarts
 } from "./cart.controller.js";
-import { CustomerIdParamDTO, CartIdParamDTO, CartItemIdParamDTO } from "../../global/dtos/common/params.dto.js";
+import { CustomerIdParamDTO, CustomerCartIdParamDTO, CartItemIdParamDTO } from "../../global/dtos/common/params.dto.js";
 import { AddCartItemDTO, UpdateCartItemDTO } from "../../global/dtos/cart/cart.dto.js";
 
 const router = Router({ mergeParams: true });
@@ -306,7 +306,7 @@ router.get("/cart/:cartId/items", authenticate, getCartItemsById);
  *             schema:
  *               $ref: '#/components/schemas/CartErrorResponse'
  */
-router.delete("/:customerId/cart/:cartId", authenticate, validate(CustomerIdParamDTO, "params"), validate(CartIdParamDTO, "params"), deleteCart);
+router.delete("/:customerId/cart/:cartId", authenticate, validate(CustomerCartIdParamDTO, "params"), deleteCart);
 
 /**
  * @swagger
