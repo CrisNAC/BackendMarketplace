@@ -32,15 +32,17 @@ function normalizeEmailForLog(email) {
  */
 export const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email: rawEmail, password } = req.body;
 
-    if (!email || !password) {
+    if (!rawEmail || !password) {
       logSecurityEvent("LOGIN_FAILED", {
         reason: "missing_credentials",
-        email: normalizeEmailForLog(email),
+        email: normalizeEmailForLog(rawEmail),
       });
       return next(new ValidationError("Debe ingresar email y contraseña"));
     }
+
+    const email = rawEmail.trim().toLowerCase();
 
     const user = await prisma.users.findFirst({
       where: {
