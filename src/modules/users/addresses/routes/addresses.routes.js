@@ -10,12 +10,12 @@ import {
     updateAddress,
 } from "../controllers/addresses.controllers.js";
 import { IdParamDTO, AddressIdParamDTO } from "../../../global/dtos/common/params.dto.js";
-import { CreateAddressDTO, UpdateAddressDTO } from "../../../global/dtos/addresses/address.dto.js";
+import { CreateUserAddressDTO, UpdateAddressDTO } from "../../../global/dtos/addresses/address.dto.js";
 
 const router = Router();
 
 // crea una nueva direccion personal
-router.post("/:id/addresses", authenticate, validate(IdParamDTO, "params"), validate(CreateAddressDTO, "body"), createAddress);
+router.post("/:id/addresses", authenticate, validate(IdParamDTO, "params"), validate(CreateUserAddressDTO, "body"), createAddress);
 // lista las direcciones personales activas del usuario
 router.get("/:id/addresses", authenticate, getAddressesByUser);
 // obtiene una direccion personal puntual
