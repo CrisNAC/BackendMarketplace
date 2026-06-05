@@ -70,12 +70,8 @@ export const CreateProductDTO = z.object({
       .number({ error: "categoryId es requerido" })
       .int("categoryId debe ser entero")
       .positive("categoryId debe ser un ID valido")
-  ),
+  ).optional(),
   categoryIds: z.union([
-    z.array(z.number().int().positive("categoryId debe ser un ID valido")),
-    z.number().int().positive("categoryId debe ser un ID valido")
-  ]).optional(),
-  categoryId: z.union([
     z.array(z.number().int().positive("categoryId debe ser un ID valido")),
     z.number().int().positive("categoryId debe ser un ID valido")
   ]).optional(),
@@ -121,17 +117,17 @@ export const UpdateProductDTO = z
 
     isOffer: booleanish.optional(),
 
-    categoryIds: z.union([.preprocess(
+    categoryId: z.preprocess(
       emptyToNull,
       z.coerce
-        z.array(z.number().int().positive("categoryId debe ser un ID valido")),
+        .number({ error: "categoryId debe ser numero" })
+        .int()
+        .positive("categoryId debe ser un ID valido")
+    ).optional(),
+    categoryIds: z.union([
+      z.array(z.number().int().positive("categoryId debe ser un ID valido")),
       z.number().int().positive("categoryId debe ser un ID valido")
-      ]).optional(),
-    categoryId: z.union([
-        z.array(z.number().int().positive("categoryId debe ser un ID valido")),
-        z.number().int().positive("categoryId debe ser un ID valido")
-    ]).optional()
-    ),
+    ]).optional(),
 
     description: z
       .string()

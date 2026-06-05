@@ -33,8 +33,6 @@ function normalizeEmailForLog(email) {
 export const login = async (req, res, next) => {
   try {
     const { email: rawEmail, password } = req.body;
-    const normalizedEmail =
-      typeof email === "string" ? email.trim().toLowerCase() : "";
 
     if (!rawEmail || !password) {
       logSecurityEvent("LOGIN_FAILED", {
