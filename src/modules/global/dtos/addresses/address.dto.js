@@ -3,9 +3,8 @@ import { BaseResponseDTO } from "../base/base.response.dto.js";
 
 const coordinateNumber = (message) =>
     z.preprocess((val) => {
-        if (val === undefined || val === null || val === '') return val;
         const num = Number(val);
-        return Number.isFinite(num) ? num : val;
+        return num;
     }, z.number({ error: message }));
 
 export const CreateUserAddressDTO = z.object({
