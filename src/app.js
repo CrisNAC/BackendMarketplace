@@ -45,10 +45,11 @@ import distanceRoutes from "./modules/global/distances/routes/distance.routes.js
 import notificationRoutes from "./modules/notifications/notification.routes.js";
 
 // Rutas de imágenes
-import { 
-  productImageRoutes, 
-  userImageRoutes, 
-  storeImageRoutes, 
+import {
+  productImageRoutes,
+  userImageRoutes,
+  storeImageRoutes,
+  bannerImageRoutes,
 } from './modules/images/routes/index.js';
 
 // Rutas de administración
@@ -171,6 +172,7 @@ app.use("/api/banners", bannerRoutes);
 app.use('/products', productImageRoutes)
 app.use('/users', userImageRoutes)
 app.use('/stores', storeImageRoutes)
+app.use('/api/banner-requests', bannerImageRoutes)
 
 // Ruta no encontrada — va ANTES del errorHandler
 app.use((req, _res, next) => {

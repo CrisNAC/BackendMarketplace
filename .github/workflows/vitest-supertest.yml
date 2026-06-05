@@ -65,6 +65,7 @@ jobs:
         SUPABASE_BUCKET_PRODUCTS: ${{ secrets.SUPABASE_BUCKET_PRODUCTS }}
         SUPABASE_BUCKET_USERS: ${{ secrets.SUPABASE_BUCKET_USERS }}
         SUPABASE_BUCKET_STORES: ${{ secrets.SUPABASE_BUCKET_STORES }}
+        SUPABASE_BUCKET_BANNERS: ${{ secrets.SUPABASE_BUCKET_BANNERS }}
 
     steps:
       - uses: actions/checkout@v4

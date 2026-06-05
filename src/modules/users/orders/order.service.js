@@ -586,7 +586,22 @@ export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
     orderBy: {
       updated_at: "desc"
     },
-    select: ORDER_SELECT
+    select: {
+      ...ORDER_SELECT,
+      delivery_assignments: {
+        where: { status: true },
+        orderBy: [{ assignment_sequence: "desc" }, { assigned_at: "desc" }],
+        take: 1,
+        select: {
+          fk_delivery: true,
+          delivery: {
+            select: {
+              user: { select: { name: true } }
+            }
+          }
+        }
+      }
+    }
   });
 
   const results = await Promise.all(
