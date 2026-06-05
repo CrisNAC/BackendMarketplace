@@ -1,6 +1,8 @@
 //order.routes.js
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
+import { requireRole } from "../../../middlewares/auth.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
 import {
 	createDeliveryReview,
 	createOrder,
@@ -10,15 +12,121 @@ import {
 	getStoreOrders,
 	updateOrderStatus
 } from "./order.controller.js";
-
+import { OrderIdParamDTO } from "../../global/dtos/common/params.dto.js";
+import { CreateOrderBodyDTO, ShippingQuoteBodyDTO, CreateDeliveryReviewDTO, UpdateOrderStatusDTO } from "../../global/dtos/orders/order.dto.js";
 
 const orderRouter = Router();
 const userOrderRouter = Router();
-// POST /api/orders — confirma la compra desde un carrito
-orderRouter.post("/", authenticate, createOrder);
 
-// POST /api/orders/shipping-quote — cotiza costo de envío por carrito y dirección
-orderRouter.post("/shipping-quote", authenticate, getOrderShippingQuote);
+/**
+ * @swagger
+ * /api/orders:
+ *   post:
+ *     summary: Crear un pedido
+ *     description: Confirma la compra desde un carrito activo. Solo rol **CUSTOMER**.
+ *     tags: [Orders]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [cartId]
+ *             properties:
+ *               cartId:
+ *                 type: integer
+ *               addressId:
+ *                 type: integer
+ *                 nullable: true
+ *               shippingMethod:
+ *                 type: string
+ *                 enum: [pickup, standard]
+ *                 default: pickup
+ *               notes:
+ *                 type: string
+ *                 nullable: true
+ *     responses:
+ *       201:
+ *         description: Pedido creado
+ *       400:
+ *         description: Validación (carrito vacío, stock insuficiente, etc.)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
+ *       403:
+ *         description: Solo clientes pueden crear pedidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       409:
+ *         description: El carrito ya fue convertido en pedido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ */
+orderRouter.post("/", authenticate, requireRole('CUSTOMER'), validate(CreateOrderBodyDTO, "body"), createOrder);
+
+/**
+ * @swagger
+ * /api/orders/shipping-quote:
+ *   post:
+ *     summary: Cotizar costo de envío
+ *     description: Calcula el costo de envío para un carrito y dirección. Solo rol **CUSTOMER**.
+ *     tags: [Orders]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [cartId, addressId]
+ *             properties:
+ *               cartId:
+ *                 type: integer
+ *               addressId:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Cotización calculada
+ *       400:
+ *         description: Validación (sin coordenadas, sin zona de envío, etc.)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
+ *       403:
+ *         description: Solo clientes pueden cotizar envíos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       404:
+ *         description: Carrito o dirección no encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ */
+orderRouter.post("/shipping-quote", authenticate, requireRole('CUSTOMER'), validate(ShippingQuoteBodyDTO, "body"), getOrderShippingQuote);
 
 // GET /api/users/:customerId/orders — historial de pedidos del usuario
 userOrderRouter.get("/:customerId/orders", authenticate, getOrders);
@@ -125,12 +233,78 @@ orderRouter.get("/pending-delivery-reviews", authenticate, getPendingDeliveryRev
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorEnvelope'
  */
-orderRouter.post("/:orderId/delivery-review", authenticate, createDeliveryReview);
+orderRouter.post("/:orderId/delivery-review", authenticate, validate(OrderIdParamDTO, "params"), validate(CreateDeliveryReviewDTO, "body"), createDeliveryReview);
 
 // GET  /api/orders/store/:storeId — pedidos del comercio
 orderRouter.get("/store/:storeId", authenticate, getStoreOrders);
 
+/**
+ * @swagger
+ * /api/orders/{orderId}/status:
+ *   patch:
+ *     summary: Actualizar estado de un pedido
+ *     description: |
+ *       Cambia el estado segun el rol del usuario autenticado.
+ *       - **SELLER**: PENDING → PROCESSING | PENDING → CANCELLED | PROCESSING → SHIPPED (envio) | PROCESSING → DELIVERED (retiro en tienda)
+ *       - **DELIVERY**: SHIPPED → DELIVERED
+ *       - **CUSTOMER**: PENDING → CANCELLED
+ *     tags: [Orders]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del pedido
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [order_status]
+ *             properties:
+ *               order_status:
+ *                 type: string
+ *                 enum: [PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED]
+ *                 description: Nuevo estado solicitado
+ *     responses:
+ *       200:
+ *         description: Pedido actualizado
+ *       400:
+ *         description: Transicion invalida o estado no permitido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthErrorResponse'
+ *       403:
+ *         description: Sin permisos para modificar el pedido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       404:
+ *         description: Pedido o usuario no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ *       409:
+ *         description: Conflicto de actualizacion
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorEnvelope'
+ */
 // PATCH /api/orders/:orderId/status — actualizar estado del pedido
-orderRouter.patch("/:orderId/status", authenticate, updateOrderStatus);
+orderRouter.patch("/:orderId/status", authenticate, validate(OrderIdParamDTO, "params"), validate(UpdateOrderStatusDTO, "body"), updateOrderStatus);
 
 export { orderRouter, userOrderRouter };

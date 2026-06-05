@@ -216,7 +216,8 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
   it("rechaza automáticamente la asignación PENDING anterior si delivery está INACTIVE", async () => {
     vi.mocked(prisma.orders.findUnique).mockResolvedValueOnce({
       id_order: 100,
-      fk_store: 1
+      fk_store: 1,
+      store: { fk_user: 1, status: true }
     });
     
     vi.mocked(prisma.deliveries.findUnique).mockResolvedValueOnce({
@@ -255,6 +256,7 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
         deliveries: {
           findUnique: vi.fn().mockResolvedValue({
             id_delivery: 5,
+            fk_store: 1,
             delivery_status: "ACTIVE",
             status: true,
           }),
@@ -266,10 +268,10 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
       return await callback(tx);
     });
 
-    const result = await createAssignmentService({
-      fk_order: 100,
-      fk_delivery: 5
-    });
+    const result = await createAssignmentService(
+      { fk_order: 100, fk_delivery: 5 },
+      { id_user: 1, role: "SELLER" }
+    );
 
     expect(result.assignment_status).toBe("PENDING");
     expect(result.assignment_sequence).toBe(2);
@@ -278,7 +280,8 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
   it("lanza error 409 cuando ya hay PENDING con delivery ACTIVE", async () => {
     vi.mocked(prisma.orders.findUnique).mockResolvedValueOnce({
       id_order: 100,
-      fk_store: 1
+      fk_store: 1,
+      store: { fk_user: 1, status: true }
     });
     
     vi.mocked(prisma.deliveries.findUnique).mockResolvedValueOnce({
@@ -307,7 +310,7 @@ describe("GET /api/stores/:storeId/orders/:orderId/deliveries", () => {
     });
 
     await expect(
-      createAssignmentService({ fk_order: 100, fk_delivery: 5 })
+      createAssignmentService({ fk_order: 100, fk_delivery: 5 }, { id_user: 1, role: "SELLER" })
     ).rejects.toMatchObject({
       status: 409,
       message: "Ya hay una asignación pendiente para este pedido"

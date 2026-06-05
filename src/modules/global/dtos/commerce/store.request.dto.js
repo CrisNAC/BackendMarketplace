@@ -58,8 +58,8 @@ export const CreateStoreDTO = z
       .min(1, "address no puede estar vacío"),
     latitude: z.number({ error: "latitude es requerido" }),
     longitude: z.number({ error: "longitude es requerido" }),
-    base_price: z.number({ error: "base_price es requerido" }).nonnegative("base_price no puede ser negativo"),
-    distance_price: z.number({ error: "distance_price es requerido" }).nonnegative("distance_price no puede ser negativo")
+    base_price: z.number({ error: "base_price es requerido" }).nonnegative("base_price no puede ser negativo").max(99999999.99, "base_price supera el valor máximo permitido"),
+    distance_price: z.number({ error: "distance_price es requerido" }).nonnegative("distance_price no puede ser negativo").max(99999999.99, "distance_price supera el valor máximo permitido")
   });
 
 // ─── UPDATE ──────────────────────────────────────────────────────
@@ -113,8 +113,8 @@ export const UpdateStoreDTO = z
     address: z.string().min(1, "address no puede estar vacío").optional(),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
-    base_price: z.number().nonnegative("base_price no puede ser negativo").optional(),
-    distance_price: z.number().nonnegative("distance_price no puede ser negativo").optional()
+    base_price: z.number().nonnegative("base_price no puede ser negativo").max(99999999.99, "base_price supera el valor máximo permitido").optional(),
+    distance_price: z.number().nonnegative("distance_price no puede ser negativo").max(99999999.99, "distance_price supera el valor máximo permitido").optional()
   })
   .refine(
     (data) => Object.values(data).some((value) => value !== undefined),
@@ -122,6 +122,13 @@ export const UpdateStoreDTO = z
       message: "Debe enviar al menos un campo para actualizar"
     }
   );
+
+// ─── UPDATE STATUS ───────────────────────────────────────────────
+export const UpdateStoreStatusDTO = z.object({
+    store_status: z.enum(["ACTIVE", "INACTIVE"], {
+        error: "store_status debe ser ACTIVE o INACTIVE"
+    })
+});
 
 // ─── FILTER ──────────────────────────────────────────────────────
 export const FilterStoreDTO = z.object({

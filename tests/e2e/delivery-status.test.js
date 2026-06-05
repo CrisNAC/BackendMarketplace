@@ -109,7 +109,12 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/delivery_status es requerido/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "delivery_status" }),
+      ])
+    );
   });
 
   it("retorna 400 cuando delivery_status es inválido", async () => {
@@ -119,7 +124,12 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({ delivery_status: "PAUSED" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/ACTIVE o INACTIVE/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "delivery_status" }),
+      ])
+    );
   });
 
   it("retorna 403 cuando el rol no es DELIVERY", async () => {
@@ -139,7 +149,12 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({ delivery_status: "ACTIVE" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/ID inválido/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "id" }),
+      ])
+    );
   });
 
   it("retorna 404 cuando el delivery no existe", async () => {

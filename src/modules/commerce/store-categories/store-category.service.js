@@ -71,6 +71,7 @@ export const getStoreCategoriesService = async (filters = {}) => {
   const categories = await prisma.categories.findMany({
     where: {
       status: true,
+      visible: true,
       ...(search
         ? {
             name: {

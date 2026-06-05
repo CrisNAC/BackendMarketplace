@@ -1,5 +1,6 @@
 //order.service.js
 import { prisma } from "../../../lib/prisma.js";
+import { logSecurityEvent } from "../../../lib/security-logger.js";
 import {
   ValidationError,
   ForbiddenError,
@@ -9,39 +10,112 @@ import {
 import { parsePositiveInteger } from "../../../lib/validators.js";
 import { createNotificationService } from "../../notifications/notification.service.js";
 import { NOTIFICATION_MESSAGES } from "../../notifications/notification.constant.js";
-const mapOrderResponse = (order) => ({
-  id: order.id_order,
-  status: order.order_status,
-  deliveryUnavailable: Boolean(order.delivery_unavailable),
-  total: Number(order.total),
-  shippingCost: Number(order.shipping_cost ?? 0),
-  shippingDistanceKm:
-    order.shipping_distance_km === null || order.shipping_distance_km === undefined
-      ? null
-      : Number(order.shipping_distance_km),
-  notes: order.notes ?? null,
-  address: order.address ? {
-    id: order.address.id_address,
-    address: order.address.address,
-    city: order.address.city,
-    region: order.address.region
-  } : null,
-  items: order.order_items.map((item) => ({
-    id: item.id_order_item,
-    name: item.product?.name ?? "Producto",
-    quantity: item.quantity,
-    price: Number(item.price),
-    originalPrice: Number(item.original_price),
-    isOfferApplied: item.is_offer_applied,
-    subtotal: Number(item.subtotal),
-  })),
-  createdAt: order.created_at,
-  updatedAt: order.updated_at
-});
+
+// Calcular el número secuencial de orden para esa tienda
+// Contar órdenes previas por fecha de creación
+const generateOrderNumber = async (order, prismaOrTx) => {
+  const ordersBefore = await prismaOrTx.orders.count({
+    where: {
+      fk_store: order.fk_store,
+      OR: [
+        { created_at: { lt: order.created_at } },
+        { 
+          created_at: order.created_at,
+          id_order: { lt: order.id_order }
+        }
+      ],
+      status: true
+    }
+  });
+ 
+  const orderSequence = String(ordersBefore + 1).padStart(4, '0');
+  
+  const date = new Date(order.created_at);
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  
+  return `ORD-${orderSequence}-${hours}-${minutes}-${day}-${month}-${year}`;
+};
+
+const mapOrderResponse = async (order, prismaOrTx) => {
+  const orderNumber = await generateOrderNumber(order, prismaOrTx);
+
+  return {
+    id: order.id_order,
+    orderNumber,
+    status: order.order_status,
+    deliveryUnavailable: Boolean(order.delivery_unavailable),
+    total: Number(order.total),
+    shippingCost: Number(order.shipping_cost ?? 0),
+    shippingDistanceKm:
+      order.shipping_distance_km === null || order.shipping_distance_km === undefined
+        ? null
+        : Number(order.shipping_distance_km),
+    notes: order.notes ?? null,
+    address: order.address ? {
+      id: order.address.id_address,
+      address: order.address.address,
+      city: order.address.city,
+      region: order.address.region
+    } : null,
+    store: order.store ? {
+      id: order.store.id_store,
+      name: order.store.name
+    } : null,
+    items: order.order_items.map((item) => ({
+      id: item.id_order_item,
+      name: item.product?.name ?? "Producto",
+      quantity: item.quantity,
+      price: Number(item.price),
+      originalPrice: Number(item.original_price),
+      isOfferApplied: item.is_offer_applied,
+      subtotal: Number(item.subtotal),
+    })),
+    createdAt: order.created_at,
+    updatedAt: order.updated_at
+  };
+};
 
 const DISTANCE_THRESHOLD_KM = 2;
 
 const roundToTwoDecimals = (value) => Number(Number(value).toFixed(2));
+
+// Select estándar para órdenes con relaciones (eliminates duplicación)
+const ORDER_SELECT = {
+  id_order: true,
+  fk_store: true,
+  order_status: true,
+  delivery_unavailable: true,
+  total: true,
+  shipping_cost: true,
+  shipping_distance_km: true,
+  notes: true,
+  created_at: true,
+  updated_at: true,
+  address: {
+    select: { id_address: true, address: true, city: true, region: true }
+  },
+  store: {
+    select: { id_store: true, name: true }
+  },
+  order_items: {
+    where: { status: true },
+    select: {
+      id_order_item: true,
+      quantity: true,
+      price: true,
+      original_price: true,
+      is_offer_applied: true,
+      subtotal: true,
+      product: {
+        select: { name: true }
+      }
+    }
+  }
+};
 
 const getRouteDistanceKm = async (coordinates) => {
   if (!process.env.ORS_API_KEY) {
@@ -214,8 +288,6 @@ export const getOrderShippingQuoteService = async (
     addressId: resolvedAddressId
   });
 };
-
-
 
 /**
  * Crea un pedido confirmando el carrito activo del usuario.
@@ -391,11 +463,21 @@ export const createOrderService = async (
       });
     }
 
-    //marcar el carrito como CHECKED_OUT
+    // Marcar todos los carritos CHECKED_OUT anteriores como ABANDONED
+    await tx.carts.updateMany({
+      where: {
+        fk_user: resolvedUserId,
+        fk_store: cart.fk_store,
+        cart_status: "CHECKED_OUT"
+      },
+      data: { cart_status: "ABANDONED" }
+    });
+
+    // Ahora sí marcar el carrito actual como CHECKED_OUT
     await tx.carts.update({
       where: { id_cart: resolvedCartId },
       data: { cart_status: "CHECKED_OUT" }
-    })
+    });
 
     // crear notificación de nuevo pedido para el cliente
     const { title, message } = NOTIFICATION_MESSAGES.ORDER_CONFIRMED(order.id_order);
@@ -403,39 +485,11 @@ export const createOrderService = async (
 
     return tx.orders.findUnique({
       where: { id_order: order.id_order },
-      select: {
-        id_order: true,
-        order_status: true,
-        total: true,
-        shipping_cost: true,
-        shipping_distance_km: true,
-        notes: true,
-        created_at: true,
-        updated_at: true,
-        address: {
-          select: { id_address: true, address: true, city: true, region: true }
-        },
-        order_items: {
-          where: { status: true },
-          select: {
-            id_order_item: true,
-            quantity: true,
-            price: true,
-            original_price: true,
-            is_offer_applied: true,
-            subtotal: true,
-            product: {
-              select: {
-                name: true
-              }
-            }
-          }
-        }
-      }
+      select: ORDER_SELECT
     });
   });
 
-  return mapOrderResponse(createdOrder);
+  return mapOrderResponse(createdOrder, prisma);
 };
 
 /**
@@ -479,33 +533,10 @@ export const getOrdersService = async (authenticatedUserId, customerId) => {
       ...(storeId && { fk_store: storeId }) // si el user es SELLER filtra pedidos por su tienda
     },
     orderBy: { created_at: "desc" },
-    select: {
-      id_order: true,
-      order_status: true,
-      total: true,
-      shipping_cost: true,
-      shipping_distance_km: true,
-      notes: true,
-      created_at: true,
-      updated_at: true,
-      address: {
-        select: { id_address: true, address: true, city: true, region: true }
-      },
-      order_items: {
-        where: { status: true },
-        select: {
-          id_order_item: true,
-          quantity: true,
-          price: true,
-          original_price: true,
-          is_offer_applied: true,
-          subtotal: true
-        }
-      }
-    }
+    select: ORDER_SELECT
   });
 
-  return orders.map(mapOrderResponse);
+  return Promise.all(orders.map(o => mapOrderResponse(o, prisma)));
 };
 
 export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
@@ -555,48 +586,28 @@ export const getPendingDeliveryReviewsService = async (authenticatedUserId) => {
     orderBy: {
       updated_at: "desc"
     },
-    select: {
-      id_order: true,
-      updated_at: true,
-      store: {
-        select: {
-          name: true
-        }
-      },
-      delivery_assignments: {
-        where: { status: true },
-        orderBy: [{ assignment_sequence: "desc" }, { assigned_at: "desc" }],
-        take: 1,
-        select: {
-          fk_delivery: true,
-          delivery: {
-            select: {
-              user: {
-                select: {
-                  name: true
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    select: ORDER_SELECT
   });
 
-  return pendingOrders
-    .map((order) => {
+  const results = await Promise.all(
+    pendingOrders.map(async (order) => {
       const latestAssignment = order.delivery_assignments[0];
       if (!latestAssignment) return null;
 
+      const orderNumber = await generateOrderNumber(order, prisma);
+
       return {
         orderId: order.id_order,
+        orderNumber,
         deliveryId: latestAssignment.fk_delivery,
         deliveryName: latestAssignment.delivery?.user?.name ?? "Delivery",
         storeName: order.store?.name ?? "Comercio",
         deliveredAt: order.updated_at
       };
     })
-    .filter(Boolean);
+  );
+
+  return results.filter(Boolean);
 };
 
 export const createDeliveryReviewService = async (
@@ -726,7 +737,6 @@ export const createDeliveryReviewService = async (
   }
 };
 
-
 /**
  * Obtener los pedidos de una tienda con filtros opcionales.
  * Solo el dueño del comercio puede acceder.
@@ -784,40 +794,13 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
       orderBy: { created_at: "desc" },
       skip: (page - 1) * limit,
       take: limit,
-      select: {
-        id_order: true,
-        order_status: true,
-        delivery_unavailable: true,
-        total: true,
-        shipping_cost: true,
-        shipping_distance_km: true,
-        notes: true,
-        created_at: true,
-        updated_at: true,
-        address: {
-          select: { id_address: true, address: true, city: true, region: true }
-        },
-        order_items: {
-          where: { status: true },
-          select: {
-            id_order_item: true,
-            quantity: true,
-            price: true,
-            original_price: true,
-            is_offer_applied: true,
-            subtotal: true,
-            product: {
-              select: { name: true }
-            }
-          }
-        }
-      }
+      select: ORDER_SELECT
     }),
     prisma.orders.count({ where })
   ]);
 
   return {
-    orders: orders.map(mapOrderResponse),
+    orders: await Promise.all(orders.map(o => mapOrderResponse(o, prisma))),
     total,
     page,
     limit,
@@ -828,7 +811,8 @@ export const getStoreOrdersService = async (authenticatedUserId, storeId, filter
 /**
  * Actualizar el estado de un pedido según el rol del usuario autenticado.
  * Cada rol tiene transiciones permitidas específicas:
- *   - SELLER:   PENDING → PROCESSING (acepta) | PENDING → CANCELLED (rechaza) | PROCESSING → SHIPPED 
+ *   - SELLER: PENDING → PROCESSING (acepta) | PENDING → CANCELLED (rechaza)
+ *             PROCESSING → SHIPPED (envio) | PROCESSING → DELIVERED (retiro en tienda)
  *   - DELIVERY: SHIPPED → DELIVERED (entrega)
  *   - CUSTOMER: PENDING → CANCELLED (cancela antes de que el comercio acepte)
  *
@@ -855,7 +839,7 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
   //validar que el pedido existe
   const order = await prisma.orders.findFirst({
     where: { id_order: resolvedOrderId, status: true },
-    select: { id_order: true, order_status: true, fk_store: true }
+    select: { id_order: true, order_status: true, fk_store: true, fk_address: true }
   });
 
   if (!order) throw new NotFoundError("Pedido no encontrado.");
@@ -879,10 +863,11 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
   }
 
   //validar transiciones permitidas por rol de user autenticado
+  const isPickup = order.fk_address == null;
   const allowedTransitions = {
     SELLER: {
       PENDING: ["PROCESSING", "CANCELLED"],
-      PROCESSING: ["SHIPPED"],
+      PROCESSING: isPickup ? ["DELIVERED"] : ["SHIPPED"],
     },
     DELIVERY: {
       SHIPPED: ["DELIVERED"]
@@ -903,37 +888,29 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
   if (!allowed.includes(order_status)) throw new ValidationError(`Transicion invalida: ${order.order_status} a ${order_status}`);
 
   const updated = await prisma.$transaction(async (tx) => {
+    if (user.role === "DELIVERY") {
+      const deliveryAssignment = await tx.deliveryAssignments.findFirst({
+        where: {
+          fk_order: resolvedOrderId,
+          assignment_status: "ACCEPTED",
+          status: true,
+          delivery: { is: { fk_user: resolvedUserId } }
+        },
+        select: { id_delivery_assignment: true }
+      });
+
+      if (!deliveryAssignment) {
+        throw new ForbiddenError("No tienes permisos para modificar este pedido.");
+      }
+    }
+
     const updatedOrder = await tx.orders.update({
       where: {
         id_order: resolvedOrderId,
         order_status: order.order_status  // condicional atómico — falla si otro request ya cambió el status
       },
       data: { order_status },
-      select: {
-        id_order: true,
-        order_status: true,
-        fk_store: true,
-        total: true,
-        shipping_cost: true,
-        shipping_distance_km: true,
-        notes: true,
-        created_at: true,
-        updated_at: true,
-        address: {
-          select: { id_address: true, address: true, city: true, region: true }
-        },
-        order_items: {
-          where: { status: true },
-          select: {
-            id_order_item: true,
-            quantity: true,
-            price: true,
-            original_price: true,
-            is_offer_applied: true,
-            subtotal: true
-          }
-        }
-      }
+      select: ORDER_SELECT
     });
 
     if (!updatedOrder) {
@@ -957,5 +934,13 @@ export const updateOrderStatusService = async (authenticatedUserId, orderId, ord
     return updatedOrder;
   });
 
-  return mapOrderResponse(updated);
+  logSecurityEvent("ORDER_STATUS_CHANGED", {
+    orderId: resolvedOrderId,
+    previousStatus: order.order_status,
+    newStatus: order_status,
+    actorUserId: resolvedUserId,
+    actorRole: user.role,
+  });
+
+  return mapOrderResponse(updated, prisma);
 };

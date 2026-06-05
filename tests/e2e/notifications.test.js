@@ -4,7 +4,7 @@ vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
     users: { findUnique: vi.fn() },
     carts: { findFirst: vi.fn(), update: vi.fn() },
-    orders: { create: vi.fn(), findUnique: vi.fn() },
+    orders: { create: vi.fn(), findUnique: vi.fn(), count: vi.fn() },
     orderItems: { createMany: vi.fn() },
     products: { update: vi.fn() },
     notifications: { create: vi.fn() },
@@ -35,71 +35,21 @@ vi.mock("../../src/config/jwt.config.js", () => ({
 import request from "supertest";
 import app from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
+import { setupOrderCreateE2e } from "../helpers/order-e2e.harness.js";
 
 const customerCookie = "userToken=customer-token";
 
 describe("POST /api/orders -> crea notificación", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.orders.count.mockResolvedValue(0);
   });
 
   it("retorna 201 y crea notificación en la transacción al confirmar pedido", async () => {
-    prisma.carts.findFirst.mockResolvedValue({
-      id_cart: 7,
-      fk_store: 3,
-      order: null,
-      items: [
-        {
-          fk_product: 30,
-          quantity: 2,
-          product: {
-            id_product: 30,
-            price: 100,
-            offer_price: null,
-            is_offer: false,
-            status: true,
-            visible: true,
-            quantity: 5
-          }
-        }
-      ]
-    });
-
-    const mockProductsUpdate = vi.fn().mockResolvedValue({});
-    const mockOrderCreate = vi.fn().mockResolvedValue({ id_order: 500 });
-    const mockOrderFind = vi.fn().mockResolvedValue({
-      id_order: 500,
-      order_status: "PENDING",
-      total: 200,
-      shipping_cost: 0,
-      shipping_distance_km: null,
-      notes: null,
-      created_at: new Date(),
-      updated_at: new Date(),
-      address: null,
-      order_items: [
-        {
-          id_order_item: 1,
-          quantity: 2,
-          price: 100,
-          original_price: 100,
-          is_offer_applied: false,
-          subtotal: 200,
-          product: { name: "Producto 30" }
-        }
-      ]
-    });
-
-    const mockNotificationsCreate = vi.fn().mockResolvedValue({});
-
-    prisma.$transaction.mockImplementation(async (fn) =>
-      fn({
-        orders: { create: mockOrderCreate, findUnique: mockOrderFind },
-        orderItems: { createMany: vi.fn().mockResolvedValue({}) },
-        products: { update: mockProductsUpdate },
-        carts: { update: vi.fn().mockResolvedValue({}) },
-        notifications: { create: mockNotificationsCreate }
-      })
+    const { mockProductsUpdate, mockNotificationsCreate } = setupOrderCreateE2e(
+      prisma,
+      vi,
+      { trackNotifications: true }
     );
 
     const res = await request(app)

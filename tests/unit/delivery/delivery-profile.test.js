@@ -99,7 +99,12 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
       .send({ name: "Nombre" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/ID inválido/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "id" })
+      ])
+    );
   });
 
   // --- Autenticación y autorización ---
@@ -249,12 +254,11 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
 
   // --- Sin cambios (body vacío) ---
 
-  it("devuelve 200 cuando se envía body vacío (sin cambios)", async () => {
-    setupProfileMocks();
-
+  it("devuelve 400 cuando se envía body vacío", async () => {
     const res = await putDelivery(1, {});
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Error de validación");
     expect(prisma.users.update).not.toHaveBeenCalled();
     expect(prisma.deliveries.update).not.toHaveBeenCalled();
   });
@@ -262,10 +266,12 @@ describe("PUT /api/deliveries/:id — Actualizar perfil de delivery", () => {
   // --- Error interno ---
 
   it("devuelve 500 cuando prisma falla inesperadamente", async () => {
+    prisma.deliveries.findUnique.mockReset();
     prisma.deliveries.findUnique.mockRejectedValue(new Error("Database error"));
 
     const res = await putDelivery(1, { name: "Nombre" });
 
     expect(res.status).toBe(500);
+    expect(res.body.error.message).toBe("Database error");
   });
 });

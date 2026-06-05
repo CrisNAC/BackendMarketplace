@@ -6,7 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["fullTextSearchPostgres"] //funcionalidad para busquedas mas avanzadas en la BD (lo use en product.service)
+  previewFeatures = ["fullTextSearchPostgres", "partialIndexes"] // fullTextSearch para búsquedas avanzadas en BD, partialIndexes para permitir múltiples carritos CHECKED_OUT por tienda
   //output   = "../generated/prisma"
 }
 
@@ -62,17 +62,22 @@ model Notifications {
 
 //------------------------------------BANNERS PROMOCIONALES----------------------------------------
 model Banners {
-  id_banner   Int      @id @default(autoincrement())
-  title       String   @db.VarChar(120)
-  description String?  @db.Text
-  image_url   String   @db.VarChar(500)
-  link_url    String?  @db.VarChar(500)
-  start_at    DateTime @db.Timestamptz
-  end_at      DateTime? @db.Timestamptz
-  is_active   Boolean  @default(true)
-  status      Boolean  @default(true)
-  created_at  DateTime @default(now()) @db.Timestamptz
-  updated_at  DateTime @updatedAt @db.Timestamptz
+  id_banner        Int             @id @default(autoincrement())
+  fk_store         Int?
+  title            String          @db.VarChar(120)
+  description      String?         @db.Text
+  image_url        String?         @db.VarChar(500)
+  link_url         String?         @db.VarChar(500)
+  start_at         DateTime        @db.Timestamptz
+  end_at           DateTime?       @db.Timestamptz
+  is_active        Boolean         @default(true)
+  approval_status  ApprovalStatus  @default(PENDING)
+  rejection_reason String?         @db.Text
+  status           Boolean         @default(true)
+  created_at       DateTime        @default(now()) @db.Timestamptz
+  updated_at       DateTime        @updatedAt @db.Timestamptz
+
+  store            Stores?         @relation(fields: [fk_store], references: [id_store])
 }
 
 //------------------------------------COMERCIOS----------------------------------------
@@ -103,6 +108,7 @@ model Stores {
   carts               Carts[]
   order               Orders[]
   business_hours      StoreBusinessHours[]
+  banner_requests     Banners[]
   //wishlist_items      WishlistItems[]
 }
 
@@ -240,6 +246,8 @@ model ProductTags {
   updated_at DateTime @updatedAt @db.Timestamptz
 
   product_tag_relations   ProductTagRelations[]
+
+  @@unique([name], where: { status: true })
 }
 
 model ProductTagRelations {
@@ -384,7 +392,7 @@ model Carts {
   items            CartItems[]
   order Orders?  //Relacion 1 a 1 Carrito <-> Pedido 
 
-  @@unique([fk_user, fk_store, cart_status]) // 1 carrito ACTIVO por tienda para el usuario
+  @@unique([fk_user, fk_store, cart_status], where: { cart_status: "ACTIVE" }) // solo ACTIVE es único
 }
 
 model CartItems {

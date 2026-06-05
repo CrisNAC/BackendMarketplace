@@ -15,8 +15,8 @@
     "test:coverage:unit": "vitest run --coverage tests/unit",
     "migrate:dev": "prisma migrate dev",
     "migrate:test": "dotenv -e .env.test -- prisma migrate dev",
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "node --env-file=.env src/server.js",
+    "dev": "nodemon --exec \"node --env-file=.env\" src/server.js",
     "build": "tsc"
   },
   "repository": {
@@ -39,13 +39,15 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
-    "nodemailer": "^8.0.7",
+    "nodemailer": "^8.0.10",
     "nodemon": "^3.1.14",
     "pg": "^8.19.0",
+    "resend": "^6.12.4",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.3.6"

@@ -253,6 +253,16 @@ describe("POST /products", () => {
     prisma.categories.findMany.mockResolvedValue([{ id_category: 1 }]);
   });
 
+  const expectFieldValidationError = (res, field) => {
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field }),
+      ])
+    );
+  };
+
   it("devuelve 401 cuando falta autenticacion", async () => {
     const res = await request(app)
       .post("/products")
@@ -268,8 +278,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "", price: 10, categoryId: 1 });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/name/i);
+    expectFieldValidationError(res, "name");
   });
 
   it("devuelve 400 cuando falta price", async () => {
@@ -278,8 +287,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Test", categoryId: 1 });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/price/i);
+    expectFieldValidationError(res, "price");
   });
 
   it("devuelve 400 cuando price es 0 o negativo", async () => {
@@ -288,8 +296,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Test", price: -5, categoryId: 1 });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/price/i);
+    expectFieldValidationError(res, "price");
   });
 
   it("devuelve 400 cuando falta categoryId", async () => {
@@ -298,8 +305,7 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Test", price: 10 });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/categor/i);
+    expectFieldValidationError(res, "categoryId");
   });
 
   it("devuelve 400 cuando visible tiene valor invalido", async () => {
@@ -308,18 +314,16 @@ describe("POST /products", () => {
       .set("Cookie", `userToken=${sellerToken}`)
       .send({ name: "Test", price: 10, categoryId: 1, quantity: 5, visible: "invalido" });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/visible/i);
+    expectFieldValidationError(res, "visible");
   });
 
   it("devuelve 400 cuando tags no es un array", async () => {
     const res = await request(app)
       .post("/products")
       .set("Cookie", `userToken=${sellerToken}`)
-      .send({ name: "Test", price: 10, categoryId: 1, quantity: 5, tags: "no-array" });
+      .send({ name: "Test", price: 10, categoryId: 1, quantity: 5, tags: 123 });
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/tags/i);
+    expectFieldValidationError(res, "tags");
   });
 
   it("devuelve 201 con el producto creado cuando los datos son validos", async () => {

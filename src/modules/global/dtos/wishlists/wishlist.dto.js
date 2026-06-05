@@ -44,18 +44,20 @@ export const FilterWishlistDTO = z.object({
 });
 // ─── WISHLIST ITEM REQUEST ────────────────────────────────────────
 export const CreateWishlistItemDTO = z.object({
-    fk_product: z
-        .number({ error: "fk_product es requerido" })
+    productId: z.coerce
+        .number({ error: "productId es requerido" })
         .int()
-        .positive("fk_product debe ser un ID válido"),
-    quantity: z
-        .number({ error: "quantity es requerido" })
+        .positive("productId debe ser un ID válido"),
+    quantity: z.coerce
+        .number()
         .int("quantity debe ser entero")
         .min(1, "quantity debe ser al menos 1")
+        .optional()
+        .default(1)
 });
 export const UpdateWishlistItemDTO = z
     .object({
-    quantity: z
+    quantity: z.coerce
         .number({ error: "quantity debe ser número" })
         .int("quantity debe ser entero")
         .min(1, "quantity debe ser al menos 1")

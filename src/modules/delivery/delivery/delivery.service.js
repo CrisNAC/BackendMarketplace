@@ -6,10 +6,11 @@ import {
   expireStalePendingAssignments,
 } from '../delivery-assignments/delivery-assignment-workflow.service.js';
 import { upsertUserImage } from '../../images/services/user-image.service.js';
+import { validateDeliveryPhone } from '../../../lib/phone.js';
 
 // Registrar delivery con usuario autenticado
 export const registerDeliveryService = async (authUser, data) => {
-  const { vehicleType } = data;
+  const { vehicleType, phone } = data;
 
   const user = await prisma.users.findUnique({
     where: { id_user: authUser.id_user },
@@ -28,10 +29,22 @@ export const registerDeliveryService = async (authUser, data) => {
     throw { status: 403, message: "Solo un usuario CUSTOMER puede registrarse como delivery" };
   }
 
+  const userUpdateData = { role: "DELIVERY" };
+  if (phone !== undefined) {
+    userUpdateData.phone = validateDeliveryPhone(phone);
+  } else if (user.phone) {
+    userUpdateData.phone = user.phone;
+  } else {
+    throw {
+      status: 400,
+      message: "El teléfono es obligatorio para registrarse como delivery",
+    };
+  }
+
   const [updatedUser, delivery] = await prisma.$transaction([
     prisma.users.update({
       where: { id_user: user.id_user },
-      data: { role: "DELIVERY" },
+      data: userUpdateData,
       select: {
         id_user: true,
         name: true,
@@ -44,7 +57,7 @@ export const registerDeliveryService = async (authUser, data) => {
       data: {
         fk_user: user.id_user,
         fk_store: null,
-        delivery_status: "INACTIVE",
+        delivery_status: "ACTIVE",
         vehicle_type: vehicleType
       },
       select: {
@@ -238,6 +251,7 @@ export const updateDeliveryProfileService = async (id_delivery, authUser, data, 
   }
 
   const { name, phone, vehicleType } = data;
+  const normalizedPhone = phone !== undefined ? validateDeliveryPhone(phone) : undefined;
   let avatarUrl = delivery.user.avatar_url;
 
   // Si envían un archivo de imagen, usar upsertUserImage
@@ -251,7 +265,7 @@ export const updateDeliveryProfileService = async (id_delivery, authUser, data, 
   }
 
   // Actualizar Users y Deliveries en una sola transacción para evitar estados parciales
-  const hasUserChanges = name || phone;
+  const hasUserChanges = name || normalizedPhone !== undefined;
   const hasDeliveryChanges = vehicleType !== undefined;
 
   if (hasUserChanges || hasDeliveryChanges) {
@@ -261,7 +275,7 @@ export const updateDeliveryProfileService = async (id_delivery, authUser, data, 
           where: { id_user: delivery.fk_user },
           data: {
             ...(name && { name }),
-            ...(phone && { phone })
+            ...(normalizedPhone !== undefined && { phone: normalizedPhone })
           }
         });
       }

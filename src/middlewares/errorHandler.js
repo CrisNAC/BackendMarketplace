@@ -3,11 +3,14 @@ import { IMAGE } from "../constants/image.constant.js";
 
 /**
  * Middleware global de manejo de errores.
- * Debe registrarse ÚLTIMO en index.js, después de todas las rutas.
+ * Debe registrarse ÚLTIMO en app.js, después de todas las rutas.
  *
  * Captura dos tipos de errores:
- * - AppError (y subclases): errores controlados lanzados desde services/controllers
+ * - AppError (y subclases): errores controlados con mensaje seguro
  * - Error genérico: errores inesperados → devuelve 500 sin exponer detalles internos
+ *
+ * La respuesta al cliente NUNCA expone stack trace ni detalles internos.
+ * Los logs internos pueden incluir stack trace para debug en desarrollo.
  *
  * @example — Uso en un service:
  * import { NotFoundError, ValidationError } from "../../lib/errors.js";
@@ -26,6 +29,7 @@ import { IMAGE } from "../constants/image.constant.js";
  * };
  */
 export const errorHandler = (err, req, res, next) => {
+  // AppError: errores controlados con mensaje seguro
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       error: {
@@ -52,7 +56,7 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Mapear errores de multer
+  // Errores de multer
   if (err?.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({
       error: {
@@ -61,10 +65,6 @@ export const errorHandler = (err, req, res, next) => {
       }
     });
   }
-
-
-  // Error inesperado — loguear internamente pero no exponer detalles al cliente
-  console.error(`[ERROR INESPERADO] ${req.method} ${req.path}`, err);
 
   return res.status(500).json({
     error: {

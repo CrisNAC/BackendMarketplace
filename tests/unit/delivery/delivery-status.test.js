@@ -70,7 +70,12 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/delivery_status es requerido/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "delivery_status" })
+      ])
+    );
   });
 
   it("devuelve 400 cuando delivery_status es inválido", async () => {
@@ -80,7 +85,12 @@ describe("PATCH /api/deliveries/:id/status", () => {
       .send({ delivery_status: "SUSPENDED" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/ACTIVE o INACTIVE/i);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "delivery_status" })
+      ])
+    );
   });
 
   it("devuelve 401 cuando no hay autenticación", async () => {

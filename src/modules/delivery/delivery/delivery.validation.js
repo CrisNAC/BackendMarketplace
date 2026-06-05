@@ -1,18 +1,24 @@
 //delivery.validation.js
 import { z } from 'zod';
+import { DELIVERY_PHONE_MESSAGE, DELIVERY_PHONE_REGEX } from '../../../lib/phone.js';
 
 const vehicleTypeSchema = z.enum(["CAR", "MOTORCYCLE", "BICYCLE", "ON_FOOT"], {
-  errorMap: () => ({ message: "vehicleType debe ser CAR, MOTORCYCLE, BICYCLE o ON_FOOT" })
+  message: "vehicleType debe ser CAR, MOTORCYCLE, BICYCLE o ON_FOOT",
 });
 
+const deliveryPhoneSchema = z
+  .string()
+  .regex(DELIVERY_PHONE_REGEX, DELIVERY_PHONE_MESSAGE);
+
 export const registerDeliverySchema = z.object({
-  vehicleType: vehicleTypeSchema
+  vehicleType: vehicleTypeSchema,
+  phone: deliveryPhoneSchema.optional(),
 });
  
 
 export const updateDeliveryProfileSchema = z.object({
   name: z.string().min(2, "Nombre debe tener mínimo 2 caracteres").optional(),
-  phone: z.string().regex(/^\d{10,}$/, "Teléfono debe tener mínimo 10 dígitos").optional(),
+  phone: deliveryPhoneSchema.optional(),
   vehicleType: vehicleTypeSchema.optional()
 });
 

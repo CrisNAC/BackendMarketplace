@@ -32,8 +32,10 @@ import wishlistRoutes from "./modules/users/wishlist/wishlist.routes.js";
 import cartRoutes from "./modules/users/cart/cart.routes.js";
 
 import { orderRouter, userOrderRouter } from "./modules/users/orders/order.routes.js";
+import bannerRequestRoutes from "./modules/commerce/banner-requests/banner-request.routes.js";
 
 import { errorHandler } from "./middlewares/errorHandler.js";
+import { securityResponseLogger } from "./middlewares/security-log.middleware.js";
 import { NotFoundError } from "./lib/errors.js";
 
 import { setupSwagger } from "./config/swagger.config.js";
@@ -56,10 +58,14 @@ import {
   adminStoresRoutes,
   adminProductsRoutes,
   adminBannersRoutes,
+  adminTagRoutes,
 } from "./modules/admin/index.js";
 import { bannerRoutes } from "./modules/global/banners/banners.routes.js";
 
 const app = express();
+
+// Confiar en el primer proxy (Render, Heroku, Nginx, etc.)
+app.set('trust proxy', 1);
 
 // Seguridad HTTP con Helmet
 app.use(helmet());
@@ -75,9 +81,28 @@ app.use((req, res, next) => {
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser());
+app.use(securityResponseLogger);
+
+const allowedOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : ["http://localhost:5173"];
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+  origin: function (origin, callback) {
+    // Permitir solicitudes sin origen (por ejemplo, Postman o backend-to-backend)
+    if (!origin) return callback(null, true);
+
+    // Evitar estrictamente el wildcard en producción cuando se requieren credenciales
+    if (allowedOrigins.includes('*')) {
+      return callback(new Error('CORS configured with wildcard (*) is not allowed when credentials are required.'), false);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, origin);
+    } else {
+      callback(new Error('Not allowed by CORS'), false);
+    }
+  },
   credentials: true
 }));
 
@@ -94,6 +119,7 @@ app.use("/api/commerces", commerceBusinessHoursRoutes);
 app.use("/api/deliveries", deliveryRouter);
 app.use("/api/stores", storeDeliveryRouter);
 app.use("/api/stores", storeDeliveryAssignmentRoutes);
+app.use("/api/stores/:storeId/banner-requests", bannerRequestRoutes);
 
 //Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
 //Se encuentra indexado
@@ -134,6 +160,7 @@ app.use("/api/admin/categories", adminCategoryRoutes);
 app.use("/api/admin/stores", adminStoresRoutes);
 app.use("/api/admin/products", adminProductsRoutes);
 app.use("/api/admin/banners", adminBannersRoutes);
+app.use("/api/admin/tags", adminTagRoutes);
 
 // Rutas de distancias
 app.use("/api/distances", distanceRoutes);

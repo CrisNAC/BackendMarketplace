@@ -10,9 +10,10 @@ import { parsePositiveInteger } from "../../../lib/validators.js";
 
 /**
  * Un usuario tiene a lo sumo un carrito ACTIVE por comercio (@@unique en schema).
+ * Usa upsert para evitar race conditions en findFirst+create.
  */
 const getOrCreateActiveCart = async (tx, userId, storeId) => {
-  return tx.carts.upsert({
+  const cart = await tx.carts.upsert({
     where: {
       fk_user_fk_store_cart_status: {
         fk_user: userId,
@@ -20,7 +21,7 @@ const getOrCreateActiveCart = async (tx, userId, storeId) => {
         cart_status: "ACTIVE"
       }
     },
-    update: {}, // no actualiza nada si ya existe
+    update: {},
     create: {
       fk_user: userId,
       fk_store: storeId,
@@ -28,6 +29,8 @@ const getOrCreateActiveCart = async (tx, userId, storeId) => {
       status: true
     }
   });
+
+  return cart;
 };
 
 const getCartWithItems = async (cartId) => {

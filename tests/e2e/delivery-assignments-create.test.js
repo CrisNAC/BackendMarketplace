@@ -80,6 +80,7 @@ describe("POST /api/assignments", () => {
     prisma.orders.findUnique.mockResolvedValue({
       id_order: 5,
       fk_store: 10,
+      store: { fk_user: 1, status: true },
     });
 
     prisma.deliveries.findUnique.mockResolvedValue({
@@ -105,6 +106,7 @@ describe("POST /api/assignments", () => {
 
     mockTx.deliveries.findUnique.mockResolvedValue({
       id_delivery: 2,
+      fk_store: 10,
       delivery_status: "ACTIVE",
       status: true,
     });
