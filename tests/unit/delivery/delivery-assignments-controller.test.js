@@ -158,7 +158,7 @@ describe("getDeliveryAssignments", () => {
     const { req, res } = makeCtx({ deliveryId: "1" }, {}, {});
     getDeliveryAssignmentsService.mockResolvedValue([]);
     await getDeliveryAssignments(req, res);
-    expect(getDeliveryAssignmentsService).toHaveBeenCalledWith(1, null);
+    expect(getDeliveryAssignmentsService).toHaveBeenCalledWith(1, req.user, null);
   });
 });
 

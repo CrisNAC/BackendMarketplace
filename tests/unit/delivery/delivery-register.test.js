@@ -50,7 +50,12 @@ describe("POST /api/deliveries/register", () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "vehicleType" })
+      ])
+    );
   });
 
   it("devuelve 400 cuando vehicleType es inválido", async () => {
@@ -60,7 +65,12 @@ describe("POST /api/deliveries/register", () => {
       .send({ vehicleType: "PLANE" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe(400);
+    expect(res.body.message).toBe("Error de validación");
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "vehicleType" })
+      ])
+    );
   });
 
   it("devuelve 404 cuando el usuario no existe", async () => {
@@ -111,7 +121,8 @@ describe("POST /api/deliveries/register", () => {
     prisma.users.findUnique.mockResolvedValue({
       id_user: 10,
       role: "CUSTOMER",
-      delivery: null,
+      phone: "1234567890",
+      delivery: null
     });
 
     prisma.users.update.mockResolvedValue({
@@ -136,6 +147,7 @@ describe("POST /api/deliveries/register", () => {
       .set("Cookie", authCookie)
       .send({ vehicleType: "MOTORCYCLE" });
 
+    if (res.status === 400) console.log(res.body);
     expect(res.status).toBe(200);
     expect(res.body.user.role).toBe("DELIVERY");
     expect(res.body.delivery.delivery_status).toBe("ACTIVE");

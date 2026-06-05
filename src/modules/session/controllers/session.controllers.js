@@ -1,14 +1,14 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { 
-  prisma, 
-  hashPassword, 
-  verifyPassword, 
-  UnauthorizedError, 
-  ValidationError, 
-  addToBlacklist, 
-  cleanExpiredTokens 
+import {
+  prisma,
+  verifyPassword,
+  UnauthorizedError,
+  ValidationError,
+  addToBlacklist,
+  cleanExpiredTokens,
 } from "../../../lib/index.js";
+import { logSecurityEvent } from "../../../lib/security-logger.js";
 
 dotenv.config();
 
@@ -29,6 +29,10 @@ export const login = async (req, res, next) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
+      logSecurityEvent("LOGIN_FAILED", {
+        reason: "missing_credentials",
+        email: email ?? null,
+      });
       return next(new ValidationError("Debe ingresar email y contraseña"));
     }
 
@@ -40,6 +44,10 @@ export const login = async (req, res, next) => {
     });
 
     if (!user) {
+      logSecurityEvent("LOGIN_FAILED", {
+        reason: "invalid_credentials",
+        email,
+      });
       return next(new UnauthorizedError("Credenciales inválidas"));
     }
 
@@ -51,6 +59,10 @@ export const login = async (req, res, next) => {
     }
 
     if (!passwordMatch) {
+      logSecurityEvent("LOGIN_FAILED", {
+        reason: "invalid_credentials",
+        email,
+      });
       return next(new UnauthorizedError("Credenciales inválidas"));
     }
 

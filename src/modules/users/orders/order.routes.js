@@ -2,6 +2,7 @@
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
 import {
 	createDeliveryReview,
 	createOrder,
@@ -11,6 +12,8 @@ import {
 	getStoreOrders,
 	updateOrderStatus
 } from "./order.controller.js";
+import { OrderIdParamDTO } from "../../global/dtos/common/params.dto.js";
+import { CreateOrderBodyDTO, ShippingQuoteBodyDTO, CreateDeliveryReviewDTO, UpdateOrderStatusDTO } from "../../global/dtos/orders/order.dto.js";
 
 const orderRouter = Router();
 const userOrderRouter = Router();
@@ -72,7 +75,7 @@ const userOrderRouter = Router();
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorEnvelope'
  */
-orderRouter.post("/", authenticate, requireRole('CUSTOMER'), createOrder);
+orderRouter.post("/", authenticate, requireRole('CUSTOMER'), validate(CreateOrderBodyDTO, "body"), createOrder);
 
 /**
  * @swagger
@@ -123,7 +126,7 @@ orderRouter.post("/", authenticate, requireRole('CUSTOMER'), createOrder);
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorEnvelope'
  */
-orderRouter.post("/shipping-quote", authenticate, requireRole('CUSTOMER'), getOrderShippingQuote);
+orderRouter.post("/shipping-quote", authenticate, requireRole('CUSTOMER'), validate(ShippingQuoteBodyDTO, "body"), getOrderShippingQuote);
 
 // GET /api/users/:customerId/orders — historial de pedidos del usuario
 userOrderRouter.get("/:customerId/orders", authenticate, getOrders);
@@ -230,7 +233,7 @@ orderRouter.get("/pending-delivery-reviews", authenticate, getPendingDeliveryRev
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorEnvelope'
  */
-orderRouter.post("/:orderId/delivery-review", authenticate, createDeliveryReview);
+orderRouter.post("/:orderId/delivery-review", authenticate, validate(OrderIdParamDTO, "params"), validate(CreateDeliveryReviewDTO, "body"), createDeliveryReview);
 
 // GET  /api/orders/store/:storeId — pedidos del comercio
 orderRouter.get("/store/:storeId", authenticate, getStoreOrders);
@@ -302,6 +305,6 @@ orderRouter.get("/store/:storeId", authenticate, getStoreOrders);
  *               $ref: '#/components/schemas/ApiErrorEnvelope'
  */
 // PATCH /api/orders/:orderId/status — actualizar estado del pedido
-orderRouter.patch("/:orderId/status", authenticate, updateOrderStatus);
+orderRouter.patch("/:orderId/status", authenticate, validate(OrderIdParamDTO, "params"), validate(UpdateOrderStatusDTO, "body"), updateOrderStatus);
 
 export { orderRouter, userOrderRouter };

@@ -1,6 +1,13 @@
 import { Router } from "express";
 import authenticate from "../../../config/jwt.config.js";
 import { requireRole } from "../../../middlewares/auth.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
+import { IdParamDTO } from "../../../modules/global/dtos/base/base.param.dto.js";
+import {
+  AdminCreateCategoryDTO,
+  AdminUpdateCategoryDTO,
+  AdminCategoryDecisionDTO
+} from "../../../modules/global/dtos/product-categories/admin-category.dto.js";
 import {
   createAdminProductCategory,
   getAdminProductCategory,
@@ -42,7 +49,7 @@ const router = Router();
  *       403:
  *         description: Sin permisos de administrador
  */
-router.post("/", authenticate, requireRole(ROLES.ADMIN), createAdminProductCategory);
+router.post("/", authenticate, requireRole(ROLES.ADMIN), validate(AdminCreateCategoryDTO, "body"), createAdminProductCategory);
 
 /**
  * @swagger
@@ -205,7 +212,7 @@ router.get(
  *       404:
  *         description: Solicitud de categoría no encontrada
  */
-router.patch("/:id", authenticate, requireRole(ROLES.ADMIN), processAdminCategoryRequest);
+router.patch("/:id", authenticate, requireRole(ROLES.ADMIN), validate(IdParamDTO, "params"), validate(AdminCategoryDecisionDTO, "body"), processAdminCategoryRequest);
 
 /**
  * @swagger
@@ -246,7 +253,7 @@ router.patch("/:id", authenticate, requireRole(ROLES.ADMIN), processAdminCategor
  *       404:
  *         description: Categoría no encontrada
  */
-router.put("/:id", authenticate, requireRole(ROLES.ADMIN), updateAdminProductCategory);
+router.put("/:id", authenticate, requireRole(ROLES.ADMIN), validate(IdParamDTO, "params"), validate(AdminUpdateCategoryDTO, "body"), updateAdminProductCategory);
 
 /**
  * @swagger
@@ -270,6 +277,6 @@ router.put("/:id", authenticate, requireRole(ROLES.ADMIN), updateAdminProductCat
  *       404:
  *         description: Categoría no encontrada
  */
-router.delete("/:id", authenticate, requireRole(ROLES.ADMIN), deleteAdminProductCategory);
+router.delete("/:id", authenticate, requireRole(ROLES.ADMIN), validate(IdParamDTO, "params"), deleteAdminProductCategory);
 
 export { router as adminCategoryRoutes };

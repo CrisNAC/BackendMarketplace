@@ -12,7 +12,7 @@ vi.mock("../../src/lib/prisma.js", () => ({
         },
         carts: { findFirst: vi.fn(), upsert: vi.fn(), update: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
         cartItems: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), findMany: vi.fn() },
-        orders: { create: vi.fn(), findUnique: vi.fn() },
+        orders: { create: vi.fn(), findUnique: vi.fn(), count: vi.fn() },
         orderItems: { createMany: vi.fn(), findMany: vi.fn() },
         notifications: { create: vi.fn() },
         $transaction: vi.fn()
@@ -47,6 +47,7 @@ const customerCookie = "userToken=customer-token";
 describe("PUT /products/:id", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        prisma.orders.count.mockResolvedValue(0);
     });
 
     it("Retorna 200 y actualiza el stock cuando el seller modifica la cantidad", async () => {
@@ -105,6 +106,7 @@ describe("PUT /products/:id", () => {
 describe("POST /api/users/:customerId/cart/items", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        prisma.orders.count.mockResolvedValue(0);
     });
 
     it("Retorna 400 cuando el producto no tiene stock disponible", async () => {
@@ -194,6 +196,7 @@ describe("POST /api/users/:customerId/cart/items", () => {
 describe("PUT /api/users/cart/items/:cartItemId", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        prisma.orders.count.mockResolvedValue(0);
     });
 
     it("Retorna 400 cuando la cantidad solicitada supera el stock disponible", async () => {
@@ -219,6 +222,7 @@ describe("PUT /api/users/cart/items/:cartItemId", () => {
 describe("POST /api/orders", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        prisma.orders.count.mockResolvedValue(0);
     });
 
     it("Retorna 201 y decrementa el stock al confirmar una orden con stock suficiente", async () => {
@@ -334,6 +338,7 @@ describe("POST /api/orders", () => {
 describe("GET /api/users/:customerId/carts", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        prisma.orders.count.mockResolvedValue(0);
     });
 
     it("Retorna 200 con campo stock en items: positivo para producto con stock y cero para producto agotado", async () => {
@@ -400,6 +405,7 @@ describe("GET /api/users/:customerId/carts", () => {
 describe("GET /api/users/cart/:cartId/items", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        prisma.orders.count.mockResolvedValue(0);
     });
 
     it("Retorna 200 con campo stock en items: positivo para producto con stock y cero para producto agotado", async () => {

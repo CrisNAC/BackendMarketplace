@@ -12,7 +12,8 @@ import {
   getRelatedProducts
 } from "./product.controller.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
-import { FilterProductDTO } from "../../global/dtos/products/product.request.dto.js";
+import { CreateProductDTO, UpdateProductDTO, FilterProductDTO } from "../../global/dtos/products/product.request.dto.js";
+import { IdParamDTO } from "../../global/dtos/common/params.dto.js";
 import { parsePagination } from "../../../middlewares/pagination.middleware.js";
 
 const router = Router();
@@ -57,7 +58,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/", authenticate, createProduct);
+router.post("/", authenticate, validate(CreateProductDTO, "body"), createProduct);
 
 /**
  * @swagger
@@ -112,7 +113,7 @@ router.post("/", authenticate, createProduct);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put("/:id", authenticate, updateProduct);
+router.put("/:id", authenticate, validate(IdParamDTO, "params"), validate(UpdateProductDTO, "body"), updateProduct);
 
 /**
  * @swagger
@@ -151,7 +152,7 @@ router.put("/:id", authenticate, updateProduct);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete("/:id", authenticate, deleteProduct);
+router.delete("/:id", authenticate, validate(IdParamDTO, "params"), deleteProduct);
 
 /**
  * @swagger
