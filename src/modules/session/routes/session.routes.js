@@ -1,6 +1,7 @@
 //session.routes.js
 import Router from "express";
 import { login, logout, userSession } from "../controllers/session.controllers.js";
+import { loginRateLimiter } from "../../../middlewares/rateLimiter.js";
 
 const router = Router();
 
@@ -36,7 +37,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/", login);
+router.post("/", loginRateLimiter, login);
 
 /**
  * @swagger
