@@ -67,10 +67,12 @@ export const CreateProductDTO = z.object({
   categoryId: z.preprocess(
     emptyToNull,
     z.coerce
-      .number({ error: "categoryId es requerido" })
+      .number({ error: "categoryId debe ser numero" })
       .int("categoryId debe ser entero")
       .positive("categoryId debe ser un ID valido")
-  ),
+      .optional()
+      .nullable()
+  ).optional(),
 
   categoryIds: z.array(z.number().int().positive()).optional(),
 
@@ -122,7 +124,10 @@ export const UpdateProductDTO = z
         .int()
         .positive("categoryId debe ser un ID valido")
         .optional()
-    ),
+        .nullable()
+    ).optional(),
+
+    categoryIds: z.array(z.number().int().positive()).optional(),
 
     description: z
       .string()
