@@ -32,6 +32,7 @@ import wishlistRoutes from "./modules/users/wishlist/wishlist.routes.js";
 import cartRoutes from "./modules/users/cart/cart.routes.js";
 
 import { orderRouter, userOrderRouter } from "./modules/users/orders/order.routes.js";
+import bannerRequestRoutes from "./modules/commerce/banner-requests/banner-request.routes.js";
 
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { securityResponseLogger } from "./middlewares/security-log.middleware.js";
@@ -115,6 +116,7 @@ app.use("/api/commerces", commerceBusinessHoursRoutes);
 app.use("/api/deliveries", deliveryRouter);
 app.use("/api/stores", storeDeliveryRouter);
 app.use("/api/stores", storeDeliveryAssignmentRoutes);
+app.use("/api/stores/:storeId/banner-requests", bannerRequestRoutes);
 
 //Desde aqui pueden usarse dos endpoints, para productos /api/categories/products, y /api/categories/stores
 //Se encuentra indexado

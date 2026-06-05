@@ -17,7 +17,7 @@ import {
 export const createAssignment = async (req, res) => {
   try {
     const validData = createAssignmentSchema.parse(req.body);
-    const result = await createAssignmentService(validData);
+    const result = await createAssignmentService(validData, req.user);
     res.status(201).json(result);
   } catch (error) {
     if (error instanceof ZodError) {
@@ -43,7 +43,7 @@ export const getAssignmentById = async (req, res) => {
       });
     }
 
-    const result = await getAssignmentByIdService(assignmentId);
+    const result = await getAssignmentByIdService(assignmentId, req.user);
     res.json(result);
   } catch (error) {
     return res.status(error.status || 500).json({
@@ -64,7 +64,7 @@ export const getOrderAssignments = async (req, res) => {
       });
     }
 
-    const result = await getOrderAssignmentsService(orderIdNum);
+    const result = await getOrderAssignmentsService(orderIdNum, req.user);
     res.json(result);
   } catch (error) {
     return res.status(error.status || 500).json({
@@ -94,7 +94,7 @@ export const getDeliveryAssignments = async (req, res) => {
       });
     }
 
-    const result = await getDeliveryAssignmentsService(deliveryIdNum, status || null);
+    const result = await getDeliveryAssignmentsService(deliveryIdNum, req.user, status || null);
     res.json(result);
   } catch (error) {
     return res.status(error.status || 500).json({
@@ -115,7 +115,7 @@ export const getDeliveryPendingAssignments = async (req, res) => {
       });
     }
 
-    const result = await getDeliveryPendingAssignmentsService(deliveryIdNum);
+    const result = await getDeliveryPendingAssignmentsService(deliveryIdNum, req.user);
     res.json(result);
   } catch (error) {
     return res.status(error.status || 500).json({
@@ -136,7 +136,7 @@ export const getAcceptedAssignment = async (req, res) => {
       });
     }
 
-    const result = await getAcceptedAssignmentService(orderIdNum);
+    const result = await getAcceptedAssignmentService(orderIdNum, req.user);
     res.json(result);
   } catch (error) {
     return res.status(error.status || 500).json({
