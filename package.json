@@ -16,7 +16,7 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:test": "dotenv -e .env.test -- prisma migrate dev",
     "start": "node --env-file=.env src/server.js",
-    "dev": "nodemon --exec \"node --env-file=.env\" src/server.js",
+    "dev": "node --watch --env-file=.env src/server.js",
     "build": "tsc"
   },
   "repository": {
@@ -59,7 +59,6 @@
     "@types/swagger-ui-express": "^4.1.8",
     "@vitest/coverage-v8": "^4.1.0",
     "dotenv-cli": "^11.0.0",
-    "nodemon": "^3.1.14",
     "prisma": "^7.7.0",
     "supertest": "^7.2.2",
     "tsx": "^4.21.0",
